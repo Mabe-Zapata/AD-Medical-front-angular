@@ -1,0 +1,36 @@
+import { ChangeDetectionStrategy, Component } from '@angular/core';
+
+@Component({
+  selector: 'app-logo',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <span class="mark" aria-hidden="true">+</span>
+    <span class="name">Medilo</span>
+  `,
+  styles: `
+    :host {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .mark {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-size: 24px;
+      font-weight: 700;
+      background: linear-gradient(45deg, #f06110, #f9822a);
+      box-shadow: 0 3px 8px rgb(243 104 20 / 25%);
+    }
+    .name {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+    }
+  `,
+})
+export class LogoComponent {}
