@@ -66,4 +66,4 @@ El backend aún no ofrece lo necesario para los demás módulos, por eso aparece
 
 ## Cuentas de prueba
 
-Un backend con la migración `0007` (pendiente de merge, `APP_ENV` distinto de producción) trae `medico1@test.com`, `laboratorista1@test.com` y `admin1@test.com`, todas con `Password1`. Cada una ve solo los módulos de su rol.
+Un backend con la migración `0007` (pendiente de merge, `APP_ENV` distinto de producción) trae `medico1@test.com` y `administrador1@test.com` con la contraseña `Password123`, y `laboratorista1@test.com` con `Password1`. Cada una ve solo los módulos de su rol.
