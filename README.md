@@ -63,3 +63,7 @@ El backend aún no ofrece lo necesario para los demás módulos, por eso aparece
   «Borradores», que recuerda los creados en esta sesión del navegador y permite validar por `id`.
 - En desarrollo, el formulario de referencias propone la fuente sintética de la semilla del backend
   (`f0000000-0000-4000-8000-000000000001`). En producción el campo queda vacío.
+
+## Cuentas de prueba
+
+Un backend con la migración `0007` (pendiente de merge, `APP_ENV` distinto de producción) trae `medico1@test.com`, `laboratorista1@test.com` y `admin1@test.com`, todas con `Password1`. Cada una ve solo los módulos de su rol.
