@@ -23,6 +23,10 @@ export const knowledgeRoutes: Routes = [
         loadComponent: () => import('./presentation/pages/rules.page').then((m) => m.RulesPage),
       },
       {
+        path: 'revision',
+        loadComponent: () => import('./presentation/pages/review.page').then((m) => m.ReviewPage),
+      },
+      {
         path: 'borradores',
         loadComponent: () => import('./presentation/pages/drafts.page').then((m) => m.DraftsPage),
       },

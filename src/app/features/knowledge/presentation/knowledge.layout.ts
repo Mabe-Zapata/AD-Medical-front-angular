@@ -20,6 +20,7 @@ import { DraftsState } from './drafts.state';
       <nav class="tabs" aria-label="Secciones del conocimiento clínico">
         <a routerLink="analitos" routerLinkActive="active">Analitos</a>
         <a routerLink="reglas" routerLinkActive="active">Reglas</a>
+        <a routerLink="revision" routerLinkActive="active">Revisión</a>
         <a routerLink="borradores" routerLinkActive="active">
           Borradores
           @if (drafts.drafts().length > 0) {
