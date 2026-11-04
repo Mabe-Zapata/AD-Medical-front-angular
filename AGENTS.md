@@ -43,6 +43,10 @@ src/app/app.interceptor.ts  agrega el bearer y cierra sesión ante 401
 
 Sin listados de citas/órdenes, sin catálogo, sin confirmación de pago, `/me` mínimo, sin listado de borradores de conocimiento. Documéntalas aquí y en el README cuando una funcionalidad dependa de ellas; quítalas cuando el backend las cierre.
 
+## Mensajes de error
+
+- **Mensajes de error**: nunca muestres `AppError.message` (es interno y está en inglés). Todo texto visible sale de `describeError` en español; del mensaje solo se traducen los campos rechazados por el servidor. Valida los formularios en el cliente, con el error debajo de cada campo, antes de llamar a la API.
+
 ## Seguridad
 
 - Sesión en `sessionStorage`, nunca `localStorage`. Ningún token en URLs.

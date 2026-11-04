@@ -18,13 +18,43 @@ describe('describeError', () => {
     expect(view).toEqual({ message: 'Ya existe.', supportCode: 'corr-1' });
   });
 
-  it('appends which fields the backend rejected', () => {
-    const view = describeError(new AppError('validation', 'Invalid fields: nombre'));
-    expect(view.message).toBe('Los datos enviados no son válidos. Invalid fields: nombre');
+  it('translates the fields the backend rejected', () => {
+    expect(describeError(new AppError('validation', 'Invalid fields: nombre')).message).toBe(
+      'Revisa el nombre e inténtalo de nuevo.',
+    );
+    expect(
+      describeError(new AppError('validation', 'Invalid fields: email, password, id')).message,
+    ).toBe('Revisa el correo y la contraseña e inténtalo de nuevo.');
+  });
+
+  it('says to review the data when no rejected field is known, without leaking names', () => {
+    const view = describeError(new AppError('validation', 'Invalid fields: id, is_active'));
+    expect(view.message).toBe('Revisa los datos ingresados e inténtalo de nuevo.');
+  });
+
+  it('never shows the internal English message', () => {
+    for (const kind of [
+      'invalid_credentials',
+      'unauthenticated',
+      'forbidden',
+      'not_found',
+      'conflict',
+      'validation',
+      'rate_limited',
+      'network',
+      'unavailable',
+      'not_staff',
+      'unknown',
+    ] as const) {
+      const view = describeError(new AppError(kind, 'email and password are required'));
+      expect(view.message).not.toContain('required');
+    }
   });
 
   it('does not throw on foreign errors', () => {
-    expect(describeError(new Error('boom')).message).toBe('Ocurrió un error inesperado.');
-    expect(describeError('text').message).toBe('Ocurrió un error inesperado.');
+    expect(describeError(new Error('boom')).message).toBe(
+      'Ocurrió un error inesperado. Inténtalo de nuevo.',
+    );
+    expect(describeError('text').message).toBe('Ocurrió un error inesperado. Inténtalo de nuevo.');
   });
 });
