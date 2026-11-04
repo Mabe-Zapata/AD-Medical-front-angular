@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
-import { PERMISSIONS, ROLE_LABELS } from '../features/auth/domain/policies/staff-access';
+import { ROLE_LABELS } from '../features/auth/domain/policies/staff-access';
 import { SessionState } from '../features/auth/presentation/session.state';
 import { ChipComponent } from '../shared/presentation/atoms/chip';
 import { LogoComponent } from '../shared/presentation/atoms/logo';
+import { visibleModules } from './app-modules';
 
 /** Frame of every signed-in page: navigation, who is signed in and the sign-out button. */
 @Component({
@@ -17,13 +18,13 @@ import { LogoComponent } from '../shared/presentation/atoms/logo';
         <app-logo />
         <nav aria-label="Navegación principal" class="nav">
           <a routerLink="/inicio" routerLinkActive="active">Inicio</a>
-          @if (canReadKnowledge()) {
-            <a routerLink="/conocimiento" routerLinkActive="active">Conocimiento clínico</a>
+          @for (module of modules(); track module.title) {
+            @if (module.link) {
+              <a [routerLink]="module.link" routerLinkActive="active">{{ module.title }}</a>
+            } @else {
+              <span class="soon" [title]="module.pendingNote ?? ''">{{ module.title }}</span>
+            }
           }
-          <span class="soon" title="Pendiente: faltan endpoints de listado"
-            >Órdenes y resultados</span
-          >
-          <span class="soon">Usuarios y roles</span>
         </nav>
       </aside>
 
@@ -124,7 +125,7 @@ export class StaffShell {
 
   protected readonly roles = () => this.session.user()?.roles ?? [];
   protected readonly roleLabel = (role: string) => ROLE_LABELS[role] ?? role;
-  protected readonly canReadKnowledge = () => this.session.can(PERMISSIONS.knowledgeRead);
+  protected readonly modules = () => visibleModules((permission) => this.session.can(permission));
 
   constructor() {
     // Any way the session ends (button, expiry, a 401 from the API) lands on the login page.

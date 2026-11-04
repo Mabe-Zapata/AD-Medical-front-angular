@@ -14,6 +14,10 @@ export const PERMISSIONS = {
   knowledgeAdmin: 'conocimiento.administrar',
   knowledgeValidate: 'conocimiento.validar',
   usersAdmin: 'usuarios.administrar',
+  ordersCreate: 'ordenes.crear',
+  resultsRecord: 'resultados.registrar',
+  resultsReadWithAccess: 'resultados.leer_con_acceso',
+  reviewsRecord: 'revisiones.registrar',
 } as const;
 
 export function isStaff(roles: readonly string[]): boolean {

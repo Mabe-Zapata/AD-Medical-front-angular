@@ -30,6 +30,7 @@ src/app/app.interceptor.ts  agrega el bearer y cierra sesión ante 401
 - `presentation`: contenedores (páginas, con `inject`) vs presentacionales (solo `input()`/`output()`).
 - Standalone components, signals y zoneless. Nadie fuera de `app.providers.ts` enlaza puertos con implementaciones.
 - Guards: `auth`, `guest`, `permission`. Los permisos solo mejoran la UX; la autorización real es del backend.
+- La navegación y la página de inicio salen de un solo catálogo (`shell/app-modules.ts`): a cada rol solo se le muestra lo que puede usar, ni siquiera como "próximamente". Un módulo nuevo se registra ahí con sus permisos.
 
 ## Contrato con el backend
 

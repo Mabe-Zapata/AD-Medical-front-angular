@@ -3,16 +3,9 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { BannerComponent } from '../../../shared/presentation/atoms/banner';
 import { ChipComponent } from '../../../shared/presentation/atoms/chip';
-import { PERMISSIONS, ROLE_LABELS } from '../../auth/domain/policies/staff-access';
+import { ROLE_LABELS } from '../../auth/domain/policies/staff-access';
 import { SessionState } from '../../auth/presentation/session.state';
-
-interface Module {
-  readonly title: string;
-  readonly description: string;
-  readonly link?: string;
-  readonly available: boolean;
-  readonly note?: string;
-}
+import { visibleModules } from '../../../shell/app-modules';
 
 /** Landing page after sign-in: who you are and which modules are ready. */
 @Component({
@@ -43,13 +36,13 @@ interface Module {
       <h2>Módulos</h2>
       <div class="grid">
         @for (module of modules(); track module.title) {
-          <article class="card stack" [class.disabled]="!module.available">
+          <article class="card stack" [class.disabled]="!module.link">
             <h3>{{ module.title }}</h3>
             <p class="muted small">{{ module.description }}</p>
-            @if (module.available && module.link) {
+            @if (module.link) {
               <a class="btn btn--primary btn--small" [routerLink]="module.link">Abrir</a>
             } @else {
-              <app-chip tone="warning">{{ module.note ?? 'Próximamente' }}</app-chip>
+              <app-chip tone="warning">{{ module.pendingNote ?? 'Próximamente' }}</app-chip>
             }
           </article>
         }
@@ -74,28 +67,5 @@ export class HomePage {
   protected readonly roles = () => this.session.user()?.roles ?? [];
   protected readonly roleLabel = (role: string) => ROLE_LABELS[role] ?? role;
 
-  protected readonly modules = () => {
-    const can = (permission: string) => this.session.can(permission);
-    const list: Module[] = [
-      {
-        title: 'Conocimiento clínico',
-        description: 'Analitos, rangos de referencia y reglas del motor de propuestas.',
-        link: '/conocimiento',
-        available: can(PERMISSIONS.knowledgeRead),
-        note: 'Sin acceso para tu rol',
-      },
-      {
-        title: 'Órdenes y resultados',
-        description: 'Registrar resultados, subir informes PDF y revisar propuestas.',
-        available: false,
-        note: 'Pendiente: faltan endpoints de listado',
-      },
-      {
-        title: 'Usuarios y roles',
-        description: 'Crear cuentas del personal y de pacientes.',
-        available: false,
-      },
-    ];
-    return list;
-  };
+  protected readonly modules = () => visibleModules((permission) => this.session.can(permission));
 }
