@@ -61,6 +61,7 @@ interface Stubs {
   order: LabOrder;
   proposal: Proposal | null;
   evaluateFails: AppError | null;
+  reviewFails: AppError | null;
   calls: Record<string, unknown[][]>;
 }
 
@@ -77,6 +78,7 @@ function setup(stubs: Partial<Stubs>, ...granted: string[]) {
     order,
     proposal: null,
     evaluateFails: null,
+    reviewFails: null,
     calls: {},
     ...stubs,
   };
@@ -126,7 +128,12 @@ function setup(stubs: Partial<Stubs>, ...granted: string[]) {
       },
       {
         provide: ReviewOrder,
-        useValue: { execute: async (...args: unknown[]) => record('review', ...args) },
+        useValue: {
+          execute: async (...args: unknown[]) => {
+            if (state.reviewFails) throw state.reviewFails;
+            record('review', ...args);
+          },
+        },
       },
     ],
   });
@@ -215,19 +222,41 @@ describe('OrderDetailPage', () => {
     expect(el.textContent).toContain('Decisión registrada.');
   });
 
-  it('opens the review once every test has its results and sends it', async () => {
+  it('closes the review form after registering and shows what was written, with no way to add another', async () => {
     const { fixture, el, state } = setup({ order: completedOrder }, ...DOCTOR);
     await settle(fixture);
 
     expect(el.querySelector('app-review-form')).not.toBeNull();
     type(el, '#review-conclusion', 'Resultados coherentes con la clínica.');
+    type(el, '#review-recommendations', 'Repetir en 3 meses.');
     el.querySelector<HTMLButtonElement>('app-review-form button[type=submit]')!.click();
     await settle(fixture);
 
     expect(state.calls['review']).toEqual([
-      [ORDER_ID, 'Resultados coherentes con la clínica.', ''],
+      [ORDER_ID, 'Resultados coherentes con la clínica.', 'Repetir en 3 meses.'],
     ]);
     expect(el.textContent).toContain('Revisión registrada.');
+    expect(el.querySelector('app-review-form')).toBeNull();
+    expect(el.textContent).toContain('Resultados coherentes con la clínica.');
+    expect(el.textContent).toContain('Repetir en 3 meses.');
+    expect(el.textContent).toContain('El sistema admite una sola revisión por orden');
+    expect(el.textContent).not.toContain('Registrar revisión');
+  });
+
+  it('closes the form too when the server says the order was already reviewed', async () => {
+    const { fixture, el } = setup(
+      { order: completedOrder, reviewFails: new AppError('conflict', 'x', 'c-3') },
+      ...DOCTOR,
+    );
+    await settle(fixture);
+
+    type(el, '#review-conclusion', 'Otra conclusión.');
+    el.querySelector<HTMLButtonElement>('app-review-form button[type=submit]')!.click();
+    await settle(fixture);
+
+    expect(el.querySelector('app-review-form')).toBeNull();
+    expect(el.textContent).toContain('Esta orden ya fue revisada');
+    expect(el.textContent).toContain('c-3');
   });
 
   it('lets the laboratory enter results and hides the proposal', async () => {

@@ -21,6 +21,7 @@ import {
 } from '../../domain/usecases/orders-usecases';
 import { ORDER_STATUS_LABELS, PRIORITY_LABELS, TEST_STATUS_LABELS, label } from '../labels';
 import { DecisionFormComponent, DecisionSubmission } from '../widgets/decision-form';
+import { ReviewsState } from '../reviews.state';
 import { ProposalViewComponent } from '../widgets/proposal-view';
 import { AnalyteOption, ResultsFormComponent, ResultsSubmission } from '../widgets/results-form';
 import { ReviewFormComponent, ReviewSubmission } from '../widgets/review-form';
@@ -48,7 +49,7 @@ const DECISION_ERRORS: Overrides = {
   forbidden: 'Solo el médico que ordenó puede decidir sobre la propuesta.',
 };
 const REVIEW_ERRORS: Overrides = {
-  conflict: 'Faltan resultados, o la orden ya fue revisada.',
+  conflict: 'Esta orden ya fue revisada: el sistema admite una sola revisión.',
   forbidden: 'Solo el médico que ordenó puede revisar la orden.',
   validation: 'Escribe la conclusión de la revisión.',
 };
@@ -252,8 +253,34 @@ const REVIEW_ERRORS: Overrides = {
       @if (order(); as o) {
         @if (canDecide) {
           <section class="card stack">
-            <h2>Revisión médica de la orden</h2>
-            @if (o.status === 'COMPLETADA') {
+            <div class="row spread">
+              <h2>Revisión médica de la orden</h2>
+              @if (reviewed() || alreadyReviewed()) {
+                <app-chip tone="success">Revisada</app-chip>
+              }
+            </div>
+            @if (reviewed(); as r) {
+              <div class="registered">
+                <p><strong>Conclusión</strong></p>
+                <p class="text">{{ r.conclusion }}</p>
+                @if (r.recommendations) {
+                  <p><strong>Recomendaciones</strong></p>
+                  <p class="text">{{ r.recommendations }}</p>
+                }
+                <p class="muted small">
+                  Registrada el {{ r.registeredAt.toLocaleString('es-EC') }}.
+                </p>
+              </div>
+              <app-banner tone="info">
+                Esta orden ya tiene su revisión. El sistema admite una sola revisión por orden, así
+                que no se puede agregar otra.
+              </app-banner>
+            } @else if (alreadyReviewed()) {
+              <app-banner tone="info">
+                Esta orden ya fue revisada. El sistema admite una sola revisión por orden y no
+                permite volver a leer su texto.
+              </app-banner>
+            } @else if (o.status === 'COMPLETADA') {
               <app-review-form [busy]="busy() === 'review'" (submitted)="review($event)" />
             } @else {
               <p class="muted small">
@@ -278,6 +305,7 @@ export class OrderDetailPage {
   private readonly decideProposal = inject(DecideProposal);
   private readonly reviewOrder = inject(ReviewOrder);
   private readonly listAnalytes = inject(ListAnalytes);
+  private readonly reviews = inject(ReviewsState);
 
   private readonly session = inject(SessionState);
   protected readonly canRecord = this.session.can(PERMISSIONS.resultsRecord);
@@ -289,6 +317,9 @@ export class OrderDetailPage {
   protected readonly proposal = signal<Proposal | null>(null);
   protected readonly analytes = signal<readonly AnalyteOption[]>([]);
   protected readonly restricted = signal(false);
+  /** The API said this order already has its review (written elsewhere): the text cannot be read back. */
+  protected readonly alreadyReviewed = signal(false);
+  protected readonly reviewed = computed(() => this.reviews.of(this.orderId));
   protected readonly loading = signal(true);
   protected readonly busy = signal<string | null>(null);
   protected readonly file = signal<File | null>(null);
@@ -368,9 +399,18 @@ export class OrderDetailPage {
       'review',
       async () => {
         await this.reviewOrder.execute(this.orderId, conclusion, recommendations);
+        this.reviews.add(this.orderId, {
+          conclusion: conclusion.trim(),
+          recommendations: recommendations.trim() || null,
+          registeredAt: new Date(),
+        });
         this.notice.set('Revisión registrada.');
       },
       REVIEW_ERRORS,
+      // 409 on a complete order means someone already reviewed it: close the form instead of retrying.
+      (error) => {
+        if (error instanceof AppError && error.kind === 'conflict') this.alreadyReviewed.set(true);
+      },
     );
   }
 
@@ -379,6 +419,7 @@ export class OrderDetailPage {
     name: string,
     action: () => Promise<void>,
     overrides: Overrides,
+    onError?: (error: unknown) => void,
   ): Promise<void> {
     this.busy.set(name);
     this.notice.set(null);
@@ -388,6 +429,7 @@ export class OrderDetailPage {
       await this.refresh();
     } catch (error) {
       this.error.set(describeError(error, overrides));
+      onError?.(error);
     } finally {
       this.busy.set(null);
     }
