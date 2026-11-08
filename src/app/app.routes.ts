@@ -1,7 +1,12 @@
 import { Routes } from '@angular/router';
 
 import { PERMISSIONS } from './features/auth/domain/policies/staff-access';
-import { authGuard, guestGuard, permissionGuard } from './features/auth/presentation/guards';
+import {
+  anyPermissionGuard,
+  authGuard,
+  guestGuard,
+  permissionGuard,
+} from './features/auth/presentation/guards';
 import { StaffShell } from './shell/staff-shell';
 
 export const routes: Routes = [
@@ -23,6 +28,32 @@ export const routes: Routes = [
         title: 'Inicio · Medilo',
         loadComponent: () =>
           import('./features/home/presentation/home.page').then((m) => m.HomePage),
+      },
+      {
+        path: 'ordenes',
+        title: 'Órdenes y resultados · Medilo',
+        canActivate: [
+          anyPermissionGuard(
+            PERMISSIONS.ordersCreate,
+            PERMISSIONS.resultsRecord,
+            PERMISSIONS.resultsReadWithAccess,
+            PERMISSIONS.reviewsRecord,
+          ),
+        ],
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./features/orders/presentation/pages/orders.page').then((m) => m.OrdersPage),
+          },
+          {
+            path: ':id',
+            loadComponent: () =>
+              import('./features/orders/presentation/pages/order-detail.page').then(
+                (m) => m.OrderDetailPage,
+              ),
+          },
+        ],
       },
       {
         path: 'conocimiento',

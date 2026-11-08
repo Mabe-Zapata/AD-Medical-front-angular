@@ -41,11 +41,12 @@ src/app/app.interceptor.ts  agrega el bearer y cierra sesión ante 401
 
 ### Brechas conocidas del backend
 
-Sin listados de citas/órdenes, sin catálogo, sin confirmación de pago, `/me` mínimo, sin listado de borradores de conocimiento. Documéntalas aquí y en el README cuando una funcionalidad dependa de ellas; quítalas cuando el backend las cierre.
+- Sin listados (órdenes, citas, borradores de conocimiento), sin catálogo de pruebas ni de pacientes y `/me` mínimo: las órdenes se abren por su id y se crean pegando UUID.
+- **El laboratorista no puede leer la orden** en la que registra resultados (`GET /lab/orders/{id}` devuelve 403: solo el médico dueño y el paciente). La pantalla lo trata como un modo distinto: pide el identificador de la prueba que le da el médico.
+- La orden pasa a `COMPLETADA` cuando todas sus pruebas tienen resultados, no al revisarla; la revisión médica se registra una vez y el estado no la refleja (un segundo intento da 409).
+- Un usuario con rol MEDICO creado por `POST /users` no tiene perfil profesional y no puede crear órdenes.
 
-## Mensajes de error
-
-- **Mensajes de error**: nunca muestres `AppError.message` (es interno y está en inglés). Todo texto visible sale de `describeError` en español; del mensaje solo se traducen los campos rechazados por el servidor. Valida los formularios en el cliente, con el error debajo de cada campo, antes de llamar a la API.
+Documéntalas aquí y en el README cuando una funcionalidad dependa de ellas; quítalas cuando el backend las cierre.
 
 ## Seguridad
 

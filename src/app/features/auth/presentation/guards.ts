@@ -26,3 +26,14 @@ export const permissionGuard =
       ? true
       : router.createUrlTree(['/inicio'], { queryParams: { sinPermiso: '1' } });
   };
+
+/** Same gate for a screen that several roles use, each with its own permission. */
+export const anyPermissionGuard =
+  (...permissions: string[]): CanActivateFn =>
+  () => {
+    const router = inject(Router);
+    const session = inject(SessionState);
+    return permissions.some((p) => session.can(p))
+      ? true
+      : router.createUrlTree(['/inicio'], { queryParams: { sinPermiso: '1' } });
+  };

@@ -23,14 +23,14 @@ export const APP_MODULES: readonly AppModule[] = [
   {
     title: 'Órdenes y resultados',
     description: 'Registrar resultados, subir informes PDF y revisar propuestas.',
-    link: null,
+    link: '/ordenes',
     anyOf: [
       PERMISSIONS.ordersCreate,
       PERMISSIONS.resultsRecord,
       PERMISSIONS.resultsReadWithAccess,
       PERMISSIONS.reviewsRecord,
     ],
-    pendingNote: 'Pendiente: faltan endpoints de listado',
+    pendingNote: null,
   },
   {
     title: 'Usuarios y roles',

@@ -6,6 +6,19 @@ import { HttpAuthRepository } from './features/auth/data/http-auth.repository';
 import { AuthRepository, SessionStore } from './features/auth/domain/ports/auth.ports';
 import { RestoreSession, SignOut } from './features/auth/domain/usecases/session-lifecycle';
 import { SignIn } from './features/auth/domain/usecases/sign-in';
+import { HttpOrdersRepository } from './features/orders/data/http-orders.repository';
+import { OrdersRepository } from './features/orders/domain/ports/orders.repository';
+import {
+  CreateOrder,
+  DecideProposal,
+  EvaluateOrder,
+  GetOrder,
+  GetProposal,
+  ListOrderResults,
+  RecordResults,
+  ReviewOrder,
+  UploadReport,
+} from './features/orders/domain/usecases/orders-usecases';
 import { HttpKnowledgeRepository } from './features/knowledge/data/http-knowledge.repository';
 import { KnowledgeRepository } from './features/knowledge/domain/ports/knowledge.repository';
 import {
@@ -56,4 +69,16 @@ export const appProviders: Provider[] = [
   },
   { provide: CreateRuleDraft, useFactory: () => new CreateRuleDraft(inject(KnowledgeRepository)) },
   { provide: ValidateRule, useFactory: () => new ValidateRule(inject(KnowledgeRepository)) },
+
+  // orders
+  { provide: OrdersRepository, useClass: HttpOrdersRepository },
+  { provide: CreateOrder, useFactory: () => new CreateOrder(inject(OrdersRepository)) },
+  { provide: GetOrder, useFactory: () => new GetOrder(inject(OrdersRepository)) },
+  { provide: ListOrderResults, useFactory: () => new ListOrderResults(inject(OrdersRepository)) },
+  { provide: RecordResults, useFactory: () => new RecordResults(inject(OrdersRepository)) },
+  { provide: UploadReport, useFactory: () => new UploadReport(inject(OrdersRepository)) },
+  { provide: EvaluateOrder, useFactory: () => new EvaluateOrder(inject(OrdersRepository)) },
+  { provide: GetProposal, useFactory: () => new GetProposal(inject(OrdersRepository)) },
+  { provide: DecideProposal, useFactory: () => new DecideProposal(inject(OrdersRepository)) },
+  { provide: ReviewOrder, useFactory: () => new ReviewOrder(inject(OrdersRepository)) },
 ];
