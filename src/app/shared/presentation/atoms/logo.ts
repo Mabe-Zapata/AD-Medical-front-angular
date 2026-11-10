@@ -22,8 +22,8 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
       color: #fff;
       font-size: 24px;
       font-weight: 700;
-      background: linear-gradient(45deg, #f06110, #f9822a);
-      box-shadow: 0 3px 8px rgb(243 104 20 / 25%);
+      background: var(--gradient);
+      box-shadow: 0 3px 8px rgb(194 65 12 / 25%);
     }
     .name {
       font-size: 22px;
