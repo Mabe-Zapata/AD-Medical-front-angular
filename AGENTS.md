@@ -11,6 +11,7 @@ Ambos deben verse y comportarse como un solo producto.
 3. **Mismas guías de estilo que Flutter**: paleta naranja y componentes equivalentes. Los tokens viven en `src/styles.scss`; si cambias uno, cámbialo también en `../frontend-flutter/lib/core/design/tokens.dart`.
 4. **Paridad de comportamiento** con Flutter: mismos tipos de error, mismo manejo de 401, mismos textos para el mismo caso.
 5. Cada app tiene su propio login. No se pasan tokens entre apps. Cada una valida el rol: aquí solo personal; una cuenta `PACIENTE` se rechaza con un mensaje que lo dirige al portal.
+6. **Contraste AA**: todo texto debe cumplir WCAG AA (4.5:1); los tokens ya están calibrados y se pinchan con el test de Flutter. No los aclares.
 
 ## Arquitectura
 
