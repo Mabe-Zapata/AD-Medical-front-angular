@@ -173,4 +173,31 @@ describe('HttpKnowledgeRepository', () => {
       );
     await expect(result).rejects.toMatchObject({ kind: 'conflict', correlationId: 'c-9' });
   });
+
+  it('lists the draft rules with the estado filter', async () => {
+    const result = repository.listRuleDrafts();
+    const request = http.expectOne(
+      (r) => r.url === '/api/v1/knowledge/rules' && r.params.get('estado') === 'BORRADOR',
+    );
+    request.flush({
+      items: [{ id: 'r1', codigo: 'HB-BAJA', version: 2, estado: 'BORRADOR', nombre: 'Hemoglobina baja', criterios: [] }],
+    });
+
+    expect(await result).toEqual([{ id: 'r1', code: 'HB-BAJA', version: 2, name: 'Hemoglobina baja' }]);
+  });
+
+  it('lists the draft ranges of one analyte (the API needs the analyte for drafts)', async () => {
+    const result = repository.listReferenceDrafts('a1');
+    const request = http.expectOne(
+      (r) =>
+        r.url === '/api/v1/knowledge/references' &&
+        r.params.get('estado') === 'BORRADOR' &&
+        r.params.get('analito_id') === 'a1',
+    );
+    request.flush({
+      items: [{ id: 'f1', analito_id: 'a1', version: 1, unidad: 'g/dL', minimo: 12, maximo: 16, estado: 'BORRADOR', fecha_inicio: '2026-01-01' }],
+    });
+
+    expect(await result).toEqual([{ id: 'f1', analyteId: 'a1', version: 1, unit: 'g/dL', min: 12, max: 16 }]);
+  });
 });

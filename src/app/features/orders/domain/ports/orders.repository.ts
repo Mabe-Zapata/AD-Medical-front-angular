@@ -4,6 +4,7 @@ import {
   NewOrder,
   LabResult,
   NewResult,
+  OrderSummary,
   Proposal,
   UploadedReport,
 } from '../entities/orders';
@@ -11,6 +12,8 @@ import {
 /** Port to the laboratory and clinical-proposal API. Implementations throw `AppError`. */
 export abstract class OrdersRepository {
   abstract createOrder(order: NewOrder): Promise<LabOrder>;
+  /** The orders the caller may read, newest first. A doctor sees the ones they placed. */
+  abstract listOrders(): Promise<OrderSummary[]>;
   abstract getOrder(orderId: string): Promise<LabOrder>;
   abstract listResults(orderId: string): Promise<LabResult[]>;
   abstract recordResults(

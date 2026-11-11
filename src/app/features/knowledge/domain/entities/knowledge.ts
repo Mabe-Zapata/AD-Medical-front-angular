@@ -82,7 +82,25 @@ export interface NewRule {
   readonly criteria: readonly Criterion[];
 }
 
-/** A draft this browser session created. The API cannot list drafts, so we remember them here. */
+/** A draft rule as the listing returns it. */
+export interface RuleDraft {
+  readonly id: string;
+  readonly code: string;
+  readonly version: number;
+  readonly name: string | null;
+}
+
+/** A draft reference range as the listing returns it. */
+export interface ReferenceDraft {
+  readonly id: string;
+  readonly analyteId: string;
+  readonly version: number;
+  readonly unit: string;
+  readonly min: number | null;
+  readonly max: number | null;
+}
+
+/** A draft shown in the drafts screen: from the listing, or one this session just created. */
 export interface Draft {
   readonly kind: 'reference' | 'rule';
   readonly id: string;

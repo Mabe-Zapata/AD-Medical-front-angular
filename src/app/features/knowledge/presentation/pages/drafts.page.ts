@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
@@ -7,7 +7,7 @@ import { ErrorView, describeError } from '../../../../shared/presentation/error-
 import { PERMISSIONS } from '../../../auth/domain/policies/staff-access';
 import { SessionState } from '../../../auth/presentation/session.state';
 import { Draft } from '../../domain/entities/knowledge';
-import { ValidateReference, ValidateRule } from '../../domain/usecases/knowledge-usecases';
+import { ListDrafts, ValidateReference, ValidateRule } from '../../domain/usecases/knowledge-usecases';
 import { DraftsState } from '../drafts.state';
 
 type Kind = Draft['kind'];
@@ -19,7 +19,7 @@ const CONFLICT_MESSAGES: Readonly<Record<Kind, string>> = {
   rule: 'La regla no es un borrador (quizá ya fue validada).',
 };
 
-/** Container: validates drafts created in this session, or any draft by its id. */
+/** Container: lists the drafts for whoever validates or administers, and validates them. */
 @Component({
   selector: 'app-drafts-page',
   imports: [FormsModule, BannerComponent, ChipComponent],
@@ -28,8 +28,11 @@ const CONFLICT_MESSAGES: Readonly<Record<Kind, string>> = {
     <div class="stack">
       @if (!canValidate) {
         <app-banner tone="warning">
-          Solo los médicos pueden validar borradores. Aquí puedes ver los que creaste en esta
-          sesión.
+          Solo los médicos pueden validar borradores. Aquí ves los que creaste en esta sesión
+          @if (canList) {
+            y los demás borradores
+          }
+          .
         </app-banner>
       }
       @if (notice(); as text) {
@@ -46,15 +49,23 @@ const CONFLICT_MESSAGES: Readonly<Record<Kind, string>> = {
 
       <section class="card stack">
         <div>
-          <h2>Borradores de esta sesión</h2>
+          <h2>Borradores</h2>
           <p class="muted small">
-            El sistema no lista borradores: solo ves los que creaste desde este navegador desde que
-            iniciaste sesión.
+            @if (canList) {
+              Las referencias y reglas que esperan validación médica.
+            } @else {
+              Tu rol no ve el listado completo: solo los borradores que creaste en esta sesión.
+            }
           </p>
         </div>
-        @if (drafts.drafts().length === 0) {
-          <p class="empty">Todavía no creaste borradores.</p>
-        } @else {
+        @if (loading()) {
+          <p class="muted"><span class="spinner" aria-hidden="true"></span> Cargando…</p>
+        } @else if (loadFailed()) {
+          <app-banner tone="danger">No pudimos cargar los borradores. Inténtalo de nuevo.</app-banner>
+        }
+        @if (!loading() && items().length === 0) {
+          <p class="empty">No hay borradores.</p>
+        } @else if (items().length > 0) {
           <div class="table-wrap">
             <table class="table">
               <thead>
@@ -67,7 +78,7 @@ const CONFLICT_MESSAGES: Readonly<Record<Kind, string>> = {
                 </tr>
               </thead>
               <tbody>
-                @for (draft of drafts.drafts(); track draft.id) {
+                @for (draft of items(); track draft.id) {
                   <tr>
                     <td>{{ kindLabel(draft.kind) }}</td>
                     <td>{{ draft.label }}</td>
@@ -101,7 +112,7 @@ const CONFLICT_MESSAGES: Readonly<Record<Kind, string>> = {
         <section class="card stack">
           <div>
             <h2>Validar por ID</h2>
-            <p class="muted small">Para borradores que creó otra persona u otra sesión.</p>
+            <p class="muted small">Si ya tienes el identificador de un borrador.</p>
           </div>
           <div class="row">
             <select class="input kind" [(ngModel)]="manualKind" aria-label="Tipo de borrador">
@@ -139,9 +150,22 @@ const CONFLICT_MESSAGES: Readonly<Record<Kind, string>> = {
 export class DraftsPage {
   private readonly validateReference = inject(ValidateReference);
   private readonly validateRule = inject(ValidateRule);
+  private readonly listDrafts = inject(ListDrafts);
 
   protected readonly drafts = inject(DraftsState);
-  protected readonly canValidate = inject(SessionState).can(PERMISSIONS.knowledgeValidate);
+  private readonly session = inject(SessionState);
+  protected readonly canValidate = this.session.can(PERMISSIONS.knowledgeValidate);
+  /** Only who validates or administers may list drafts; the rest see what they created this session. */
+  protected readonly canList =
+    this.canValidate || this.session.can(PERMISSIONS.knowledgeAdmin);
+  protected readonly loading = signal(false);
+  protected readonly loadFailed = signal(false);
+  private readonly listed = signal<readonly Draft[]>([]);
+  /** The listing wins; drafts created in this session fill in until it knows them. */
+  protected readonly items = computed(() => {
+    const ids = new Set(this.listed().map((d) => d.id));
+    return [...this.listed(), ...this.drafts.drafts().filter((d) => !ids.has(d.id))];
+  });
   protected readonly busyId = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
   protected readonly error = signal<ErrorView | null>(null);
@@ -151,6 +175,22 @@ export class DraftsPage {
 
   protected readonly kindLabel = (kind: Kind) => KIND_LABELS[kind];
 
+  constructor() {
+    if (this.canList) void this.load();
+  }
+
+  private async load(): Promise<void> {
+    this.loading.set(true);
+    this.loadFailed.set(false);
+    try {
+      this.listed.set(await this.listDrafts.execute());
+    } catch {
+      this.loadFailed.set(true);
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
   protected async validate(kind: Kind, id: string, manual = false): Promise<void> {
     this.busyId.set(manual ? 'manual' : id);
     this.notice.set(null);
@@ -159,6 +199,7 @@ export class DraftsPage {
       if (kind === 'reference') await this.validateReference.execute(id);
       else await this.validateRule.execute(id);
       this.drafts.markValidated(id.trim());
+      this.listed.update((list) => list.map((d) => (d.id === id.trim() ? { ...d, state: 'VALIDADA' as const } : d)));
       this.notice.set(`${KIND_LABELS[kind]} validada: ya puede usarse.`);
       if (manual) this.manualId = '';
     } catch (error) {

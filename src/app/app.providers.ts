@@ -15,10 +15,14 @@ import {
   GetOrder,
   GetProposal,
   ListOrderResults,
+  ListOrders,
   RecordResults,
   ReviewOrder,
   UploadReport,
 } from './features/orders/domain/usecases/orders-usecases';
+import { HttpUsersRepository } from './features/users/data/http-users.repository';
+import { UsersRepository } from './features/users/domain/ports/users.repository';
+import { CreateUser, ListUsers } from './features/users/domain/usecases/users-usecases';
 import { HttpKnowledgeRepository } from './features/knowledge/data/http-knowledge.repository';
 import { KnowledgeRepository } from './features/knowledge/domain/ports/knowledge.repository';
 import {
@@ -26,6 +30,7 @@ import {
   CreateReferenceDraft,
   CreateRuleDraft,
   ListAnalytes,
+  ListDrafts,
   ListReferences,
   ValidateReference,
   ValidateRule,
@@ -69,10 +74,12 @@ export const appProviders: Provider[] = [
   },
   { provide: CreateRuleDraft, useFactory: () => new CreateRuleDraft(inject(KnowledgeRepository)) },
   { provide: ValidateRule, useFactory: () => new ValidateRule(inject(KnowledgeRepository)) },
+  { provide: ListDrafts, useFactory: () => new ListDrafts(inject(KnowledgeRepository)) },
 
   // orders
   { provide: OrdersRepository, useClass: HttpOrdersRepository },
   { provide: CreateOrder, useFactory: () => new CreateOrder(inject(OrdersRepository)) },
+  { provide: ListOrders, useFactory: () => new ListOrders(inject(OrdersRepository)) },
   { provide: GetOrder, useFactory: () => new GetOrder(inject(OrdersRepository)) },
   { provide: ListOrderResults, useFactory: () => new ListOrderResults(inject(OrdersRepository)) },
   { provide: RecordResults, useFactory: () => new RecordResults(inject(OrdersRepository)) },
@@ -81,4 +88,9 @@ export const appProviders: Provider[] = [
   { provide: GetProposal, useFactory: () => new GetProposal(inject(OrdersRepository)) },
   { provide: DecideProposal, useFactory: () => new DecideProposal(inject(OrdersRepository)) },
   { provide: ReviewOrder, useFactory: () => new ReviewOrder(inject(OrdersRepository)) },
+
+  // users
+  { provide: UsersRepository, useClass: HttpUsersRepository },
+  { provide: ListUsers, useFactory: () => new ListUsers(inject(UsersRepository)) },
+  { provide: CreateUser, useFactory: () => new CreateUser(inject(UsersRepository)) },
 ];

@@ -1,5 +1,13 @@
 import { AppError } from '../../../core/domain/app-error';
-import { Analyte, NewAnalyte, NewReference, NewRule, ReferenceRange } from './entities/knowledge';
+import {
+  Analyte,
+  NewAnalyte,
+  NewReference,
+  NewRule,
+  ReferenceDraft,
+  ReferenceRange,
+  RuleDraft,
+} from './entities/knowledge';
 import {
   isNumericOperator,
   normalizeCriterion,
@@ -12,6 +20,7 @@ import {
   CreateReferenceDraft,
   CreateRuleDraft,
   ListAnalytes,
+  ListDrafts,
   ValidateReference,
   ValidateRule,
 } from './usecases/knowledge-usecases';
@@ -22,6 +31,8 @@ class FakeRepository extends KnowledgeRepository {
   created: unknown[] = [];
   validated: string[] = [];
   analytes: Analyte[] = [];
+  ruleDrafts: RuleDraft[] = [];
+  referenceDrafts: Record<string, ReferenceDraft[]> = {};
 
   async listAnalytes(): Promise<Analyte[]> {
     return this.analytes;
@@ -46,6 +57,12 @@ class FakeRepository extends KnowledgeRepository {
   }
   async validateRule(id: string): Promise<void> {
     this.validated.push(id);
+  }
+  async listRuleDrafts(): Promise<RuleDraft[]> {
+    return this.ruleDrafts;
+  }
+  async listReferenceDrafts(analyteId: string): Promise<ReferenceDraft[]> {
+    return this.referenceDrafts[analyteId] ?? [];
   }
 }
 
@@ -191,5 +208,35 @@ describe('knowledge use cases', () => {
     expect(repo.validated).toEqual([UUID, UUID]);
     expect(() => new ValidateReference(repo).execute('abc')).toThrow(AppError);
     expect(() => new ValidateRule(repo).execute('')).toThrow(AppError);
+  });
+});
+
+describe('ListDrafts', () => {
+  it('joins the draft rules and the draft ranges of every analyte, with readable labels', async () => {
+    const repository = new FakeRepository();
+    repository.analytes = [
+      { id: 'a1', name: 'Hemoglobina', unit: 'g/dL', valueType: 'NUMERICO' },
+      { id: 'a2', name: 'Glucosa', unit: 'mg/dL', valueType: 'NUMERICO' },
+    ];
+    repository.ruleDrafts = [{ id: 'r1', code: 'HB-BAJA', version: 2, name: 'Hemoglobina baja' }];
+    repository.referenceDrafts = {
+      a1: [{ id: 'f1', analyteId: 'a1', version: 1, unit: 'g/dL', min: 12, max: 16 }],
+      a2: [{ id: 'f2', analyteId: 'a2', version: 1, unit: 'mg/dL', min: null, max: 100 }],
+    };
+
+    const drafts = await new ListDrafts(repository).execute();
+
+    expect(drafts.map((d) => [d.kind, d.id, d.state])).toEqual([
+      ['rule', 'r1', 'BORRADOR'],
+      ['reference', 'f1', 'BORRADOR'],
+      ['reference', 'f2', 'BORRADOR'],
+    ]);
+    expect(drafts[0].label).toBe('HB-BAJA v2 · Hemoglobina baja');
+    expect(drafts[1].label).toBe('Hemoglobina v1 · 12 – 16 g/dL');
+    expect(drafts[2].label).toBe('Glucosa v1 · < 100 mg/dL');
+  });
+
+  it('has nothing to show when there are no drafts', async () => {
+    expect(await new ListDrafts(new FakeRepository()).execute()).toEqual([]);
   });
 });
