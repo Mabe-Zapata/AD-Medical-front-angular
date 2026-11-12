@@ -13,6 +13,7 @@ const ADMIN = [
   'conocimiento.validar',
   'usuarios.administrar',
 ];
+const DOCTOR = ['conocimiento.leer', 'conocimiento.validar', 'ordenes.crear'];
 const LAB = ['conocimiento.leer', 'resultados.registrar'];
 
 const users = [
@@ -29,14 +30,16 @@ const summary = {
   rulesDraft: 3,
 };
 
-function render(permissions: string[], calls: string[] = []) {
+function render(permissions: string[], calls: string[] = [], summaryArgs: unknown[] = []) {
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
       { provide: ListUsers, useValue: { execute: async () => users } },
       {
         provide: GetKnowledgeSummary,
-        useValue: { execute: async () => (calls.push('summary'), summary) },
+        useValue: {
+          execute: async (withRules?: boolean) => (calls.push('summary'), summaryArgs.push(withRules), summary),
+        },
       },
       { provide: ListAnalytes, useValue: { execute: async () => (calls.push('analytes'), [{}, {}]) } },
       { provide: ListOrders, useValue: { execute: async () => [] } },
@@ -117,5 +120,22 @@ describe('HomePage', () => {
     expect(el.textContent).not.toContain('Cuentas sin activar');
     // Without the validate or administer permission only the analytes count is asked for.
     expect(calls).toEqual(['analytes']);
+  });
+
+  it('shows the rules only to the administrator: a validating doctor sees ranges but no rules', async () => {
+    const asked: unknown[] = [];
+    const doctor = render(DOCTOR, [], asked);
+    await settled(doctor.fixture);
+
+    expect(asked).toEqual([false]);
+    expect(doctor.el.textContent).toContain('Rangos de referencia');
+    expect(doctor.el.textContent).not.toContain('Reglas del motor');
+    expect(doctor.el.textContent).not.toContain('reglas en borrador');
+    TestBed.resetTestingModule();
+
+    const admin = render(ADMIN, [], asked);
+    await settled(admin.fixture);
+    expect(asked).toEqual([false, true]);
+    expect(admin.el.textContent).toContain('Reglas del motor');
   });
 });

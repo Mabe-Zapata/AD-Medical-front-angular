@@ -276,4 +276,20 @@ describe('GetKnowledgeSummary', () => {
       rulesDraft: 1,
     });
   });
+
+  it('leaves the rules out (counted as zero) for a caller who may not see them', async () => {
+    const repository = new FakeRepository();
+    repository.analytes = [{ id: 'a1', name: 'Hemoglobina', unit: 'g/dL', valueType: 'NUMERICO' }];
+    repository.ruleDrafts = [{ id: 'r1', code: 'HB-BAJA', version: 2, name: null }];
+    repository.validatedRules = 14;
+    repository.validatedReferences = 5;
+
+    expect(await new GetKnowledgeSummary(repository).execute(false)).toEqual({
+      analytes: 1,
+      referencesValidated: 5,
+      referencesDraft: 0,
+      rulesValidated: 0,
+      rulesDraft: 0,
+    });
+  });
 });

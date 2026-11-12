@@ -121,11 +121,12 @@ export class ListDrafts {
 export class GetKnowledgeSummary {
   constructor(private readonly repository: KnowledgeRepository) {}
 
-  async execute(): Promise<KnowledgeSummary> {
+  /** Rules are only asked for when the caller may see them (`withRules`); otherwise they count as zero. */
+  async execute(withRules = true): Promise<KnowledgeSummary> {
     const [analytes, ruleDrafts, rulesValidated, referencesValidated] = await Promise.all([
       this.repository.listAnalytes(),
-      this.repository.listRuleDrafts(),
-      this.repository.countValidatedRules(),
+      withRules ? this.repository.listRuleDrafts() : Promise.resolve([]),
+      withRules ? this.repository.countValidatedRules() : Promise.resolve(0),
       this.repository.countValidatedReferences(),
     ]);
     // The API only lists draft ranges one analyte at a time.

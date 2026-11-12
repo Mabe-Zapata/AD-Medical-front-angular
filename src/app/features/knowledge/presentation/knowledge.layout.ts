@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
+import { PERMISSIONS } from '../../auth/domain/policies/staff-access';
+import { SessionState } from '../../auth/presentation/session.state';
 import { DraftsState } from './drafts.state';
 
 /** Frame of the knowledge area: title, tabs and the active page. Same look as the home page. */
@@ -21,14 +23,18 @@ import { DraftsState } from './drafts.state';
       </div>
       <nav class="tabs" aria-label="Secciones del conocimiento clínico">
         <a routerLink="analitos" routerLinkActive="active">Analitos</a>
-        <a routerLink="reglas" routerLinkActive="active">Reglas</a>
+        @if (canSeeRules) {
+          <a routerLink="reglas" routerLinkActive="active">Reglas</a>
+        }
         <a routerLink="revision" routerLinkActive="active">Revisión</a>
-        <a routerLink="borradores" routerLinkActive="active">
-          Borradores
-          @if (drafts.drafts().length > 0) {
-            <span class="count">{{ drafts.drafts().length }}</span>
-          }
-        </a>
+        @if (canSeeDrafts) {
+          <a routerLink="borradores" routerLinkActive="active">
+            Borradores
+            @if (drafts.drafts().length > 0) {
+              <span class="count">{{ drafts.drafts().length }}</span>
+            }
+          </a>
+        }
       </nav>
     </header>
     <router-outlet />
@@ -81,4 +87,9 @@ import { DraftsState } from './drafts.state';
 })
 export class KnowledgeLayout {
   protected readonly drafts = inject(DraftsState);
+  private readonly session = inject(SessionState);
+  /** Only what the role can use is offered: rules belong to the administrator, drafts to who validates. */
+  protected readonly canSeeRules = this.session.can(PERMISSIONS.knowledgeAdmin);
+  protected readonly canSeeDrafts =
+    this.session.can(PERMISSIONS.knowledgeValidate) || this.session.can(PERMISSIONS.knowledgeAdmin);
 }

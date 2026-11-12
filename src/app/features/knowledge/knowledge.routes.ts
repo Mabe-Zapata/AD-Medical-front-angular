@@ -1,5 +1,7 @@
 import { Routes } from '@angular/router';
 
+import { anyPermissionGuard, permissionGuard } from '../auth/presentation/guards';
+import { PERMISSIONS } from '../auth/domain/policies/staff-access';
 import { KnowledgeLayout } from './presentation/knowledge.layout';
 
 export const knowledgeRoutes: Routes = [
@@ -20,6 +22,7 @@ export const knowledgeRoutes: Routes = [
       },
       {
         path: 'reglas',
+        canActivate: [permissionGuard(PERMISSIONS.knowledgeAdmin)],
         loadComponent: () => import('./presentation/pages/rules.page').then((m) => m.RulesPage),
       },
       {
@@ -28,6 +31,7 @@ export const knowledgeRoutes: Routes = [
       },
       {
         path: 'borradores',
+        canActivate: [anyPermissionGuard(PERMISSIONS.knowledgeValidate, PERMISSIONS.knowledgeAdmin)],
         loadComponent: () => import('./presentation/pages/drafts.page').then((m) => m.DraftsPage),
       },
     ],

@@ -231,6 +231,7 @@ function donut(ready: number, total: number): string {
                 <a class="btn btn--small btn--primary" routerLink="/conocimiento/borradores">Ver {{ k.referencesDraft }} {{ k.referencesDraft === 1 ? 'borrador' : 'borradores' }}</a>
               }
             </article>
+            @if (showRules) {
             <article class="part">
               <div class="row"><span class="icon icon--blue" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h6" /></svg></span><strong>Reglas del motor</strong></div>
               <div class="row donut-row">
@@ -247,6 +248,7 @@ function donut(ready: number, total: number): string {
                 <a class="btn btn--small btn--primary" routerLink="/conocimiento/borradores">Ver {{ k.rulesDraft }} {{ k.rulesDraft === 1 ? 'borrador' : 'borradores' }}</a>
               }
             </article>
+            }
           </div>
         </section>
       }
@@ -815,6 +817,8 @@ export class HomePage {
 
   protected readonly canCreateUser = this.session.can(PERMISSIONS.usersAdmin);
   protected readonly canCreateAnalyte = this.session.can(PERMISSIONS.knowledgeAdmin);
+  /** The rules area (list, create, summary) belongs to the administrator only. */
+  protected readonly showRules = this.canCreateAnalyte;
 
   protected readonly users = signal<readonly UserSummary[] | null>(null);
   private readonly analytes = signal<number | null>(null);
@@ -860,11 +864,11 @@ export class HomePage {
       list.push({ label: 'Analitos activos', value: `${analytes}`, note: 'en el catálogo clínico', flag: false });
     }
     if (knowledge !== null) {
-      const drafts = knowledge.referencesDraft + knowledge.rulesDraft;
+      const drafts = knowledge.referencesDraft + (this.showRules ? knowledge.rulesDraft : 0);
       list.push({
         label: 'Por validar',
         value: `${drafts}`,
-        note: 'referencias y reglas en borrador',
+        note: this.showRules ? 'referencias y reglas en borrador' : 'referencias en borrador',
         flag: drafts > 0,
       });
     }
@@ -900,7 +904,7 @@ export class HomePage {
         link: '/conocimiento/borradores',
       });
     }
-    if (knowledge !== null && knowledge.rulesDraft > 0) {
+    if (this.showRules && knowledge !== null && knowledge.rulesDraft > 0) {
       list.push({
         kind: 'rules',
         title: plural(knowledge.rulesDraft, 'regla en borrador', 'reglas en borrador'),
@@ -942,7 +946,7 @@ export class HomePage {
     }
     if (can(PERMISSIONS.knowledgeAdmin) || can(PERMISSIONS.knowledgeValidate)) {
       void inject(GetKnowledgeSummary)
-        .execute()
+        .execute(this.showRules)
         .then((summary) => this.knowledge.set(summary))
         .catch(() => undefined);
     } else if (can(PERMISSIONS.knowledgeRead)) {
