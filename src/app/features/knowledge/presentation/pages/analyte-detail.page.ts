@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { APP_SETTINGS } from '../../../../core/config/app-settings';
@@ -6,6 +6,7 @@ import { toIsoDate } from '../../../../core/domain/dates';
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
 import { ErrorView, describeError } from '../../../../shared/presentation/error-message';
 import { formatRange } from '../../../../shared/presentation/format';
+import { ModalComponent } from '../../../../shared/presentation/organisms/modal';
 import { PERMISSIONS } from '../../../auth/domain/policies/staff-access';
 import { SessionState } from '../../../auth/presentation/session.state';
 import { Analyte, NewReference, ReferenceRange } from '../../domain/entities/knowledge';
@@ -21,16 +22,18 @@ import { ReferenceTableComponent } from '../widgets/reference-table';
 /** Container: validated reference ranges of one analyte on a chosen date, plus draft creation. */
 @Component({
   selector: 'app-analyte-detail-page',
-  imports: [ReferenceFormComponent, ReferenceTableComponent, BannerComponent, RouterLink],
+  imports: [ReferenceFormComponent, ReferenceTableComponent, BannerComponent, ModalComponent, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="stack">
       <a routerLink="/conocimiento/analitos" class="small">← Volver a los analitos</a>
 
       @if (error(); as e) {
-        <app-banner tone="danger">
-          {{ e.message }}
-        </app-banner>
+        @if (!creating()) {
+          <app-banner tone="danger">
+            {{ e.message }}
+          </app-banner>
+        }
       }
 
       @if (analyte(); as a) {
@@ -60,17 +63,37 @@ import { ReferenceTableComponent } from '../widgets/reference-table';
 
         @if (canCreate) {
           <section class="card stack">
-            <h2>Nuevo borrador de referencia</h2>
+            <div class="row spread">
+              <h2>Borradores de referencia</h2>
+              <button class="btn btn--primary" type="button" (click)="openForm()">
+                Nuevo borrador de referencia
+              </button>
+            </div>
             @if (notice(); as text) {
               <app-banner tone="success">{{ text }}</app-banner>
             }
-            <app-reference-form
-              [busy]="saving()"
-              [defaultUnit]="a.unit"
-              [defaultSourceId]="defaultSourceId"
-              (submitted)="createDraft(a, $event)"
-            />
           </section>
+
+          @if (creating()) {
+            <app-modal
+              tag="Nueva referencia"
+              [headline]="'Rango de referencia de ' + a.name"
+              [bullets]="bullets"
+              (closed)="creating.set(false)"
+            >
+              @if (error(); as e) {
+                <app-banner tone="danger">
+                  {{ e.message }}
+                </app-banner>
+              }
+              <app-reference-form
+                [busy]="saving()"
+                [defaultUnit]="a.unit"
+                [defaultSourceId]="defaultSourceId"
+                (submitted)="createDraft(a, $event)"
+              />
+            </app-modal>
+          }
         }
       } @else if (!loading()) {
         <app-banner tone="warning">No se encontró el analito solicitado.</app-banner>
@@ -89,7 +112,12 @@ export class AnalyteDetailPage {
   private readonly listReferences = inject(ListReferences);
   private readonly createReference = inject(CreateReferenceDraft);
   private readonly drafts = inject(DraftsState);
-  private readonly form = viewChild(ReferenceFormComponent);
+
+  protected readonly bullets = [
+    'El borrador no se aplica hasta que un médico lo valide.',
+    'Define el rango, la unidad, la fuente y desde cuándo rige.',
+  ];
+  protected readonly creating = signal(false);
 
   protected readonly canCreate = inject(SessionState).can(PERMISSIONS.knowledgeAdmin);
   protected readonly defaultSourceId = inject(APP_SETTINGS).defaultSourceId;
@@ -113,6 +141,12 @@ export class AnalyteDetailPage {
     await this.loadReferences();
   }
 
+  protected openForm(): void {
+    this.error.set(null);
+    this.notice.set(null);
+    this.creating.set(true);
+  }
+
   protected async createDraft(analyte: Analyte, reference: NewReference): Promise<void> {
     this.saving.set(true);
     this.notice.set(null);
@@ -126,7 +160,7 @@ export class AnalyteDetailPage {
         label: `${analyte.name} · ${range}`,
         state: 'BORRADOR',
       });
-      this.form()?.reset();
+      this.creating.set(false);
       this.notice.set('Borrador creado. Un médico debe validarlo en la pestaña «Borradores».');
     } catch (error) {
       this.error.set(

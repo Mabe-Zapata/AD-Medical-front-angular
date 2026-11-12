@@ -4,6 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AppError, ErrorKind } from '../../../../core/domain/app-error';
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
 import { ChipComponent } from '../../../../shared/presentation/atoms/chip';
+import { ModalComponent } from '../../../../shared/presentation/organisms/modal';
 import { ErrorView, describeError } from '../../../../shared/presentation/error-message';
 import { PERMISSIONS } from '../../../auth/domain/policies/staff-access';
 import { SessionState } from '../../../auth/presentation/session.state';
@@ -63,7 +64,9 @@ const REVIEW_ERRORS: Overrides = {
  */
 @Component({
   selector: 'app-order-detail-page',
-  imports: [PaginatorComponent, 
+  imports: [
+    PaginatorComponent,
+    ModalComponent,
     RouterLink,
     BannerComponent,
     ChipComponent,
@@ -81,9 +84,11 @@ const REVIEW_ERRORS: Overrides = {
         <app-banner tone="success">{{ text }}</app-banner>
       }
       @if (error(); as e) {
-        <app-banner tone="danger">
-          {{ e.message }}
-        </app-banner>
+        @if (modal() === null) {
+          <app-banner tone="danger">
+            {{ e.message }}
+          </app-banner>
+        }
       }
 
       <section class="card stack">
@@ -181,13 +186,31 @@ const REVIEW_ERRORS: Overrides = {
               Los resultados de una prueba se registran una sola vez y no se reescriben.
             </p>
           </div>
-          <app-results-form
-            [tests]="pendingTests()"
-            [analytes]="analytes()"
-            [busy]="busy() === 'results'"
-            (submitted)="saveResults($event)"
-          />
+          <div>
+            <button class="btn btn--primary" type="button" (click)="openModal('results')">
+              Registrar resultados
+            </button>
+          </div>
         </section>
+
+        @if (modal() === 'results') {
+          <app-modal
+            tag="Resultados"
+            headline="Registra los resultados de la prueba"
+            [bullets]="resultsBullets"
+            (closed)="closeModal()"
+          >
+            @if (error(); as e) {
+              <app-banner tone="danger">{{ e.message }}</app-banner>
+            }
+            <app-results-form
+              [tests]="pendingTests()"
+              [analytes]="analytes()"
+              [busy]="busy() === 'results'"
+              (submitted)="saveResults($event)"
+            />
+          </app-modal>
+        }
 
         <section class="card stack">
           <div>
@@ -226,7 +249,24 @@ const REVIEW_ERRORS: Overrides = {
             <app-proposal-view [proposal]="p" />
             @if (canDecide && p.status === 'PENDIENTE') {
               <h3>Decisión médica</h3>
-              <app-decision-form [busy]="busy() === 'decision'" (submitted)="decide(p, $event)" />
+              <div>
+                <button class="btn btn--primary" type="button" (click)="openModal('decision')">
+                  Registrar decisión
+                </button>
+              </div>
+              @if (modal() === 'decision') {
+                <app-modal
+                  tag="Decisión médica"
+                  headline="Registra tu decisión sobre la propuesta"
+                  [bullets]="decisionBullets"
+                  (closed)="closeModal()"
+                >
+                  @if (error(); as e) {
+                    <app-banner tone="danger">{{ e.message }}</app-banner>
+                  }
+                  <app-decision-form [busy]="busy() === 'decision'" (submitted)="decide(p, $event)" />
+                </app-modal>
+              }
             }
           } @else {
             <p class="muted small">
@@ -282,7 +322,24 @@ const REVIEW_ERRORS: Overrides = {
                 permite volver a leer su texto.
               </app-banner>
             } @else if (o.status === 'COMPLETADA') {
-              <app-review-form [busy]="busy() === 'review'" (submitted)="review($event)" />
+              <div>
+                <button class="btn btn--primary" type="button" (click)="openModal('review')">
+                  Registrar revisión
+                </button>
+              </div>
+              @if (modal() === 'review') {
+                <app-modal
+                  tag="Revisión médica"
+                  headline="Registra la revisión de la orden"
+                  [bullets]="reviewBullets"
+                  (closed)="closeModal()"
+                >
+                  @if (error(); as e) {
+                    <app-banner tone="danger">{{ e.message }}</app-banner>
+                  }
+                  <app-review-form [busy]="busy() === 'review'" (submitted)="review($event)" />
+                </app-modal>
+              }
             } @else {
               <p class="muted small">
                 Se habilita cuando todas las pruebas de la orden tienen sus resultados.
@@ -328,6 +385,19 @@ export class OrderDetailPage {
   protected readonly file = signal<File | null>(null);
   protected readonly notice = signal<string | null>(null);
   protected readonly error = signal<ErrorView | null>(null);
+  protected readonly modal = signal<'results' | 'decision' | 'review' | null>(null);
+  protected readonly resultsBullets = [
+    'Los resultados de una prueba se registran una sola vez y no se reescriben.',
+    'Revisa cada valor y su unidad antes de guardar.',
+  ];
+  protected readonly decisionBullets = [
+    'La propuesta es preliminar: no es un diagnóstico.',
+    'Un rechazo necesita el motivo por escrito.',
+  ];
+  protected readonly reviewBullets = [
+    'El sistema admite una sola revisión por orden.',
+    'Escribe la conclusión y, si hace falta, las recomendaciones.',
+  ];
 
   /** Tests still waiting for results: the only ones a laboratory can fill in. */
   protected readonly pendingTests = computed(
@@ -340,6 +410,15 @@ export class OrderDetailPage {
 
   constructor() {
     void this.load();
+  }
+
+  protected openModal(name: 'results' | 'decision' | 'review'): void {
+    this.error.set(null);
+    this.modal.set(name);
+  }
+
+  protected closeModal(): void {
+    this.modal.set(null);
   }
 
   protected async saveResults({ detailId, results }: ResultsSubmission): Promise<void> {
@@ -412,7 +491,10 @@ export class OrderDetailPage {
       REVIEW_ERRORS,
       // 409 on a complete order means someone already reviewed it: close the form instead of retrying.
       (error) => {
-        if (error instanceof AppError && error.kind === 'conflict') this.alreadyReviewed.set(true);
+        if (error instanceof AppError && error.kind === 'conflict') {
+          this.alreadyReviewed.set(true);
+          this.modal.set(null);
+        }
       },
     );
   }
@@ -429,6 +511,7 @@ export class OrderDetailPage {
     this.error.set(null);
     try {
       await action();
+      this.modal.set(null);
       await this.refresh();
     } catch (error) {
       this.error.set(describeError(error, overrides));

@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
+import { ModalComponent } from '../../../../shared/presentation/organisms/modal';
 import { ErrorView, describeError } from '../../../../shared/presentation/error-message';
 import { PERMISSIONS } from '../../../auth/domain/policies/staff-access';
 import { SessionState } from '../../../auth/presentation/session.state';
@@ -12,7 +13,7 @@ import { RuleFormComponent } from '../widgets/rule-form';
 /** Container: creates declarative rule drafts. The backend cannot list rules, so none are shown. */
 @Component({
   selector: 'app-rules-page',
-  imports: [RuleFormComponent, BannerComponent],
+  imports: [RuleFormComponent, BannerComponent, ModalComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="stack">
@@ -23,29 +24,49 @@ import { RuleFormComponent } from '../widgets/rule-form';
         </app-banner>
       } @else {
         <section class="card stack">
-          <div>
-            <h2>Nueva regla declarativa</h2>
-            <p class="muted small">
-              Las reglas no ejecutan código: comparan resultados con umbrales o con el rango de
-              referencia y generan un hallazgo para que el médico lo revise.
-            </p>
+          <div class="row spread">
+            <div>
+              <h2>Reglas declarativas</h2>
+              <p class="muted small">
+                Las reglas no ejecutan código: comparan resultados con umbrales o con el rango de
+                referencia y generan un hallazgo para que el médico lo revise.
+              </p>
+            </div>
+            <button class="btn btn--primary" type="button" [disabled]="loading()" (click)="openForm()">
+              Nueva regla
+            </button>
           </div>
 
           @if (notice(); as text) {
             <app-banner tone="success">{{ text }}</app-banner>
           }
           @if (error(); as e) {
+            @if (!creating()) {
+              <app-banner tone="danger">
+                {{ e.message }}
+              </app-banner>
+            }
+          }
+          @if (loading()) {
+            <p class="muted"><span class="spinner" aria-hidden="true"></span> Cargando analitos…</p>
+          }
+        </section>
+      }
+
+      @if (creating()) {
+        <app-modal
+          tag="Nueva regla"
+          headline="Crea una regla declarativa"
+          [bullets]="bullets"
+          (closed)="creating.set(false)"
+        >
+          @if (error(); as e) {
             <app-banner tone="danger">
               {{ e.message }}
             </app-banner>
           }
-
-          @if (loading()) {
-            <p class="muted"><span class="spinner" aria-hidden="true"></span> Cargando analitos…</p>
-          } @else {
-            <app-rule-form [analytes]="analytes()" [busy]="saving()" (submitted)="create($event)" />
-          }
-        </section>
+          <app-rule-form [analytes]="analytes()" [busy]="saving()" (submitted)="create($event)" />
+        </app-modal>
       }
     </div>
   `,
@@ -54,8 +75,12 @@ export class RulesPage {
   private readonly listAnalytes = inject(ListAnalytes);
   private readonly createRule = inject(CreateRuleDraft);
   private readonly drafts = inject(DraftsState);
-  private readonly form = viewChild(RuleFormComponent);
 
+  protected readonly bullets = [
+    'La regla queda como borrador hasta que un médico la valide.',
+    'No ejecuta código: solo compara resultados con umbrales o rangos de referencia.',
+  ];
+  protected readonly creating = signal(false);
   protected readonly canCreate = inject(SessionState).can(PERMISSIONS.knowledgeAdmin);
   protected readonly analytes = signal<readonly Analyte[]>([]);
   protected readonly loading = signal(true);
@@ -65,6 +90,12 @@ export class RulesPage {
 
   constructor() {
     void this.loadAnalytes();
+  }
+
+  protected openForm(): void {
+    this.error.set(null);
+    this.notice.set(null);
+    this.creating.set(true);
   }
 
   protected async create(rule: NewRule): Promise<void> {
@@ -79,7 +110,7 @@ export class RulesPage {
         label: `${rule.code} · ${rule.name}`,
         state: 'BORRADOR',
       });
-      this.form()?.reset();
+      this.creating.set(false);
       this.notice.set('Borrador de regla creado. Un médico debe validarlo en «Borradores».');
     } catch (error) {
       this.error.set(
