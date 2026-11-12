@@ -212,7 +212,7 @@ export function safeRedirect(target: string | null): string {
       bottom: -120px;
       width: 320px;
       height: 320px;
-      background: rgb(18 55 111 / 28%);
+      background: rgb(29 86 166 / 55%);
     }
     .dots {
       position: absolute;
@@ -235,7 +235,8 @@ export function safeRedirect(target: string | null): string {
       display: inline-block;
       padding: 6px 12px;
       border-radius: 999px;
-      background: rgb(255 255 255 / 20%);
+      background: var(--blue-soft);
+      color: var(--blue-deep);
       font-size: 11px;
       font-weight: 800;
       letter-spacing: 0.09em;
@@ -278,7 +279,7 @@ export function safeRedirect(target: string | null): string {
       border-radius: 12px;
       display: grid;
       place-items: center;
-      background: rgb(255 255 255 / 20%);
+      background: var(--blue);
     }
     .roles svg {
       width: 20px;
@@ -330,7 +331,7 @@ export function safeRedirect(target: string | null): string {
       align-items: center;
       gap: 8px;
       margin: 0;
-      color: var(--orange-deep);
+      color: var(--blue-text);
       font-size: 11px;
       font-weight: 800;
       letter-spacing: 0.09em;
@@ -339,7 +340,7 @@ export function safeRedirect(target: string | null): string {
     .bar {
       width: 18px;
       height: 2px;
-      background: var(--orange);
+      background: var(--blue);
     }
     .form h1 {
       margin: -8px 0 0;
