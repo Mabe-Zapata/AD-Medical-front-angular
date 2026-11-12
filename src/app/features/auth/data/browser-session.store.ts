@@ -8,7 +8,7 @@ const KEY = 'medilo.staff.session';
 interface StoredSession {
   token: string;
   expiresAt: number;
-  user: { id: string; roles: string[]; permissions: string[] };
+  user: { id: string; email?: string; roles: string[]; permissions: string[] };
 }
 
 /**
@@ -47,6 +47,7 @@ export class BrowserSessionStore extends SessionStore {
         expiresAt: session.expiresAt,
         user: {
           id: session.user.id,
+          email: session.user.email,
           roles: [...session.user.roles],
           permissions: [...session.user.permissions],
         },

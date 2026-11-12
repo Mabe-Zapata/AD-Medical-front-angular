@@ -3,14 +3,16 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { DraftsState } from './drafts.state';
 
-/** Frame of the knowledge area: title, tabs and the active page. */
+/** Frame of the knowledge area: title, tabs and the active page. Same look as the home page. */
 @Component({
   selector: 'app-knowledge-layout',
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="stack head">
+      <a routerLink="/inicio" class="small back">← Volver al resumen</a>
       <div>
+        <div class="eyebrow">Medilo · Conocimiento clínico</div>
         <h1>Conocimiento clínico</h1>
         <p class="muted">
           Analitos, rangos de referencia y reglas que usa el motor de propuestas preliminares. Nunca
@@ -35,28 +37,42 @@ import { DraftsState } from './drafts.state';
     .head {
       margin-bottom: 20px;
     }
+    .back {
+      font-weight: 700;
+    }
+    h1 {
+      margin-top: 2px;
+      font-size: 32px;
+    }
     .tabs {
       display: flex;
-      gap: 6px;
-      border-bottom: 1px solid var(--line);
+      flex-wrap: wrap;
+      gap: 8px;
     }
     .tabs a {
-      padding: 10px 16px;
+      padding: 9px 18px;
+      border-radius: 999px;
+      border: 1px solid var(--blue-soft);
+      background: var(--surface);
       font-weight: 700;
-      color: var(--muted);
-      border-bottom: 3px solid transparent;
-      margin-bottom: -1px;
+      font-size: 14px;
+      color: var(--blue-text);
       text-decoration: none;
     }
+    .tabs a:hover {
+      border-color: var(--orange);
+    }
     .tabs a.active {
-      color: var(--orange-deep);
-      border-bottom-color: var(--orange);
+      background: var(--blue-deep);
+      border-color: var(--blue-deep);
+      color: #fff;
     }
     .count {
       margin-left: 6px;
       padding: 1px 7px;
       border-radius: 999px;
       background: var(--orange-tint);
+      color: var(--orange-deep);
       font-size: 11px;
     }
   `,

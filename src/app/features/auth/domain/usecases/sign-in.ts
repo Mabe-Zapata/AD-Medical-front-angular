@@ -24,7 +24,10 @@ export class SignIn {
       throw new AppError('not_staff', 'This account does not belong to the staff');
     }
 
-    const session = new Session(issued.token, this.now() + issued.expiresInSeconds * 1000, user);
+    const session = new Session(issued.token, this.now() + issued.expiresInSeconds * 1000, {
+      ...user,
+      email: normalized,
+    });
     this.store.save(session);
     return session;
   }
