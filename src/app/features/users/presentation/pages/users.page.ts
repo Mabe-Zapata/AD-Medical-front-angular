@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
 import { ChipComponent } from '../../../../shared/presentation/atoms/chip';
@@ -26,6 +26,11 @@ import { PageState } from '../../../../shared/presentation/pagination';
   template: `
     <div class="stack">
       <a routerLink="/inicio" class="small back">← Volver al resumen</a>
+      <header class="stack head">
+        <div class="eyebrow">Medilo · Usuarios y roles</div>
+        <h1>Usuarios y roles</h1>
+        <p class="muted">Las cuentas del personal y de pacientes, y quién puede hacer qué.</p>
+      </header>
 
       @if (notice(); as text) {
         <app-banner tone="success">{{ text }}</app-banner>
@@ -183,6 +188,8 @@ export class UsersPage {
 
   constructor() {
     void this.load();
+    // The home page's "Crear usuario" lands here with the form already open.
+    if (inject(ActivatedRoute).snapshot.queryParamMap.has('nuevo')) this.openForm();
   }
 
   /** The password is bound by value, not by NgModel, so clearing it clears the input at once. */

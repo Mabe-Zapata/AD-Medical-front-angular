@@ -16,11 +16,14 @@ const orders: OrderSummary[] = [
 ];
 
 /** Plain stub (not vi.fn): vitest flags the rejected promises of mocks as unhandled. */
-function setup(list: () => Promise<OrderSummary[]>) {
+function setup(list: () => Promise<OrderSummary[]>, permissions: string[] = ['ordenes.crear']) {
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
-      { provide: SessionState, useValue: { can: () => false, isSignedIn: () => true } },
+      {
+        provide: SessionState,
+        useValue: { can: (permission: string) => permissions.includes(permission), isSignedIn: () => true },
+      },
       { provide: ListOrders, useValue: { execute: list } },
       { provide: CreateOrder, useValue: { execute: async () => orders[0] } },
     ],
@@ -54,15 +57,27 @@ describe('OrdersPage', () => {
     expect(el.textContent).toContain('Todavía no hay órdenes.');
   });
 
+  it('shows no listing at all to a role that cannot list orders, and never asks for it', async () => {
+    let asked = 0;
+    const { fixture, el } = setup(async () => (asked++, orders), ['resultados.registrar']);
+    await settle(fixture);
+
+    expect(asked).toBe(0);
+    expect(el.textContent).not.toContain('Mis órdenes');
+    expect(el.textContent).not.toContain('Tu rol no ve este listado');
+    // Opening by identifier is what the lab technician uses.
+    expect(el.querySelector('#order-id')).not.toBeNull();
+    expect(el.textContent).toContain('El médico te da el identificador');
+  });
+
   it('treats a 403 as a role that does not see the listing, not as a failure', async () => {
     const { fixture, el } = setup(async () => {
       throw new AppError('forbidden', 'no');
     });
     await settle(fixture);
 
-    expect(el.textContent).toContain('Tu rol no ve este listado');
+    expect(el.textContent).not.toContain('Mis órdenes');
     expect(el.textContent).not.toContain('No pudimos cargar');
-    // Opening by identifier is still there for the lab technician.
     expect(el.querySelector('#order-id')).not.toBeNull();
   });
 

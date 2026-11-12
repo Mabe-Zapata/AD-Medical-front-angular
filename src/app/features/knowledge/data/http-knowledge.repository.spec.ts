@@ -200,4 +200,27 @@ describe('HttpKnowledgeRepository', () => {
 
     expect(await result).toEqual([{ id: 'f1', analyteId: 'a1', version: 1, unit: 'g/dL', min: 12, max: 16 }]);
   });
+
+  it('counts the validated rules (the rules listing without a state)', async () => {
+    const result = repository.countValidatedRules();
+    const request = http.expectOne(
+      (r) => r.url === '/api/v1/knowledge/rules' && !r.params.has('estado'),
+    );
+    request.flush({ items: [{ id: 'r1' }, { id: 'r2' }] });
+
+    expect(await result).toBe(2);
+  });
+
+  it('counts every validated range in one call, without asking analyte by analyte', async () => {
+    const result = repository.countValidatedReferences();
+    const request = http.expectOne(
+      (r) =>
+        r.url === '/api/v1/knowledge/references' &&
+        r.params.get('estado') === 'VALIDADA' &&
+        !r.params.has('analito_id'),
+    );
+    request.flush({ items: [{ id: 'f1' }, { id: 'f2' }, { id: 'f3' }] });
+
+    expect(await result).toBe(3);
+  });
 });

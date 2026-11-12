@@ -22,4 +22,8 @@ export abstract class KnowledgeRepository {
   abstract listRuleDrafts(): Promise<RuleDraft[]>;
   /** Draft reference ranges of one analyte (the API requires the analyte for drafts). */
   abstract listReferenceDrafts(analyteId: string): Promise<ReferenceDraft[]>;
+  /** How many validated rules there are (what the proposal engine can use). */
+  abstract countValidatedRules(): Promise<number>;
+  /** How many validated reference ranges there are, across every analyte. */
+  abstract countValidatedReferences(): Promise<number>;
 }

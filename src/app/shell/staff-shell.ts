@@ -8,7 +8,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { Router, RouterLink, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { PERMISSIONS, ROLE_LABELS } from '../features/auth/domain/policies/staff-access';
 import { SessionState } from '../features/auth/presentation/session.state';
@@ -16,6 +16,7 @@ import { ListUsers } from '../features/users/domain/usecases/users-usecases';
 import { ChipComponent } from '../shared/presentation/atoms/chip';
 import { LogoComponent } from '../shared/presentation/atoms/logo';
 import { initialsOf } from '../shared/presentation/format';
+import { visibleModules } from './app-modules';
 
 /**
  * Frame of every signed-in page. There is no navigation bar: the home page offers the modules, the
@@ -23,16 +24,30 @@ import { initialsOf } from '../shared/presentation/format';
  */
 @Component({
   selector: 'app-staff-shell',
-  imports: [RouterOutlet, RouterLink, ChipComponent, LogoComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, ChipComponent, LogoComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '(document:click)': 'closeOnOutsideClick($event)',
     '(document:keydown.escape)': 'open.set(false)',
   },
   template: `
-    <div class="page">
+    <div class="frame">
+      <span class="shape shape--orange" aria-hidden="true"></span>
+      <span class="shape shape--blue" aria-hidden="true"></span>
+      <span class="shape shape--peach" aria-hidden="true"></span>
+      <span class="shape shape--sky" aria-hidden="true"></span>
+      <div class="page">
       <header class="top">
         <a routerLink="/inicio" class="brand" aria-label="Ir al inicio"><app-logo /></a>
+        <div class="right">
+        <nav class="nav" aria-label="Principal">
+          <a routerLink="/inicio" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Inicio</a>
+          @for (module of modules(); track module.title) {
+            @if (module.link) {
+              <a [routerLink]="module.link" routerLinkActive="active">{{ module.title }}</a>
+            }
+          }
+        </nav>
         <div class="account" #account>
           <button
             class="avatar"
@@ -63,25 +78,102 @@ import { initialsOf } from '../shared/presentation/format';
             </div>
           }
         </div>
+        </div>
       </header>
       <main class="content">
         <router-outlet />
       </main>
+      </div>
     </div>
   `,
   styles: `
+    /* One continuous page: warm to cool, with the same soft orange and blue shapes as the patient portal. */
+    .frame {
+      position: relative;
+      min-height: 100vh;
+      overflow: hidden;
+      background: linear-gradient(180deg, #fff4ea 0%, #fff 18%, #f4f8fd 55%, #e8effa 100%);
+    }
+    .shape {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .shape--orange {
+      left: -140px;
+      top: -160px;
+      width: 460px;
+      height: 460px;
+      background: #fed7aa;
+      opacity: 0.55;
+    }
+    .shape--blue {
+      right: -120px;
+      top: -120px;
+      width: 380px;
+      height: 380px;
+      background: var(--blue-soft);
+      opacity: 0.8;
+    }
+    .shape--peach {
+      right: -180px;
+      top: 42%;
+      width: 420px;
+      height: 420px;
+      background: #ffd9b8;
+      opacity: 0.45;
+    }
+    .shape--sky {
+      left: -200px;
+      bottom: -120px;
+      width: 460px;
+      height: 460px;
+      background: var(--blue-soft);
+      opacity: 0.7;
+    }
     .page {
-      max-width: 1200px;
+      position: relative;
+      max-width: 1272px;
       margin: 0 auto;
-      padding: 24px 32px 48px;
+      padding: 22px 24px 48px;
       display: flex;
       flex-direction: column;
       gap: 24px;
     }
     .top {
       display: flex;
+      flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
+      gap: 16px;
+    }
+    .right {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+    }
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+    .nav a {
+      padding: 10px 16px;
+      border-radius: 999px;
+      color: #334155;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .nav a:hover {
+      color: var(--orange);
+    }
+    .nav a.active {
+      background: #fff;
+      color: var(--orange);
+      box-shadow: 0 6px 16px rgb(18 55 111 / 10%);
     }
     .brand {
       text-decoration: none;
@@ -94,14 +186,14 @@ import { initialsOf } from '../shared/presentation/format';
       height: 44px;
       border: 0;
       border-radius: 50%;
-      background: var(--gradient);
+      background: var(--blue);
       color: #fff;
       font: inherit;
       font-weight: 800;
       font-size: 15px;
       letter-spacing: 0.02em;
       cursor: pointer;
-      box-shadow: 0 6px 14px rgb(194 65 12 / 28%);
+      box-shadow: 0 8px 18px rgb(29 86 166 / 30%);
     }
     .menu {
       position: absolute;
@@ -140,6 +232,7 @@ export class StaffShell {
   /** `/me` carries no name, so an administrator's own account is looked up in the accounts list. */
   private readonly fullName = signal<string | null>(null);
 
+  protected readonly modules = () => visibleModules((permission) => this.session.can(permission));
   protected readonly roles = () => this.session.user()?.roles ?? [];
   protected readonly roleLabel = (role: string) => ROLE_LABELS[role] ?? role;
   protected readonly email = () => this.session.user()?.email ?? null;

@@ -30,6 +30,7 @@ import {
   CreateReferenceDraft,
   CreateRuleDraft,
   ListAnalytes,
+  GetKnowledgeSummary,
   ListDrafts,
   ListReferences,
   ValidateReference,
@@ -77,6 +78,10 @@ export const appProviders: Provider[] = [
   { provide: CreateRuleDraft, useFactory: () => new CreateRuleDraft(inject(KnowledgeRepository)) },
   { provide: ValidateRule, useFactory: () => new ValidateRule(inject(KnowledgeRepository)) },
   { provide: ListDrafts, useFactory: () => new ListDrafts(inject(KnowledgeRepository)) },
+  {
+    provide: GetKnowledgeSummary,
+    useFactory: () => new GetKnowledgeSummary(inject(KnowledgeRepository)),
+  },
 
   // orders
   { provide: OrdersRepository, useClass: HttpOrdersRepository },

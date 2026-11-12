@@ -24,6 +24,19 @@ import { PageState } from '../../../../shared/presentation/pagination';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="stack">
+      <a routerLink="/inicio" class="small back">← Volver al resumen</a>
+      <header class="stack head">
+        <div class="eyebrow">Medilo · Órdenes y resultados</div>
+        <h1>Órdenes y resultados</h1>
+        <p class="muted">
+          @if (listing() === 'denied') {
+            Abre una orden para registrar sus resultados y subir el informe PDF.
+          } @else {
+            Registrar resultados, subir informes PDF y revisar propuestas.
+          }
+        </p>
+      </header>
+      @if (listing() !== 'denied') {
       <section class="card stack">
         <div>
           <h2>Mis órdenes</h2>
@@ -31,10 +44,6 @@ import { PageState } from '../../../../shared/presentation/pagination';
         </div>
         @if (listing() === 'loading') {
           <p class="muted"><span class="spinner" aria-hidden="true"></span> Cargando…</p>
-        } @else if (listing() === 'denied') {
-          <p class="muted small">
-            Tu rol no ve este listado: abre la orden con el identificador que te dio el médico.
-          </p>
         } @else if (listing() === 'failed') {
           <app-banner tone="danger">No pudimos cargar las órdenes.</app-banner>
           <div><button class="btn btn--small" type="button" (click)="reload()">Reintentar</button></div>
@@ -72,11 +81,18 @@ import { PageState } from '../../../../shared/presentation/pagination';
       <app-paginator [total]="orders().length" [state]="pager" />
         }
       </section>
+      }
 
       <section class="card stack">
         <div>
           <h2>Abrir una orden por identificador</h2>
-          <p class="muted small">Para el laboratorista, que no ve el listado, o para una orden concreta.</p>
+          <p class="muted small">
+            @if (listing() === 'denied') {
+              El médico te da el identificador de la orden en la que registras los resultados.
+            } @else {
+              Para abrir una orden concreta.
+            }
+          </p>
         </div>
         <form class="row" (ngSubmit)="open()" novalidate>
           <div class="field grow">
@@ -224,7 +240,13 @@ export class OrdersPage {
   ];
 
   constructor() {
-    void this.load();
+    // A role that cannot list orders (the lab technician) gets no listing at all, not even a note about it.
+    const session = inject(SessionState);
+    const canList = [PERMISSIONS.ordersCreate, PERMISSIONS.resultsReadWithAccess, PERMISSIONS.reviewsRecord].some(
+      (permission) => session.can(permission),
+    );
+    if (canList) void this.load();
+    else this.listing.set('denied');
   }
 
   protected dateOf(order: OrderSummary): string {
