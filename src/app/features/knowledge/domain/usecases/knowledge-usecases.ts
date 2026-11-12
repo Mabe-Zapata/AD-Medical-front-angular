@@ -1,6 +1,13 @@
 import { AppError } from '../../../../core/domain/app-error';
 import { isUuid } from '../../../../core/domain/dates';
-import { Analyte, NewAnalyte, NewReference, NewRule, ReferenceRange } from '../entities/knowledge';
+import {
+  Analyte,
+  Draft,
+  NewAnalyte,
+  NewReference,
+  NewRule,
+  ReferenceRange,
+} from '../entities/knowledge';
 import {
   normalizeCriterion,
   referenceProblems,
@@ -73,4 +80,45 @@ export class ValidateRule {
     if (!isUuid(ruleId)) throw new AppError('validation', 'rule id must be a UUID');
     return this.repository.validateRule(ruleId.trim());
   }
+}
+
+/** Every draft rule and reference range, for whoever validates or administers the knowledge. */
+export class ListDrafts {
+  constructor(private readonly repository: KnowledgeRepository) {}
+
+  async execute(): Promise<Draft[]> {
+    const [analytes, rules] = await Promise.all([
+      this.repository.listAnalytes(),
+      this.repository.listRuleDrafts(),
+    ]);
+    const perAnalyte = await Promise.all(
+      analytes.map(async (analyte) => ({
+        analyte,
+        drafts: await this.repository.listReferenceDrafts(analyte.id),
+      })),
+    );
+    return [
+      ...rules.map((r): Draft => ({
+        kind: 'rule',
+        id: r.id,
+        label: r.name ? `${r.code} v${r.version} · ${r.name}` : `${r.code} v${r.version}`,
+        state: 'BORRADOR',
+      })),
+      ...perAnalyte.flatMap(({ analyte, drafts }) =>
+        drafts.map((d): Draft => ({
+          kind: 'reference',
+          id: d.id,
+          label: `${analyte.name} v${d.version} · ${rangeLabel(d.min, d.max, d.unit)}`,
+          state: 'BORRADOR',
+        })),
+      ),
+    ];
+  }
+}
+
+function rangeLabel(min: number | null, max: number | null, unit: string): string {
+  if (min === null && max === null) return unit;
+  if (min === null) return `< ${max} ${unit}`;
+  if (max === null) return `> ${min} ${unit}`;
+  return `${min} – ${max} ${unit}`;
 }

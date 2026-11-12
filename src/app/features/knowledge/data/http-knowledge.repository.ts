@@ -9,7 +9,9 @@ import {
   NewAnalyte,
   NewReference,
   NewRule,
+  ReferenceDraft,
   ReferenceRange,
+  RuleDraft,
 } from '../domain/entities/knowledge';
 import { KnowledgeRepository } from '../domain/ports/knowledge.repository';
 
@@ -34,6 +36,22 @@ interface ReferenceDto {
   contexto: string | null;
   fecha_inicio: string;
   fecha_fin: string | null;
+}
+
+interface RuleRowDto {
+  id: string;
+  codigo: string;
+  version: number;
+  nombre?: string | null;
+}
+
+interface ReferenceRowDto {
+  id: string;
+  analito_id: string;
+  version: number;
+  unidad: string;
+  minimo: number | null;
+  maximo: number | null;
 }
 
 interface IdDto {
@@ -140,6 +158,36 @@ export class HttpKnowledgeRepository extends KnowledgeRepository {
 
   async validateRule(ruleId: string): Promise<void> {
     await this.call(this.http.post(`${this.base}/rules/${ruleId}/validate`, null));
+  }
+
+  async listRuleDrafts(): Promise<RuleDraft[]> {
+    const response = await this.call(
+      this.http.get<{ items: RuleRowDto[] }>(`${this.base}/rules`, {
+        params: new HttpParams().set('estado', 'BORRADOR'),
+      }),
+    );
+    return response.items.map((r) => ({
+      id: r.id,
+      code: r.codigo,
+      version: r.version,
+      name: r.nombre ?? null,
+    }));
+  }
+
+  async listReferenceDrafts(analyteId: string): Promise<ReferenceDraft[]> {
+    const response = await this.call(
+      this.http.get<{ items: ReferenceRowDto[] }>(`${this.base}/references`, {
+        params: new HttpParams().set('estado', 'BORRADOR').set('analito_id', analyteId),
+      }),
+    );
+    return response.items.map((r) => ({
+      id: r.id,
+      analyteId: r.analito_id,
+      version: r.version,
+      unit: r.unidad,
+      min: r.minimo,
+      max: r.maximo,
+    }));
   }
 
   private async call<T>(request: Observable<T>): Promise<T> {

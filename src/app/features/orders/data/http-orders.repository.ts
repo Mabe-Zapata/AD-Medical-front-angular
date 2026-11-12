@@ -12,6 +12,7 @@ import {
   LabResult,
   NewOrder,
   NewResult,
+  OrderSummary,
   Proposal,
   UploadedReport,
 } from '../domain/entities/orders';
@@ -24,6 +25,13 @@ interface OrderDto {
   estado: string;
   observaciones: string | null;
   pruebas: { detalle_id: string; tipo_prueba_id: string; estado: string }[];
+}
+
+interface OrderSummaryDto {
+  id: string;
+  paciente_id: string;
+  estado: string;
+  fecha: string;
 }
 
 interface ResultDto {
@@ -84,6 +92,18 @@ export class HttpOrdersRepository extends OrdersRepository {
         }),
       ),
     );
+  }
+
+  async listOrders(): Promise<OrderSummary[]> {
+    const response = await this.call(
+      this.http.get<{ items: OrderSummaryDto[] }>(`${this.api}/lab/orders`),
+    );
+    return response.items.map((o) => ({
+      id: o.id,
+      patientId: o.paciente_id,
+      status: o.estado,
+      orderedAt: o.fecha,
+    }));
   }
 
   async getOrder(orderId: string): Promise<LabOrder> {

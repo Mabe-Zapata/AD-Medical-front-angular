@@ -6,6 +6,7 @@ import {
   LabResult,
   NewOrder,
   NewResult,
+  OrderSummary,
   Proposal,
   UploadedReport,
 } from '../entities/orders';
@@ -36,6 +37,14 @@ export class CreateOrder {
       testTypeIds: order.testTypeIds.map((id) => id.trim()),
       notes: order.notes?.trim() || null,
     });
+  }
+}
+
+export class ListOrders {
+  constructor(private readonly repository: OrdersRepository) {}
+
+  execute(): Promise<OrderSummary[]> {
+    return this.repository.listOrders();
   }
 }
 

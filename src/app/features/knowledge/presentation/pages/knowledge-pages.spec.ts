@@ -3,10 +3,11 @@ import { provideRouter } from '@angular/router';
 
 import { AppError } from '../../../../core/domain/app-error';
 import { SessionState } from '../../../auth/presentation/session.state';
-import { Analyte } from '../../domain/entities/knowledge';
+import { Analyte, Draft } from '../../domain/entities/knowledge';
 import {
   CreateAnalyte,
   ListAnalytes,
+  ListDrafts,
   ValidateReference,
   ValidateRule,
 } from '../../domain/usecases/knowledge-usecases';
@@ -78,6 +79,7 @@ describe('AnalytesPage', () => {
 describe('DraftsPage', () => {
   const validateReference = { execute: vi.fn() };
   const validateRule = { execute: vi.fn() };
+  const listDrafts = { execute: vi.fn() };
 
   function setup(...granted: string[]) {
     TestBed.configureTestingModule({
@@ -85,6 +87,7 @@ describe('DraftsPage', () => {
         permissions(...granted),
         { provide: ValidateReference, useValue: validateReference },
         { provide: ValidateRule, useValue: validateRule },
+        { provide: ListDrafts, useValue: listDrafts },
       ],
     });
     TestBed.inject(DraftsState).add({
@@ -101,6 +104,8 @@ describe('DraftsPage', () => {
   beforeEach(() => {
     validateReference.execute.mockReset();
     validateRule.execute.mockReset();
+    listDrafts.execute.mockReset();
+    listDrafts.execute.mockResolvedValue([]);
   });
 
   it('lets a doctor validate a draft', async () => {
@@ -132,5 +137,56 @@ describe('DraftsPage', () => {
 
     expect(el.textContent).toContain('se solapa con una referencia ya validada');
     expect(el.textContent).toContain('c-7');
+  });
+
+  it('lists the drafts of other people for a doctor, next to the ones from this session', async () => {
+    const listed: Draft[] = [
+      { kind: 'rule', id: 'x1', label: 'HB-BAJA v1 · Hemoglobina baja', state: 'BORRADOR' },
+    ];
+    listDrafts.execute.mockResolvedValue(listed);
+    const { fixture, el } = setup('conocimiento.validar');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(listDrafts.execute).toHaveBeenCalledOnce();
+    expect(el.textContent).toContain('HB-BAJA v1 · Hemoglobina baja');
+    expect(el.textContent).toContain('Hb · 12 – 16 g/dL');
+  });
+
+  it('does not ask for the listing of someone who cannot validate or administer', async () => {
+    const { fixture, el } = setup('conocimiento.leer');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(listDrafts.execute).not.toHaveBeenCalled();
+    expect(el.textContent).toContain('solo los borradores que creaste en esta sesión');
+  });
+
+  it('says so when the listing fails, and keeps the session drafts', async () => {
+    listDrafts.execute.mockRejectedValue(new AppError('unavailable', 'down'));
+    const { fixture, el } = setup('conocimiento.validar');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(el.textContent).toContain('No pudimos cargar los borradores');
+    expect(el.textContent).toContain('Hb · 12 – 16 g/dL');
+  });
+
+  it('marks a listed draft as validated once the doctor validates it', async () => {
+    listDrafts.execute.mockResolvedValue([
+      { kind: 'rule', id: 'x1', label: 'HB-BAJA v1', state: 'BORRADOR' } satisfies Draft,
+    ]);
+    validateRule.execute.mockResolvedValue(undefined);
+    const { fixture, el } = setup('conocimiento.validar');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const buttons = el.querySelectorAll<HTMLButtonElement>('tbody button');
+    buttons[0].click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(validateRule.execute).toHaveBeenCalledWith('x1');
+    expect(el.textContent).toContain('Regla validada');
   });
 });

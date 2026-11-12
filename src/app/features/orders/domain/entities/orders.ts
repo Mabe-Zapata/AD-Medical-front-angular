@@ -1,6 +1,15 @@
 // Mirrors the laboratory and clinical tables of the backend. Field names are English; the values
 // (SOLICITADA, ACEPTAR, ...) are the backend's own codes.
 
+/** One row of the order listing: it carries no tests and no results. */
+export interface OrderSummary {
+  readonly id: string;
+  readonly patientId: string;
+  readonly status: string;
+  /** ISO date-time the order was placed. */
+  readonly orderedAt: string;
+}
+
 export interface OrderTest {
   /** Identifies one test inside the order; results are entered against it. */
   readonly detailId: string;

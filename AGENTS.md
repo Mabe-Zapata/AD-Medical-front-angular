@@ -42,7 +42,9 @@ src/app/app.interceptor.ts  agrega el bearer y cierra sesión ante 401
 
 ### Brechas conocidas del backend
 
-- Sin listados (órdenes, citas, borradores de conocimiento), sin catálogo de pruebas ni de pacientes y `/me` mínimo: las órdenes se abren por su id y se crean pegando UUID.
+- Ya hay listados de órdenes (`GET /lab/orders`: el médico ve las que ordenó; el laboratorista recibe 403 y abre la orden por id), de cuentas (`GET /users`, módulo **Usuarios y roles**) y de borradores de conocimiento (`GET /knowledge/rules?estado=BORRADOR` y `GET /knowledge/references?estado=BORRADOR&analito_id=…`; los borradores de referencias exigen el analito, así que se piden analito por analito). Siguen sin existir un catálogo de pruebas ni de pacientes y `/me` es mínimo: las órdenes se crean pegando UUID.
+- `GET /appointments` (agenda del médico) existe, pero esta app todavía no la usa.
+- El listado de órdenes no trae prioridad ni pruebas, y ninguna ruta devuelve el id del PDF de una orden: no hay descarga de informes.
 - **El laboratorista no puede leer la orden** en la que registra resultados (`GET /lab/orders/{id}` devuelve 403: solo el médico dueño y el paciente). La pantalla lo trata como un modo distinto: pide el identificador de la prueba que le da el médico.
 - La orden pasa a `COMPLETADA` cuando todas sus pruebas tienen resultados, no al revisarla; la revisión médica se registra una vez y el estado no la refleja (un segundo intento da 409).
 - Un usuario con rol MEDICO creado por `POST /users` no tiene perfil profesional y no puede crear órdenes.

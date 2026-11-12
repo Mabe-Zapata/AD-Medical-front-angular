@@ -34,10 +34,10 @@ export const APP_MODULES: readonly AppModule[] = [
   },
   {
     title: 'Usuarios y roles',
-    description: 'Crear cuentas del personal y de pacientes.',
-    link: null,
+    description: 'Ver las cuentas y crear las del personal y de pacientes.',
+    link: '/usuarios',
     anyOf: [PERMISSIONS.usersAdmin],
-    pendingNote: 'Próximamente',
+    pendingNote: null,
   },
 ];
 

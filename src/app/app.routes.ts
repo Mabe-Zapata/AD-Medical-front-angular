@@ -56,6 +56,13 @@ export const routes: Routes = [
         ],
       },
       {
+        path: 'usuarios',
+        title: 'Usuarios y roles · Medilo',
+        canActivate: [permissionGuard(PERMISSIONS.usersAdmin)],
+        loadComponent: () =>
+          import('./features/users/presentation/pages/users.page').then((m) => m.UsersPage),
+      },
+      {
         path: 'conocimiento',
         title: 'Conocimiento clínico · Medilo',
         canActivate: [permissionGuard(PERMISSIONS.knowledgeRead)],

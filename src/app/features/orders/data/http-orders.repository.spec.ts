@@ -47,6 +47,17 @@ describe('HttpOrdersRepository', () => {
     });
   });
 
+  it('lists the orders with the backend fields and no tests or results', async () => {
+    const result = repository.listOrders();
+    http.expectOne('/api/v1/lab/orders').flush({
+      items: [{ id: ID, paciente_id: 'p1', estado: 'EN_PROCESO', fecha: '2026-11-10T16:30:59Z' }],
+    });
+
+    expect(await result).toEqual([
+      { id: ID, patientId: 'p1', status: 'EN_PROCESO', orderedAt: '2026-11-10T16:30:59Z' },
+    ]);
+  });
+
   it('sends the results with the backend names and without blanks', async () => {
     const result = repository.recordResults(ID, 'd1', [
       {
