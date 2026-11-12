@@ -3,6 +3,7 @@ import { isUuid } from '../../../../core/domain/dates';
 import {
   Analyte,
   Draft,
+  KnowledgeSummary,
   NewAnalyte,
   NewReference,
   NewRule,
@@ -113,6 +114,31 @@ export class ListDrafts {
         })),
       ),
     ];
+  }
+}
+
+/** The counts behind the administrator's summary: analytes, and validated against draft ranges and rules. */
+export class GetKnowledgeSummary {
+  constructor(private readonly repository: KnowledgeRepository) {}
+
+  async execute(): Promise<KnowledgeSummary> {
+    const [analytes, ruleDrafts, rulesValidated, referencesValidated] = await Promise.all([
+      this.repository.listAnalytes(),
+      this.repository.listRuleDrafts(),
+      this.repository.countValidatedRules(),
+      this.repository.countValidatedReferences(),
+    ]);
+    // The API only lists draft ranges one analyte at a time.
+    const perAnalyte = await Promise.all(
+      analytes.map((analyte) => this.repository.listReferenceDrafts(analyte.id)),
+    );
+    return {
+      analytes: analytes.length,
+      referencesValidated,
+      referencesDraft: perAnalyte.reduce((total, drafts) => total + drafts.length, 0),
+      rulesValidated,
+      rulesDraft: ruleDrafts.length,
+    };
   }
 }
 

@@ -107,3 +107,12 @@ export interface Draft {
   readonly label: string;
   readonly state: 'BORRADOR' | 'VALIDADA';
 }
+
+/** What is ready to use and what still waits for a doctor's validation, for the administrator's summary. */
+export interface KnowledgeSummary {
+  readonly analytes: number;
+  readonly referencesValidated: number;
+  readonly referencesDraft: number;
+  readonly rulesValidated: number;
+  readonly rulesDraft: number;
+}

@@ -190,6 +190,22 @@ export class HttpKnowledgeRepository extends KnowledgeRepository {
     }));
   }
 
+  /** `GET /knowledge/rules` without a state answers the validated rules only. */
+  async countValidatedRules(): Promise<number> {
+    const response = await this.call(this.http.get<{ items: unknown[] }>(`${this.base}/rules`));
+    return response.items.length;
+  }
+
+  /** Only drafts need the analyte; the validated ranges of every analyte come in one call. */
+  async countValidatedReferences(): Promise<number> {
+    const response = await this.call(
+      this.http.get<{ items: unknown[] }>(`${this.base}/references`, {
+        params: new HttpParams().set('estado', 'VALIDADA'),
+      }),
+    );
+    return response.items.length;
+  }
+
   private async call<T>(request: Observable<T>): Promise<T> {
     try {
       return await firstValueFrom(request);

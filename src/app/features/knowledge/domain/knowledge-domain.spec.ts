@@ -19,6 +19,7 @@ import {
   CreateAnalyte,
   CreateReferenceDraft,
   CreateRuleDraft,
+  GetKnowledgeSummary,
   ListAnalytes,
   ListDrafts,
   ValidateReference,
@@ -63,6 +64,14 @@ class FakeRepository extends KnowledgeRepository {
   }
   async listReferenceDrafts(analyteId: string): Promise<ReferenceDraft[]> {
     return this.referenceDrafts[analyteId] ?? [];
+  }
+  validatedRules = 0;
+  validatedReferences = 0;
+  async countValidatedRules(): Promise<number> {
+    return this.validatedRules;
+  }
+  async countValidatedReferences(): Promise<number> {
+    return this.validatedReferences;
   }
 }
 
@@ -238,5 +247,33 @@ describe('ListDrafts', () => {
 
   it('has nothing to show when there are no drafts', async () => {
     expect(await new ListDrafts(new FakeRepository()).execute()).toEqual([]);
+  });
+});
+
+describe('GetKnowledgeSummary', () => {
+  it('counts analytes and splits ranges and rules into validated and draft', async () => {
+    const repository = new FakeRepository();
+    repository.analytes = [
+      { id: 'a1', name: 'Hemoglobina', unit: 'g/dL', valueType: 'NUMERICO' },
+      { id: 'a2', name: 'Glucosa', unit: 'mg/dL', valueType: 'NUMERICO' },
+    ];
+    repository.ruleDrafts = [{ id: 'r1', code: 'HB-BAJA', version: 2, name: null }];
+    repository.referenceDrafts = {
+      a1: [{ id: 'f1', analyteId: 'a1', version: 1, unit: 'g/dL', min: 12, max: 16 }],
+      a2: [
+        { id: 'f2', analyteId: 'a2', version: 1, unit: 'mg/dL', min: null, max: 100 },
+        { id: 'f3', analyteId: 'a2', version: 2, unit: 'mg/dL', min: null, max: 110 },
+      ],
+    };
+    repository.validatedRules = 14;
+    repository.validatedReferences = 52;
+
+    expect(await new GetKnowledgeSummary(repository).execute()).toEqual({
+      analytes: 2,
+      referencesValidated: 52,
+      referencesDraft: 3,
+      rulesValidated: 14,
+      rulesDraft: 1,
+    });
   });
 });
