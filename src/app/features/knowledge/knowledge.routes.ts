@@ -27,6 +27,7 @@ export const knowledgeRoutes: Routes = [
       },
       {
         path: 'revision',
+        canActivate: [anyPermissionGuard(PERMISSIONS.knowledgeValidate, PERMISSIONS.knowledgeAdmin)],
         loadComponent: () => import('./presentation/pages/review.page').then((m) => m.ReviewPage),
       },
       {

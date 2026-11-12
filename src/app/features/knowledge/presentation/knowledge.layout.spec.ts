@@ -30,13 +30,16 @@ describe('KnowledgeLayout tabs', () => {
     expect(tabs(LAB)).not.toContain('Reglas');
   });
 
-  it('offers the drafts only to whoever can validate or administer', () => {
-    expect(tabs(DOCTOR)).toContain('Borradores');
-    expect(tabs(ADMIN)).toContain('Borradores');
+  it('offers the review and the drafts only to whoever can validate or administer', () => {
+    for (const role of [DOCTOR, ADMIN]) {
+      expect(tabs(role)).toContain('Revisión');
+      expect(tabs(role)).toContain('Borradores');
+    }
+    expect(tabs(LAB)).not.toContain('Revisión');
     expect(tabs(LAB)).not.toContain('Borradores');
   });
 
-  it('always offers the analytes and the review', () => {
-    expect(tabs(LAB)).toEqual(['Analitos', 'Revisión']);
+  it('leaves a read-only role (the lab technician) with just the analytes', () => {
+    expect(tabs(LAB)).toEqual(['Analitos']);
   });
 });

@@ -17,8 +17,12 @@ import { DraftsState } from './drafts.state';
         <div class="eyebrow">Medilo · Conocimiento clínico</div>
         <h1>Conocimiento clínico</h1>
         <p class="muted">
-          Analitos, rangos de referencia y reglas que usa el motor de propuestas preliminares. Nunca
-          emite un diagnóstico.
+          @if (canSeeRules) {
+            Analitos, rangos de referencia y reglas que usa el motor de propuestas preliminares. Nunca
+            emite un diagnóstico.
+          } @else {
+            Los analitos y sus rangos de referencia validados.
+          }
         </p>
       </div>
       <nav class="tabs" aria-label="Secciones del conocimiento clínico">
@@ -26,8 +30,8 @@ import { DraftsState } from './drafts.state';
         @if (canSeeRules) {
           <a routerLink="reglas" routerLinkActive="active">Reglas</a>
         }
-        <a routerLink="revision" routerLinkActive="active">Revisión</a>
         @if (canSeeDrafts) {
+          <a routerLink="revision" routerLinkActive="active">Revisión</a>
           <a routerLink="borradores" routerLinkActive="active">
             Borradores
             @if (drafts.drafts().length > 0) {
@@ -88,7 +92,7 @@ import { DraftsState } from './drafts.state';
 export class KnowledgeLayout {
   protected readonly drafts = inject(DraftsState);
   private readonly session = inject(SessionState);
-  /** Only what the role can use is offered: rules belong to the administrator, drafts to who validates. */
+  /** Only what the role can use is offered: rules belong to the administrator, review and drafts to who validates. */
   protected readonly canSeeRules = this.session.can(PERMISSIONS.knowledgeAdmin);
   protected readonly canSeeDrafts =
     this.session.can(PERMISSIONS.knowledgeValidate) || this.session.can(PERMISSIONS.knowledgeAdmin);
