@@ -49,6 +49,8 @@ export const appProviders: Provider[] = [
     useFactory: (): AppSettings => ({
       apiBaseUrl: '/api/v1',
       defaultSourceId: isDevMode() ? SEED_SOURCE_ID : null,
+      // In development the Flutter portal is served on 4300; in production set the real address here.
+      patientPortalUrl: isDevMode() ? 'http://localhost:4300' : null,
     }),
   },
 

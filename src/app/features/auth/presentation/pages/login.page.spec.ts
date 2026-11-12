@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 
+import { APP_SETTINGS } from '../../../../core/config/app-settings';
 import { AppError } from '../../../../core/domain/app-error';
 import { SessionState } from '../session.state';
 import { LoginPage, safeRedirect } from './login.page';
@@ -81,6 +82,36 @@ describe('LoginPage', () => {
     expect(el.textContent).toContain('Ese correo y esa contraseña no coinciden.');
     expect(el.textContent).not.toContain('corr-123');
     expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('lets people see the password they typed, and hide it again', () => {
+    const { fixture, el } = setup();
+    const input = el.querySelector<HTMLInputElement>('#password')!;
+    const eye = () => el.querySelector<HTMLButtonElement>('button.eye')!;
+
+    expect(input.type).toBe('password');
+    expect(eye().getAttribute('aria-label')).toBe('Mostrar contraseña');
+
+    eye().click();
+    fixture.detectChanges();
+
+    expect(input.type).toBe('text');
+    expect(eye().getAttribute('aria-label')).toBe('Ocultar contraseña');
+  });
+
+  it('links to the patient portal when its address is known', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        { provide: SessionState, useValue: { signIn } },
+        { provide: APP_SETTINGS, useValue: { apiBaseUrl: '/api/v1', defaultSourceId: null, patientPortalUrl: 'https://portal.test' } },
+      ],
+    });
+    const fixture = TestBed.createComponent(LoginPage);
+    fixture.detectChanges();
+
+    const link = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('a.patient')!;
+    expect(link.getAttribute('href')).toBe('https://portal.test');
   });
 
   it('tells a patient to use the patient portal', async () => {
