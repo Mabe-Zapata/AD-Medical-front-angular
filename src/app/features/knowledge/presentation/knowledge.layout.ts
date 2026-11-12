@@ -41,38 +41,40 @@ import { DraftsState } from './drafts.state';
       font-weight: 700;
     }
     h1 {
-      margin-top: 2px;
-      font-size: 32px;
+      margin-top: 6px;
     }
+    /* Section tabs: the same pills as the main navigation, on a white rail. */
     .tabs {
+      align-self: flex-start;
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 6px;
+      padding: 6px;
+      border-radius: 999px;
+      background: rgb(255 255 255 / 80%);
+      box-shadow: 0 10px 24px rgb(18 55 111 / 8%);
     }
     .tabs a {
       padding: 9px 18px;
       border-radius: 999px;
-      border: 1px solid var(--blue-soft);
-      background: var(--surface);
       font-weight: 700;
       font-size: 14px;
-      color: var(--blue-text);
+      color: #334155;
       text-decoration: none;
     }
     .tabs a:hover {
-      border-color: var(--orange);
+      color: var(--orange);
     }
     .tabs a.active {
       background: var(--blue-deep);
-      border-color: var(--blue-deep);
       color: #fff;
     }
     .count {
       margin-left: 6px;
-      padding: 1px 7px;
+      padding: 1px 8px;
       border-radius: 999px;
-      background: var(--orange-tint);
-      color: var(--orange-deep);
+      background: var(--orange);
+      color: #fff;
       font-size: 11px;
     }
   `,

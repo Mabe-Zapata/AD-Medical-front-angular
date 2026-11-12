@@ -16,6 +16,7 @@ Ambos deben verse y comportarse como un solo producto.
 ## Diseño y experiencia (heurísticas de Nielsen)
 
 - Paleta: naranja de marca + **azul** (`--blue`, `--blue-deep`, `--blue-text`, `--blue-soft`, `--blue-tint`; mismos valores que Flutter). Azul para información, encabezados de tabla y acciones secundarias (`.btn--dark`); naranja para la acción principal.
+- **Una sola página, como el portal**: el marco (`shell/staff-shell.ts`) pone el fondo continuo de cálido a frío con los círculos naranjas y azules; el contenido va en "islas" blancas redondeadas (`.card`, sombra `--shadow-island`), los títulos de sección llevan la línea (`.eyebrow`, `.section-label`) y el modal compartido (`organisms/modal.ts`) cierra el panel naranja con una franja azul. Los botones secundarios son azules (`.btn`), el naranja queda para la acción principal (`.btn--primary`) y el foco de campos y enlaces es azul.
 - **Toda tabla pagina**: `PageState` + `<app-paginator>`, por defecto **5** filas (5, 10 o 20). No pegues una tabla sin paginador.
 - **Mensajes**: amigables y accionables; `ErrorView` ya no lleva códigos de soporte y no se muestran ids técnicos. Un listado que falla ofrece "Reintentar"; un estado vacío dice qué hacer después.
 

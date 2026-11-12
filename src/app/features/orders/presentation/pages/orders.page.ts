@@ -24,6 +24,12 @@ import { PageState } from '../../../../shared/presentation/pagination';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="stack">
+      <a routerLink="/inicio" class="small back">← Volver al resumen</a>
+      <header class="stack head">
+        <div class="eyebrow">Medilo · Órdenes y resultados</div>
+        <h1>Órdenes y resultados</h1>
+        <p class="muted">Registrar resultados, subir informes PDF y revisar propuestas.</p>
+      </header>
       <section class="card stack">
         <div>
           <h2>Mis órdenes</h2>
