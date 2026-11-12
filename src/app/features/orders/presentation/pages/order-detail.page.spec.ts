@@ -157,6 +157,18 @@ function type(el: HTMLElement, selector: string, value: string, event = 'input')
   field.dispatchEvent(new Event(event));
 }
 
+/** Every form lives in a modal: it only exists after pressing its button. */
+async function openModal(
+  fixture: { whenStable(): Promise<unknown>; detectChanges(): void },
+  el: HTMLElement,
+  label: string,
+) {
+  [...el.querySelectorAll('button')].find((b) => b.textContent?.includes(label))!.click();
+  fixture.detectChanges();
+  await fixture.whenStable();
+  fixture.detectChanges();
+}
+
 describe('OrderDetailPage', () => {
   it('shows the doctor the order and offers the proposal and the review, not the results form', async () => {
     const { fixture, el } = setup({}, ...DOCTOR);
@@ -206,6 +218,7 @@ describe('OrderDetailPage', () => {
     const { fixture, el, state } = setup({ proposal }, ...DOCTOR);
     await settle(fixture);
 
+    await openModal(fixture, el, 'Registrar decisión');
     // Options come in the order ACEPTAR, CORREGIR, RECHAZAR; the radio value lives in Angular, not the DOM.
     el.querySelectorAll<HTMLInputElement>('input[type=radio]')[2].click();
     fixture.detectChanges();
@@ -226,6 +239,8 @@ describe('OrderDetailPage', () => {
     const { fixture, el, state } = setup({ order: completedOrder }, ...DOCTOR);
     await settle(fixture);
 
+    expect(el.querySelector('app-review-form')).toBeNull();
+    await openModal(fixture, el, 'Registrar revisión');
     expect(el.querySelector('app-review-form')).not.toBeNull();
     type(el, '#review-conclusion', 'Resultados coherentes con la clínica.');
     type(el, '#review-recommendations', 'Repetir en 3 meses.');
@@ -250,6 +265,7 @@ describe('OrderDetailPage', () => {
     );
     await settle(fixture);
 
+    await openModal(fixture, el, 'Registrar revisión');
     type(el, '#review-conclusion', 'Otra conclusión.');
     el.querySelector<HTMLButtonElement>('app-review-form button[type=submit]')!.click();
     await settle(fixture);
@@ -268,6 +284,7 @@ describe('OrderDetailPage', () => {
     expect(el.textContent).not.toContain('Propuesta clínica');
     expect(el.textContent).not.toContain('Revisión médica');
 
+    await openModal(fixture, el, 'Registrar resultados');
     type(el, '#result-test', DETAIL_ID, 'change');
     type(el, '#analyte-0', ANALYTE_ID, 'change');
     type(el, '#value-0', '13,5');
@@ -295,6 +312,7 @@ describe('OrderDetailPage', () => {
 
     expect(el.textContent).toContain('solo lo ve el médico que la creó');
     expect(el.textContent).not.toContain('No encontramos esa orden');
+    await openModal(fixture, el, 'Registrar resultados');
     expect(el.querySelector('#result-test')?.tagName).toBe('INPUT');
     expect(el.textContent).toContain('Registrar resultados');
   });

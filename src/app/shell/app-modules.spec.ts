@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
 import { SessionState } from '../features/auth/presentation/session.state';
+import { ListUsers } from '../features/users/domain/usecases/users-usecases';
 import { visibleModules } from './app-modules';
 import { StaffShell } from './staff-shell';
 
@@ -37,37 +38,56 @@ describe('visibleModules', () => {
   });
 });
 
-describe('StaffShell navigation', () => {
-  function render(permissions: string[]): HTMLElement {
+describe('StaffShell', () => {
+  const signedOut: string[] = [];
+
+  function render(permissions: string[], users: unknown[] = []) {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
+        { provide: ListUsers, useValue: { execute: async () => users } },
         {
           provide: SessionState,
           useValue: {
-            user: () => ({ roles: [] }),
+            user: () => ({ id: 'u1', email: 'admin1@synthetic.test', roles: ['ADMINISTRADOR'] }),
             isSignedIn: () => true,
             endReason: () => null,
             can: (p: string) => permissions.includes(p),
+            signOut: (reason: string) => signedOut.push(reason),
           },
         },
       ],
     });
     const fixture = TestBed.createComponent(StaffShell);
     fixture.detectChanges();
-    return fixture.nativeElement as HTMLElement;
+    return { fixture, el: fixture.nativeElement as HTMLElement };
   }
 
-  it('does not list areas that belong to another role', () => {
-    const nav = render(DOCTOR).querySelector('nav')!.textContent;
+  it('has no navigation bar: only the logo and the account avatar', () => {
+    const { el } = render(DOCTOR);
 
-    expect(nav).toContain('Inicio');
-    expect(nav).toContain('Conocimiento clínico');
-    expect(nav).toContain('Órdenes y resultados');
-    expect(nav).not.toContain('Usuarios y roles');
+    expect(el.querySelector('nav')).toBeNull();
+    expect(el.querySelector('.avatar')!.textContent!.trim()).toBe('AD');
   });
 
-  it('lists the user administration for an administrator', () => {
-    expect(render(ADMIN).querySelector('nav')!.textContent).toContain('Usuarios y roles');
+  it('keeps sign-out inside the avatar menu', () => {
+    const { fixture, el } = render(DOCTOR);
+    expect(el.textContent).not.toContain('Cerrar sesión');
+
+    el.querySelector<HTMLButtonElement>('.avatar')!.click();
+    fixture.detectChanges();
+    [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Cerrar sesión'))!.click();
+
+    expect(signedOut).toEqual(['cerrada']);
+  });
+
+  it('uses the initials of the real name when an administrator can read the accounts', async () => {
+    const { fixture, el } = render(ADMIN, [
+      { id: 'u1', email: 'admin1@synthetic.test', firstName: 'Administrador', lastName: 'Sintético' },
+    ]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(el.querySelector('.avatar')!.textContent!.trim()).toBe('AS');
   });
 });

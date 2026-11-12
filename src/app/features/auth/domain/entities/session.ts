@@ -1,5 +1,7 @@
 export interface UserProfile {
   readonly id: string;
+  /** Typed at sign-in: `/me` does not return it. Absent in sessions saved before it was kept. */
+  readonly email?: string;
   readonly roles: readonly string[];
   readonly permissions: readonly string[];
 }

@@ -8,6 +8,7 @@ import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
 import { ChipComponent } from '../../../../shared/presentation/atoms/chip';
 import { ErrorView, describeError } from '../../../../shared/presentation/error-message';
 import { formatDate } from '../../../../shared/presentation/format';
+import { ModalComponent } from '../../../../shared/presentation/organisms/modal';
 import { PERMISSIONS } from '../../../auth/domain/policies/staff-access';
 import { SessionState } from '../../../auth/presentation/session.state';
 import { PRIORITIES, OrderSummary, Priority } from '../../domain/entities/orders';
@@ -19,7 +20,7 @@ import { PageState } from '../../../../shared/presentation/pagination';
 /** Container: lists the orders the person may read, opens one by its id, or (for ordering doctors) creates one. */
 @Component({
   selector: 'app-orders-page',
-  imports: [FormsModule, RouterLink, BannerComponent, ChipComponent, PaginatorComponent],
+  imports: [FormsModule, RouterLink, BannerComponent, ChipComponent, ModalComponent, PaginatorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="stack">
@@ -99,13 +100,22 @@ import { PageState } from '../../../../shared/presentation/pagination';
 
       @if (canCreate) {
         <section class="card stack">
-          <div>
-            <h2>Crear una orden</h2>
-            <p class="muted small">
-              Solo el médico que ordena. Usa los identificadores (UUID) del paciente y de las
-              pruebas; el sistema todavía no ofrece un catálogo para elegirlos por nombre.
-            </p>
+          <div class="row spread">
+            <div>
+              <h2>Crear una orden</h2>
+              <p class="muted small">Solo el médico que ordena.</p>
+            </div>
+            <button class="btn btn--primary" type="button" (click)="openForm()">Nueva orden</button>
           </div>
+        </section>
+
+        @if (creating()) {
+          <app-modal
+            tag="Nueva orden"
+            headline="Crea una orden de laboratorio"
+            [bullets]="bullets"
+            (closed)="creating.set(false)"
+          >
           @if (error(); as e) {
             <app-banner tone="danger">
               {{ e.message }}
@@ -171,7 +181,8 @@ import { PageState } from '../../../../shared/presentation/pagination';
               </button>
             </div>
           </form>
-        </section>
+          </app-modal>
+        }
       }
     </div>
   `,
@@ -206,6 +217,11 @@ export class OrdersPage {
   protected readonly notes = signal('');
   protected readonly saving = signal(false);
   protected readonly error = signal<ErrorView | null>(null);
+  protected readonly creating = signal(false);
+  protected readonly bullets = [
+    'Usa los identificadores (UUID) del paciente y de las pruebas.',
+    'El sistema todavía no ofrece un catálogo para elegirlos por nombre.',
+  ];
 
   constructor() {
     void this.load();
@@ -228,6 +244,11 @@ export class OrdersPage {
       // 403: this role does not read orders (the lab technician), which is not a failure.
       this.listing.set(error instanceof AppError && error.kind === 'forbidden' ? 'denied' : 'failed');
     }
+  }
+
+  protected openForm(): void {
+    this.error.set(null);
+    this.creating.set(true);
   }
 
   protected async open(): Promise<void> {

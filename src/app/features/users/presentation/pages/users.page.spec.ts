@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 
 import { AppError } from '../../../../core/domain/app-error';
 import { NewUser, UserSummary } from '../../domain/entities/users';
@@ -29,6 +30,7 @@ function setup(stubs: Partial<Stubs> = {}) {
   const state: Stubs = { users: [existing], listFails: false, createFails: null, created: [], ...stubs };
   TestBed.configureTestingModule({
     providers: [
+      provideRouter([]),
       {
         provide: ListUsers,
         useValue: {
@@ -66,6 +68,15 @@ function type(el: HTMLElement, id: string, value: string) {
   input.dispatchEvent(new Event('input'));
 }
 
+/** The form lives in a modal: it only exists after pressing "Nueva cuenta". */
+async function openForm(fixture: { whenStable(): Promise<unknown>; detectChanges(): void }, el: HTMLElement) {
+  [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Nueva cuenta'))!.click();
+  fixture.detectChanges();
+  // NgModel wires its controls in a microtask: wait until the freshly rendered form listens.
+  await fixture.whenStable();
+  fixture.detectChanges();
+}
+
 function fill(el: HTMLElement, over: { email?: string } = {}) {
   type(el, 'first-name', 'Luis');
   type(el, 'last-name', 'Mora');
@@ -95,6 +106,7 @@ describe('UsersPage', () => {
   it('flags what is missing before calling the backend', async () => {
     const { fixture, el, state } = setup();
     await settle(fixture);
+    await openForm(fixture, el);
 
     el.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
     await settle(fixture);
@@ -109,6 +121,7 @@ describe('UsersPage', () => {
   it('creates an account, clears the form and never keeps the password', async () => {
     const { fixture, el, state } = setup();
     await settle(fixture);
+    await openForm(fixture, el);
     fill(el);
     // A person types over several change-detection runs; here the typing is instant.
     fixture.detectChanges();
@@ -119,12 +132,16 @@ describe('UsersPage', () => {
     expect(state.created).toHaveLength(1);
     expect(state.created[0]).toMatchObject({ email: 'luis@lab.test', firstName: 'Luis', roles: ['MEDICO'] });
     expect(el.textContent).toContain('Cuenta creada para luis@lab.test');
+    // The modal closes on success; reopening it shows a clean form.
+    expect(el.querySelector('#password')).toBeNull();
+    await openForm(fixture, el);
     expect(el.querySelector<HTMLInputElement>('#password')!.value).toBe('');
   });
 
   it('explains a duplicated email in Spanish', async () => {
     const { fixture, el } = setup({ createFails: new AppError('conflict', 'dup', 'c-3') });
     await settle(fixture);
+    await openForm(fixture, el);
     fill(el, { email: 'ana@lab.test' });
 
     el.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();

@@ -1,120 +1,132 @@
-import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
+import { Router, RouterLink, RouterOutlet } from '@angular/router';
 
-import { ROLE_LABELS } from '../features/auth/domain/policies/staff-access';
+import { PERMISSIONS, ROLE_LABELS } from '../features/auth/domain/policies/staff-access';
 import { SessionState } from '../features/auth/presentation/session.state';
+import { ListUsers } from '../features/users/domain/usecases/users-usecases';
 import { ChipComponent } from '../shared/presentation/atoms/chip';
 import { LogoComponent } from '../shared/presentation/atoms/logo';
-import { visibleModules } from './app-modules';
+import { initialsOf } from '../shared/presentation/format';
 
-/** Frame of every signed-in page: navigation, who is signed in and the sign-out button. */
+/**
+ * Frame of every signed-in page. There is no navigation bar: the home page offers the modules, the
+ * logo goes back to it, and the account (initials avatar) holds who you are and the sign-out button.
+ */
 @Component({
   selector: 'app-staff-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, ChipComponent, LogoComponent],
+  imports: [RouterOutlet, RouterLink, ChipComponent, LogoComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    '(document:click)': 'closeOnOutsideClick($event)',
+    '(document:keydown.escape)': 'open.set(false)',
+  },
   template: `
-    <div class="layout">
-      <aside class="side">
-        <app-logo />
-        <nav aria-label="Navegación principal" class="nav">
-          <a routerLink="/inicio" routerLinkActive="active">Inicio</a>
-          @for (module of modules(); track module.title) {
-            @if (module.link) {
-              <a [routerLink]="module.link" routerLinkActive="active">{{ module.title }}</a>
-            } @else {
-              <span class="soon" [title]="module.pendingNote ?? ''">{{ module.title }}</span>
-            }
+    <div class="page">
+      <header class="top">
+        <a routerLink="/inicio" class="brand" aria-label="Ir al inicio"><app-logo /></a>
+        <div class="account" #account>
+          <button
+            class="avatar"
+            type="button"
+            aria-haspopup="menu"
+            aria-label="Cuenta de usuario"
+            [attr.aria-expanded]="open()"
+            (click)="open.set(!open())"
+          >
+            {{ initials() }}
+          </button>
+          @if (open()) {
+            <div class="menu" role="menu">
+              <div class="who">
+                <strong>{{ name() }}</strong>
+                @if (email(); as mail) {
+                  <span class="muted small">{{ mail }}</span>
+                }
+              </div>
+              <div class="row">
+                @for (role of roles(); track role) {
+                  <app-chip>{{ roleLabel(role) }}</app-chip>
+                }
+              </div>
+              <button class="btn btn--small" type="button" role="menuitem" (click)="signOut()">
+                Cerrar sesión
+              </button>
+            </div>
           }
-        </nav>
-      </aside>
-
-      <div class="main">
-        <header class="top">
-          <div class="row">
-            @for (role of roles(); track role) {
-              <app-chip>{{ roleLabel(role) }}</app-chip>
-            }
-          </div>
-          <button class="btn btn--small" type="button" (click)="signOut()">Cerrar sesión</button>
-        </header>
-        <main class="content">
-          <router-outlet />
-        </main>
-      </div>
+        </div>
+      </header>
+      <main class="content">
+        <router-outlet />
+      </main>
     </div>
   `,
   styles: `
-    .layout {
-      min-height: 100vh;
-      display: grid;
-      grid-template-columns: 250px 1fr;
-    }
-    .side {
-      background: var(--surface);
-      border-right: 1px solid var(--line);
-      padding: 22px 16px;
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 32px 48px;
       display: flex;
       flex-direction: column;
-      gap: 26px;
-    }
-    .nav {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .nav a,
-    .nav .soon {
-      padding: 10px 14px;
-      border-radius: var(--radius-md);
-      font-weight: 600;
-      color: var(--text);
-      text-decoration: none;
-    }
-    .nav a:hover {
-      background: var(--orange-tint);
-    }
-    .nav a.active {
-      background: var(--orange-tint);
-      color: var(--orange-deep);
-    }
-    .nav .soon {
-      color: var(--muted);
-      cursor: not-allowed;
-      opacity: 0.7;
-    }
-    .main {
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
+      gap: 24px;
     }
     .top {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 14px 28px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--line);
     }
-    .content {
-      padding: 28px;
-      max-width: 1100px;
-      width: 100%;
+    .brand {
+      text-decoration: none;
+    }
+    .account {
+      position: relative;
+    }
+    .avatar {
+      width: 44px;
+      height: 44px;
+      border: 0;
+      border-radius: 50%;
+      background: var(--gradient);
+      color: #fff;
+      font: inherit;
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      box-shadow: 0 6px 14px rgb(194 65 12 / 28%);
+    }
+    .menu {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 10px);
+      z-index: 20;
+      min-width: 260px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 16px;
+      background: var(--surface);
+      border: 1px solid var(--blue-soft);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+    }
+    .who {
+      display: flex;
+      flex-direction: column;
+      color: var(--ink);
     }
     @media (max-width: 860px) {
-      .layout {
-        grid-template-columns: 1fr;
-      }
-      .side {
-        border-right: 0;
-        border-bottom: 1px solid var(--line);
-        gap: 12px;
-      }
-      .nav {
-        flex-direction: row;
-        flex-wrap: wrap;
-      }
-      .content {
-        padding: 18px;
+      .page {
+        padding: 16px 16px 32px;
       }
     }
   `,
@@ -122,10 +134,17 @@ import { visibleModules } from './app-modules';
 export class StaffShell {
   private readonly session = inject(SessionState);
   private readonly router = inject(Router);
+  private readonly account = viewChild<ElementRef<HTMLElement>>('account');
+
+  protected readonly open = signal(false);
+  /** `/me` carries no name, so an administrator's own account is looked up in the accounts list. */
+  private readonly fullName = signal<string | null>(null);
 
   protected readonly roles = () => this.session.user()?.roles ?? [];
   protected readonly roleLabel = (role: string) => ROLE_LABELS[role] ?? role;
-  protected readonly modules = () => visibleModules((permission) => this.session.can(permission));
+  protected readonly email = () => this.session.user()?.email ?? null;
+  protected readonly name = computed(() => this.fullName() ?? this.email() ?? 'Tu cuenta');
+  protected readonly initials = computed(() => initialsOf(this.name()));
 
   constructor() {
     // Any way the session ends (button, expiry, a 401 from the API) lands on the login page.
@@ -134,6 +153,21 @@ export class StaffShell {
       const expired = this.session.endReason() === 'expirada';
       void this.router.navigate(['/login'], { queryParams: expired ? { motivo: 'expirada' } : {} });
     });
+
+    const id = this.session.user()?.id;
+    if (id && this.session.can(PERMISSIONS.usersAdmin)) {
+      inject(ListUsers)
+        .execute()
+        .then((users) => {
+          const me = users.find((user) => user.id === id);
+          if (me) this.fullName.set(`${me.firstName} ${me.lastName}`.trim());
+        })
+        .catch(() => undefined);
+    }
+  }
+
+  protected closeOnOutsideClick(event: Event): void {
+    if (!this.account()?.nativeElement.contains(event.target as Node)) this.open.set(false);
   }
 
   protected signOut(): void {

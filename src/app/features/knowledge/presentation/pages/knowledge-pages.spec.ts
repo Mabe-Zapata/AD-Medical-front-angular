@@ -60,6 +60,10 @@ describe('AnalytesPage', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
+    expect(el.querySelector('app-analyte-form')).toBeNull();
+    [...el.querySelectorAll('button')].find((b) => b.textContent?.includes('Nuevo analito'))!.click();
+    fixture.detectChanges();
+
     const name = el.querySelector<HTMLInputElement>('#analyte-name')!;
     name.value = 'Creatinina';
     name.dispatchEvent(new Event('input'));
@@ -73,6 +77,7 @@ describe('AnalytesPage', () => {
       valueType: 'NUMERICO',
     });
     expect(el.textContent).toContain('Analito «Creatinina» creado.');
+    expect(el.querySelector('app-analyte-form')).toBeNull();
   });
 });
 

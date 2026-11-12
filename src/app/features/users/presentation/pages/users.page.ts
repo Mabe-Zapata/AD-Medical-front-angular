@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
 import { ChipComponent } from '../../../../shared/presentation/atoms/chip';
@@ -8,24 +9,35 @@ import { ROLE_LABELS } from '../../../auth/domain/policies/staff-access';
 import { ASSIGNABLE_ROLES, UserSummary } from '../../domain/entities/users';
 import { MIN_PASSWORD_LENGTH, userProblems } from '../../domain/policies/user-policies';
 import { CreateUser, ListUsers } from '../../domain/usecases/users-usecases';
+import { ModalComponent } from '../../../../shared/presentation/organisms/modal';
 import { PaginatorComponent } from '../../../../shared/presentation/molecules/paginator';
 import { PageState } from '../../../../shared/presentation/pagination';
 
 /** Container: lists the accounts and lets an administrator create one. */
 @Component({
   selector: 'app-users-page',
-  imports: [FormsModule, BannerComponent, ChipComponent, PaginatorComponent],
+  imports: [FormsModule, RouterLink, BannerComponent, ChipComponent, ModalComponent, PaginatorComponent],
+  styles: `
+    .back {
+      font-weight: 700;
+    }
+  `,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="stack">
+      <a routerLink="/inicio" class="small back">← Volver al resumen</a>
+
       @if (notice(); as text) {
         <app-banner tone="success">{{ text }}</app-banner>
       }
 
       <section class="card stack">
-        <div>
-          <h2>Cuentas</h2>
-          <p class="muted small">Ordenadas por correo. Nunca se muestran contraseñas.</p>
+        <div class="row spread">
+          <div>
+            <h2>Cuentas</h2>
+            <p class="muted small">Ordenadas por correo. Nunca se muestran contraseñas.</p>
+          </div>
+          <button class="btn btn--primary" type="button" (click)="openForm()">Nueva cuenta</button>
         </div>
         @if (listing() === 'loading') {
           <p class="muted"><span class="spinner" aria-hidden="true"></span> Cargando…</p>
@@ -69,14 +81,13 @@ import { PageState } from '../../../../shared/presentation/pagination';
         }
       </section>
 
-      <section class="card stack">
-        <div>
-          <h2>Crear una cuenta</h2>
-          <p class="muted small">
-            Una cuenta de médico creada aquí no tiene perfil profesional y no podrá crear órdenes
-            hasta que el backend lo permita.
-          </p>
-        </div>
+      @if (creating()) {
+        <app-modal
+          tag="Nueva cuenta"
+          headline="Crea una cuenta del personal"
+          [bullets]="bullets"
+          (closed)="creating.set(false)"
+        >
         @if (error(); as e) {
           <app-banner tone="danger">
             {{ e.message }}
@@ -139,7 +150,8 @@ import { PageState } from '../../../../shared/presentation/pagination';
             </button>
           </div>
         </form>
-      </section>
+        </app-modal>
+      }
     </div>
   `,
 })
@@ -163,6 +175,11 @@ export class UsersPage {
   protected readonly saving = signal(false);
   protected readonly notice = signal<string | null>(null);
   protected readonly error = signal<ErrorView | null>(null);
+  protected readonly creating = signal(false);
+  protected readonly bullets = [
+    'Una cuenta de médico creada aquí no tiene perfil profesional y no podrá crear órdenes hasta que el backend lo permita.',
+    'Las contraseñas nunca se muestran después de crearlas.',
+  ];
 
   constructor() {
     void this.load();
@@ -182,6 +199,12 @@ export class UsersPage {
     this.roles.update((list) => (list.includes(role) ? list.filter((r) => r !== role) : [...list, role]));
   }
 
+  protected openForm(): void {
+    this.error.set(null);
+    this.notice.set(null);
+    this.creating.set(true);
+  }
+
   protected async create(): Promise<void> {
     this.submitted.set(true);
     this.notice.set(null);
@@ -197,6 +220,7 @@ export class UsersPage {
       this.lastName.set('');
       this.roles.set([]);
       this.submitted.set(false);
+      this.creating.set(false);
       await this.load();
     } catch (error) {
       this.error.set(
