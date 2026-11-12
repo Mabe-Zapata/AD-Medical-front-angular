@@ -199,7 +199,7 @@ describe('OrderDetailPage', () => {
     await settle(fixture);
 
     expect(el.textContent).toContain('todavía no tiene todos sus resultados');
-    expect(el.textContent).toContain('c-1');
+    expect(el.textContent).not.toContain('c-1');
   });
 
   it('refuses to reject a proposal without a reason and sends it with one', async () => {
@@ -256,7 +256,7 @@ describe('OrderDetailPage', () => {
 
     expect(el.querySelector('app-review-form')).toBeNull();
     expect(el.textContent).toContain('Esta orden ya fue revisada');
-    expect(el.textContent).toContain('c-3');
+    expect(el.textContent).not.toContain('c-3');
   });
 
   it('lets the laboratory enter results and hides the proposal', async () => {
@@ -307,7 +307,7 @@ describe('OrderDetailPage', () => {
     await settle(fixture);
 
     expect(el.textContent).toContain('No encontramos esa orden, o no tienes acceso a ella.');
-    expect(el.textContent).toContain('c-7');
+    expect(el.textContent).not.toContain('c-7');
     expect(el.textContent).not.toContain('Access denied');
   });
 });

@@ -68,7 +68,7 @@ describe('LoginPage', () => {
     expect(navigate).toHaveBeenCalledWith('/inicio');
   });
 
-  it('explains wrong credentials in Spanish and shows the support code', async () => {
+  it('explains wrong credentials in Spanish and never shows a support code', async () => {
     const { fixture, el, navigate } = setup(async () => {
       throw new AppError('invalid_credentials', 'x', 'corr-123');
     });
@@ -78,8 +78,8 @@ describe('LoginPage', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(el.textContent).toContain('Correo o contraseña incorrectos.');
-    expect(el.textContent).toContain('corr-123');
+    expect(el.textContent).toContain('Ese correo y esa contraseña no coinciden.');
+    expect(el.textContent).not.toContain('corr-123');
     expect(navigate).not.toHaveBeenCalled();
   });
 

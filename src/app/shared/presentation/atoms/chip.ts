@@ -17,8 +17,8 @@ import { Tone } from './banner';
       white-space: nowrap;
     }
     :host(.chip--info) {
-      color: var(--orange-deep);
-      background: var(--orange-tint);
+      color: var(--blue-text);
+      background: var(--blue-tint);
     }
     :host(.chip--success) {
       color: var(--success);

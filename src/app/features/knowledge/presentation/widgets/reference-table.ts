@@ -2,9 +2,12 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 import { formatDate, formatRange } from '../../../../shared/presentation/format';
 import { ReferenceRange } from '../../domain/entities/knowledge';
+import { PaginatorComponent } from '../../../../shared/presentation/molecules/paginator';
+import { PageState } from '../../../../shared/presentation/pagination';
 
 @Component({
   selector: 'app-reference-table',
+  imports: [PaginatorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (references().length === 0) {
@@ -23,7 +26,7 @@ import { ReferenceRange } from '../../domain/entities/knowledge';
             </tr>
           </thead>
           <tbody>
-            @for (ref of references(); track ref.id) {
+            @for (ref of pager.slice(references()); track ref.id) {
               <tr>
                 <td>v{{ ref.version }}</td>
                 <td>
@@ -40,10 +43,12 @@ import { ReferenceRange } from '../../domain/entities/knowledge';
           </tbody>
         </table>
       </div>
+      <app-paginator [total]="references().length" [state]="pager" />
     }
   `,
 })
 export class ReferenceTableComponent {
+  protected readonly pager = new PageState();
   readonly references = input.required<readonly ReferenceRange[]>();
 
   protected readonly date = formatDate;

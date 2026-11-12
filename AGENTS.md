@@ -13,6 +13,12 @@ Ambos deben verse y comportarse como un solo producto.
 5. Cada app tiene su propio login. No se pasan tokens entre apps. Cada una valida el rol: aquí solo personal; una cuenta `PACIENTE` se rechaza con un mensaje que lo dirige al portal.
 6. **Contraste AA**: todo texto debe cumplir WCAG AA (4.5:1); los tokens ya están calibrados y se pinchan con el test de Flutter. No los aclares.
 
+## Diseño y experiencia (heurísticas de Nielsen)
+
+- Paleta: naranja de marca + **azul** (`--blue`, `--blue-deep`, `--blue-text`, `--blue-soft`, `--blue-tint`; mismos valores que Flutter). Azul para información, encabezados de tabla y acciones secundarias (`.btn--dark`); naranja para la acción principal.
+- **Toda tabla pagina**: `PageState` + `<app-paginator>`, por defecto **5** filas (5, 10 o 20). No pegues una tabla sin paginador.
+- **Mensajes**: amigables y accionables; `ErrorView` ya no lleva códigos de soporte y no se muestran ids técnicos. Un listado que falla ofrece "Reintentar"; un estado vacío dice qué hacer después.
+
 ## Arquitectura
 
 Feature-first con Clean Architecture dentro de cada feature. Dependencia hacia adentro: `presentation -> domain <- data`.

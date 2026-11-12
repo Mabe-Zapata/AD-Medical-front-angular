@@ -33,9 +33,6 @@ export function safeRedirect(target: string | null): string {
         @if (error(); as e) {
           <app-banner tone="danger">
             {{ e.message }}
-            @if (e.supportCode) {
-              <span class="small">Código de soporte: {{ e.supportCode }}</span>
-            }
           </app-banner>
         }
 

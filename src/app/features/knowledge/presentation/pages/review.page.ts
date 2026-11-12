@@ -8,6 +8,8 @@ import { SessionState } from '../../../auth/presentation/session.state';
 import { ValidateReference } from '../../domain/usecases/knowledge-usecases';
 import { DraftsState } from '../drafts.state';
 import { NHANES_PACK, PendingReference } from '../review-pack';
+import { PaginatorComponent } from '../../../../shared/presentation/molecules/paginator';
+import { PageState } from '../../../../shared/presentation/pagination';
 
 /**
  * Container: shows the reference drafts waiting for a decision and lets a doctor publish each one
@@ -15,7 +17,7 @@ import { NHANES_PACK, PendingReference } from '../review-pack';
  */
 @Component({
   selector: 'app-review-page',
-  imports: [BannerComponent, ChipComponent],
+  imports: [PaginatorComponent, BannerComponent, ChipComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="stack">
@@ -30,9 +32,6 @@ import { NHANES_PACK, PendingReference } from '../review-pack';
       @if (error(); as e) {
         <app-banner tone="danger">
           {{ e.message }}
-          @if (e.supportCode) {
-            <span class="small">Código de soporte: {{ e.supportCode }}</span>
-          }
         </app-banner>
       }
 
@@ -79,7 +78,7 @@ import { NHANES_PACK, PendingReference } from '../review-pack';
               </tr>
             </thead>
             <tbody>
-              @for (ref of pack.references; track ref.id) {
+              @for (ref of pager.slice(pack.references); track ref.id) {
                 <tr>
                   <td>{{ ref.analyte }}</td>
                   <td>{{ ref.sex }}</td>
@@ -122,11 +121,13 @@ import { NHANES_PACK, PendingReference } from '../review-pack';
             </tbody>
           </table>
         </div>
+      <app-paginator [total]="pack.references.length" [state]="pager" />
       </section>
     </div>
   `,
 })
 export class ReviewPage {
+  protected readonly pager = new PageState();
   private readonly validateReference = inject(ValidateReference);
   private readonly drafts = inject(DraftsState);
 
