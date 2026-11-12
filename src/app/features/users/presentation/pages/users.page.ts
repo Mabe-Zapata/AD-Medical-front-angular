@@ -8,11 +8,13 @@ import { ROLE_LABELS } from '../../../auth/domain/policies/staff-access';
 import { ASSIGNABLE_ROLES, UserSummary } from '../../domain/entities/users';
 import { MIN_PASSWORD_LENGTH, userProblems } from '../../domain/policies/user-policies';
 import { CreateUser, ListUsers } from '../../domain/usecases/users-usecases';
+import { PaginatorComponent } from '../../../../shared/presentation/molecules/paginator';
+import { PageState } from '../../../../shared/presentation/pagination';
 
 /** Container: lists the accounts and lets an administrator create one. */
 @Component({
   selector: 'app-users-page',
-  imports: [FormsModule, BannerComponent, ChipComponent],
+  imports: [FormsModule, BannerComponent, ChipComponent, PaginatorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="stack">
@@ -28,7 +30,8 @@ import { CreateUser, ListUsers } from '../../domain/usecases/users-usecases';
         @if (listing() === 'loading') {
           <p class="muted"><span class="spinner" aria-hidden="true"></span> Cargando…</p>
         } @else if (listing() === 'failed') {
-          <app-banner tone="danger">No pudimos cargar las cuentas. Inténtalo de nuevo.</app-banner>
+          <app-banner tone="danger">No pudimos cargar las cuentas.</app-banner>
+          <div><button class="btn btn--small" type="button" (click)="reload()">Reintentar</button></div>
         } @else if (users().length === 0) {
           <p class="empty">Todavía no hay cuentas.</p>
         } @else {
@@ -43,7 +46,7 @@ import { CreateUser, ListUsers } from '../../domain/usecases/users-usecases';
                 </tr>
               </thead>
               <tbody>
-                @for (user of users(); track user.id) {
+                @for (user of pager.slice(users()); track user.id) {
                   <tr>
                     <td>{{ user.firstName }} {{ user.lastName }}</td>
                     <td>{{ user.email }}</td>
@@ -62,6 +65,7 @@ import { CreateUser, ListUsers } from '../../domain/usecases/users-usecases';
               </tbody>
             </table>
           </div>
+      <app-paginator [total]="users().length" [state]="pager" />
         }
       </section>
 
@@ -76,9 +80,6 @@ import { CreateUser, ListUsers } from '../../domain/usecases/users-usecases';
         @if (error(); as e) {
           <app-banner tone="danger">
             {{ e.message }}
-            @if (e.supportCode) {
-              <span class="small">Código de soporte: {{ e.supportCode }}</span>
-            }
           </app-banner>
         }
         <form class="stack" (ngSubmit)="create()" novalidate>
@@ -143,6 +144,7 @@ import { CreateUser, ListUsers } from '../../domain/usecases/users-usecases';
   `,
 })
 export class UsersPage {
+  protected readonly pager = new PageState();
   private readonly listUsers = inject(ListUsers);
   private readonly createUser = inject(CreateUser);
 
@@ -220,6 +222,11 @@ export class UsersPage {
       lastName: this.lastName(),
       roles: this.roles(),
     };
+  }
+
+  protected reload(): void {
+    this.listing.set('loading');
+    void this.load();
   }
 
   private async load(): Promise<void> {

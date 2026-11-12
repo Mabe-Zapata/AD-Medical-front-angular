@@ -9,6 +9,8 @@ import { SessionState } from '../../../auth/presentation/session.state';
 import { Draft } from '../../domain/entities/knowledge';
 import { ListDrafts, ValidateReference, ValidateRule } from '../../domain/usecases/knowledge-usecases';
 import { DraftsState } from '../drafts.state';
+import { PaginatorComponent } from '../../../../shared/presentation/molecules/paginator';
+import { PageState } from '../../../../shared/presentation/pagination';
 
 type Kind = Draft['kind'];
 
@@ -22,7 +24,7 @@ const CONFLICT_MESSAGES: Readonly<Record<Kind, string>> = {
 /** Container: lists the drafts for whoever validates or administers, and validates them. */
 @Component({
   selector: 'app-drafts-page',
-  imports: [FormsModule, BannerComponent, ChipComponent],
+  imports: [FormsModule, BannerComponent, ChipComponent, PaginatorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="stack">
@@ -41,9 +43,6 @@ const CONFLICT_MESSAGES: Readonly<Record<Kind, string>> = {
       @if (error(); as e) {
         <app-banner tone="danger">
           {{ e.message }}
-          @if (e.supportCode) {
-            <span class="small">Código de soporte: {{ e.supportCode }}</span>
-          }
         </app-banner>
       }
 
@@ -61,7 +60,8 @@ const CONFLICT_MESSAGES: Readonly<Record<Kind, string>> = {
         @if (loading()) {
           <p class="muted"><span class="spinner" aria-hidden="true"></span> Cargando…</p>
         } @else if (loadFailed()) {
-          <app-banner tone="danger">No pudimos cargar los borradores. Inténtalo de nuevo.</app-banner>
+          <app-banner tone="danger">No pudimos cargar los borradores.</app-banner>
+          <div><button class="btn btn--small" type="button" (click)="load()">Reintentar</button></div>
         }
         @if (!loading() && items().length === 0) {
           <p class="empty">No hay borradores.</p>
@@ -78,7 +78,7 @@ const CONFLICT_MESSAGES: Readonly<Record<Kind, string>> = {
                 </tr>
               </thead>
               <tbody>
-                @for (draft of items(); track draft.id) {
+                @for (draft of pager.slice(items()); track draft.id) {
                   <tr>
                     <td>{{ kindLabel(draft.kind) }}</td>
                     <td>{{ draft.label }}</td>
@@ -105,6 +105,7 @@ const CONFLICT_MESSAGES: Readonly<Record<Kind, string>> = {
               </tbody>
             </table>
           </div>
+      <app-paginator [total]="items().length" [state]="pager" />
         }
       </section>
 
@@ -148,6 +149,7 @@ const CONFLICT_MESSAGES: Readonly<Record<Kind, string>> = {
   `,
 })
 export class DraftsPage {
+  protected readonly pager = new PageState();
   private readonly validateReference = inject(ValidateReference);
   private readonly validateRule = inject(ValidateRule);
   private readonly listDrafts = inject(ListDrafts);
@@ -179,7 +181,7 @@ export class DraftsPage {
     if (this.canList) void this.load();
   }
 
-  private async load(): Promise<void> {
+  protected async load(): Promise<void> {
     this.loading.set(true);
     this.loadFailed.set(false);
     try {

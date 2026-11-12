@@ -136,7 +136,7 @@ describe('DraftsPage', () => {
     fixture.detectChanges();
 
     expect(el.textContent).toContain('se solapa con una referencia ya validada');
-    expect(el.textContent).toContain('c-7');
+    expect(el.textContent).not.toContain('c-7');
   });
 
   it('lists the drafts of other people for a doctor, next to the ones from this session', async () => {

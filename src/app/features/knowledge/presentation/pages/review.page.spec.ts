@@ -110,7 +110,8 @@ describe('ReviewPage', () => {
 
     expect(calls).toEqual([first.id]);
     expect(el.textContent).toContain('Rango publicado');
-    expect(el.querySelectorAll('tbody button')).toHaveLength(6);
+    // Seven drafts, five per page: the published one has no button, so four buttons remain on the page.
+    expect(el.querySelectorAll('tbody button')).toHaveLength(4);
   });
 
   it('explains in Spanish that a draft is missing from the connected database', async () => {
@@ -126,6 +127,6 @@ describe('ReviewPage', () => {
     fixture.detectChanges();
 
     expect(el.textContent).toContain('no existe en la base de datos conectada');
-    expect(el.textContent).toContain('c-9');
+    expect(el.textContent).not.toContain('c-9');
   });
 });

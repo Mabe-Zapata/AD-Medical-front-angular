@@ -8,6 +8,8 @@ export interface AppSettings {
    * development build offers the synthetic source created by the repository seed.
    */
   readonly defaultSourceId: string | null;
+  /** Where the patient portal lives. The login links to it; without it the text shows no link. */
+  readonly patientPortalUrl?: string | null;
 }
 
 export const APP_SETTINGS = new InjectionToken<AppSettings>('APP_SETTINGS');

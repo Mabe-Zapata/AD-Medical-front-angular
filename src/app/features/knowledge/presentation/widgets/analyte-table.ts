@@ -4,10 +4,12 @@ import { RouterLink } from '@angular/router';
 import { ChipComponent } from '../../../../shared/presentation/atoms/chip';
 import { Analyte } from '../../domain/entities/knowledge';
 import { VALUE_TYPE_LABELS, labelOf } from '../labels';
+import { PaginatorComponent } from '../../../../shared/presentation/molecules/paginator';
+import { PageState } from '../../../../shared/presentation/pagination';
 
 @Component({
   selector: 'app-analyte-table',
-  imports: [RouterLink, ChipComponent],
+  imports: [RouterLink, ChipComponent, PaginatorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (analytes().length === 0) {
@@ -24,7 +26,7 @@ import { VALUE_TYPE_LABELS, labelOf } from '../labels';
             </tr>
           </thead>
           <tbody>
-            @for (analyte of analytes(); track analyte.id) {
+            @for (analyte of pager.slice(analytes()); track analyte.id) {
               <tr>
                 <td>
                   <strong>{{ analyte.name }}</strong>
@@ -41,10 +43,12 @@ import { VALUE_TYPE_LABELS, labelOf } from '../labels';
           </tbody>
         </table>
       </div>
+      <app-paginator [total]="analytes().length" [state]="pager" />
     }
   `,
 })
 export class AnalyteTableComponent {
+  protected readonly pager = new PageState();
   readonly analytes = input.required<readonly Analyte[]>();
   protected readonly label = (code: string) => labelOf(VALUE_TYPE_LABELS, code);
 }

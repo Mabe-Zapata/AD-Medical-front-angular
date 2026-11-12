@@ -1,24 +1,22 @@
 import { AppError, ErrorKind } from '../../core/domain/app-error';
 
+/** Something to tell the person, in plain Spanish. It never carries technical codes: they stay in the logs. */
 export interface ErrorView {
   readonly message: string;
-  /** Correlation id the backend returned, so support can find the request in the logs. */
-  readonly supportCode?: string;
 }
 
 const MESSAGES: Readonly<Record<ErrorKind, string>> = {
-  invalid_credentials: 'Correo o contraseña incorrectos.',
-  unauthenticated: 'Tu sesión terminó. Inicia sesión de nuevo.',
-  forbidden: 'No tienes permiso para realizar esta acción.',
-  not_found: 'No encontramos lo que buscas.',
-  conflict: 'No se pudo completar la acción porque los datos cambiaron. Inténtalo de nuevo.',
-  validation: 'Revisa los datos ingresados e inténtalo de nuevo.',
-  rate_limited: 'Demasiados intentos. Espera un minuto e inténtalo de nuevo.',
-  network: 'No se pudo conectar con el servidor. Revisa la conexión e inténtalo de nuevo.',
-  unavailable:
-    'El servidor no está disponible en este momento. Inténtalo de nuevo en unos minutos.',
+  invalid_credentials: 'Ese correo y esa contraseña no coinciden. Revísalos e inténtalo otra vez.',
+  unauthenticated: 'Tu sesión se cerró. Inicia sesión de nuevo para continuar.',
+  forbidden: 'Tu cuenta no tiene acceso a esta sección.',
+  not_found: 'No encontramos lo que buscas. Puede que ya no exista.',
+  conflict: 'Alguien actualizó esto al mismo tiempo que tú. Vuelve a cargar e inténtalo de nuevo.',
+  validation: 'Hay datos que no pudimos aceptar. Revísalos y vuelve a intentarlo.',
+  rate_limited: 'Hiciste varios intentos seguidos. Espera un minuto y vuelve a probar.',
+  network: 'No pudimos conectarnos. Revisa tu internet y vuelve a intentarlo.',
+  unavailable: 'El servicio está tardando más de lo normal. Inténtalo de nuevo en unos minutos.',
   not_staff: 'Esta cuenta es de paciente. Ingresa al portal del paciente.',
-  unknown: 'Ocurrió un error inesperado. Inténtalo de nuevo.',
+  unknown: 'Algo salió mal de nuestro lado. Inténtalo de nuevo; si sigue pasando, avisa al administrador.',
 };
 
 /** Names of the fields the API can report, as the person reads them. */
@@ -51,7 +49,7 @@ export function describeError(
   const message =
     overrides[appError.kind] ??
     (appError.kind === 'validation' ? validationMessage(appError) : MESSAGES[appError.kind]);
-  return { message, supportCode: appError.correlationId };
+  return { message };
 }
 
 function validationMessage(error: AppError): string {

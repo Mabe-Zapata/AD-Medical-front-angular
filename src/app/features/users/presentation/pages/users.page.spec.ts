@@ -131,7 +131,7 @@ describe('UsersPage', () => {
     await settle(fixture);
 
     expect(el.textContent).toContain('Ya existe una cuenta con ese correo.');
-    expect(el.textContent).toContain('c-3');
+    expect(el.textContent).not.toContain('c-3');
     expect(el.textContent).not.toContain('Cuenta creada');
   });
 });

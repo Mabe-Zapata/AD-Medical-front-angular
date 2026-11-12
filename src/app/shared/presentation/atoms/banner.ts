@@ -20,8 +20,8 @@ export type Tone = 'info' | 'danger' | 'success' | 'warning';
     }
     :host(.banner--info) {
       color: var(--info);
-      background: rgb(37 99 235 / 8%);
-      border-color: rgb(37 99 235 / 35%);
+      background: var(--blue-tint);
+      border-color: var(--blue-soft);
     }
     :host(.banner--danger) {
       color: var(--danger);

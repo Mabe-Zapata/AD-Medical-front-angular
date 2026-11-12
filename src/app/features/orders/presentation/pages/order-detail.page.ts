@@ -25,6 +25,8 @@ import { ReviewsState } from '../reviews.state';
 import { ProposalViewComponent } from '../widgets/proposal-view';
 import { AnalyteOption, ResultsFormComponent, ResultsSubmission } from '../widgets/results-form';
 import { ReviewFormComponent, ReviewSubmission } from '../widgets/review-form';
+import { PaginatorComponent } from '../../../../shared/presentation/molecules/paginator';
+import { PageState } from '../../../../shared/presentation/pagination';
 
 type Overrides = Partial<Record<ErrorKind, string>>;
 
@@ -61,7 +63,7 @@ const REVIEW_ERRORS: Overrides = {
  */
 @Component({
   selector: 'app-order-detail-page',
-  imports: [
+  imports: [PaginatorComponent, 
     RouterLink,
     BannerComponent,
     ChipComponent,
@@ -81,9 +83,6 @@ const REVIEW_ERRORS: Overrides = {
       @if (error(); as e) {
         <app-banner tone="danger">
           {{ e.message }}
-          @if (e.supportCode) {
-            <span class="small">Código de soporte: {{ e.supportCode }}</span>
-          }
         </app-banner>
       }
 
@@ -124,7 +123,7 @@ const REVIEW_ERRORS: Overrides = {
                 </tr>
               </thead>
               <tbody>
-                @for (test of o.tests; track test.detailId) {
+                @for (test of testsPager.slice(o.tests); track test.detailId) {
                   <tr>
                     <td class="mono">{{ test.testTypeId.slice(0, 8) }}…</td>
                     <td class="mono">{{ test.detailId }}</td>
@@ -134,6 +133,7 @@ const REVIEW_ERRORS: Overrides = {
               </tbody>
             </table>
           </div>
+              <app-paginator [total]="o.tests.length" [state]="testsPager" />
         } @else if (restricted()) {
           <app-banner tone="warning">
             El contenido de esta orden solo lo ve el médico que la creó. Si tienes el identificador
@@ -158,7 +158,7 @@ const REVIEW_ERRORS: Overrides = {
                   </tr>
                 </thead>
                 <tbody>
-                  @for (result of results(); track result.id) {
+                  @for (result of resultsPager.slice(results()); track result.id) {
                     <tr>
                       <td>{{ result.analyteName }}</td>
                       <td>{{ result.numericValue ?? result.textValue ?? '—' }}</td>
@@ -168,6 +168,7 @@ const REVIEW_ERRORS: Overrides = {
                 </tbody>
               </table>
             </div>
+              <app-paginator [total]="results().length" [state]="resultsPager" />
           }
         </section>
       }
@@ -294,6 +295,8 @@ const REVIEW_ERRORS: Overrides = {
   `,
 })
 export class OrderDetailPage {
+  protected readonly testsPager = new PageState();
+  protected readonly resultsPager = new PageState();
   protected readonly orderId = inject(ActivatedRoute).snapshot.paramMap.get('id') ?? '';
 
   private readonly getOrder = inject(GetOrder);

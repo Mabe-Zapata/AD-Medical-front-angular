@@ -13,11 +13,13 @@ import { SessionState } from '../../../auth/presentation/session.state';
 import { PRIORITIES, OrderSummary, Priority } from '../../domain/entities/orders';
 import { CreateOrder, ListOrders } from '../../domain/usecases/orders-usecases';
 import { ORDER_STATUS_LABELS, PRIORITY_LABELS } from '../labels';
+import { PaginatorComponent } from '../../../../shared/presentation/molecules/paginator';
+import { PageState } from '../../../../shared/presentation/pagination';
 
 /** Container: lists the orders the person may read, opens one by its id, or (for ordering doctors) creates one. */
 @Component({
   selector: 'app-orders-page',
-  imports: [FormsModule, RouterLink, BannerComponent, ChipComponent],
+  imports: [FormsModule, RouterLink, BannerComponent, ChipComponent, PaginatorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="stack">
@@ -33,7 +35,8 @@ import { ORDER_STATUS_LABELS, PRIORITY_LABELS } from '../labels';
             Tu rol no ve este listado: abre la orden con el identificador que te dio el médico.
           </p>
         } @else if (listing() === 'failed') {
-          <app-banner tone="danger">No pudimos cargar las órdenes. Inténtalo de nuevo.</app-banner>
+          <app-banner tone="danger">No pudimos cargar las órdenes.</app-banner>
+          <div><button class="btn btn--small" type="button" (click)="reload()">Reintentar</button></div>
         } @else if (orders().length === 0) {
           <p class="empty">Todavía no hay órdenes.</p>
         } @else {
@@ -48,7 +51,7 @@ import { ORDER_STATUS_LABELS, PRIORITY_LABELS } from '../labels';
                 </tr>
               </thead>
               <tbody>
-                @for (order of orders(); track order.id) {
+                @for (order of pager.slice(orders()); track order.id) {
                   <tr>
                     <td>{{ dateOf(order) }}</td>
                     <td>
@@ -65,6 +68,7 @@ import { ORDER_STATUS_LABELS, PRIORITY_LABELS } from '../labels';
               </tbody>
             </table>
           </div>
+      <app-paginator [total]="orders().length" [state]="pager" />
         }
       </section>
 
@@ -105,9 +109,6 @@ import { ORDER_STATUS_LABELS, PRIORITY_LABELS } from '../labels';
           @if (error(); as e) {
             <app-banner tone="danger">
               {{ e.message }}
-              @if (e.supportCode) {
-                <span class="small">Código de soporte: {{ e.supportCode }}</span>
-              }
             </app-banner>
           }
           <form class="stack" (ngSubmit)="create()" novalidate>
@@ -184,6 +185,7 @@ import { ORDER_STATUS_LABELS, PRIORITY_LABELS } from '../labels';
   `,
 })
 export class OrdersPage {
+  protected readonly pager = new PageState();
   private readonly router = inject(Router);
   private readonly createOrder = inject(CreateOrder);
   private readonly listOrders = inject(ListOrders);
@@ -211,6 +213,11 @@ export class OrdersPage {
 
   protected dateOf(order: OrderSummary): string {
     return formatDate(order.orderedAt);
+  }
+
+  protected reload(): void {
+    this.listing.set('loading');
+    void this.load();
   }
 
   private async load(): Promise<void> {
