@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
 import { ErrorView, describeError } from '../../../../shared/presentation/error-message';
@@ -78,6 +79,8 @@ export class AnalytesPage {
 
   constructor() {
     void this.load();
+    // The home page's "Nuevo analito" lands here with the form already open.
+    if (this.canCreate && inject(ActivatedRoute).snapshot.queryParamMap.has('nuevo')) this.openForm();
   }
 
   protected openForm(): void {
