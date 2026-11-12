@@ -63,10 +63,12 @@ describe('StaffShell', () => {
     return { fixture, el: fixture.nativeElement as HTMLElement };
   }
 
-  it('has no navigation bar: only the logo and the account avatar', () => {
+  it('navigates to the home and only to the modules this role may use, next to the avatar', () => {
     const { el } = render(DOCTOR);
+    const links = [...el.querySelectorAll('nav a')].map((a) => a.textContent!.trim());
 
-    expect(el.querySelector('nav')).toBeNull();
+    expect(links).toEqual(['Inicio', 'Conocimiento clínico', 'Órdenes y resultados']);
+    expect(links).not.toContain('Usuarios y roles');
     expect(el.querySelector('.avatar')!.textContent!.trim()).toBe('AD');
   });
 
