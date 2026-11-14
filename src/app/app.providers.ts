@@ -8,6 +8,14 @@ import { RestoreSession, SignOut } from './features/auth/domain/usecases/session
 import { SignIn } from './features/auth/domain/usecases/sign-in';
 import { HttpOrdersRepository } from './features/orders/data/http-orders.repository';
 import { OrdersRepository } from './features/orders/domain/ports/orders.repository';
+import { ShadowRepository } from './features/orders/domain/ports/shadow.repository';
+import { HttpShadowRepository } from './features/orders/data/http-shadow.repository';
+import {
+  EditShadowFinding,
+  GetShadowReport,
+  ListShadowEdits,
+  RecordShadowSnapshot,
+} from './features/orders/domain/usecases/shadow-usecases';
 import {
   CreateOrder,
   DecideProposal,
@@ -95,6 +103,14 @@ export const appProviders: Provider[] = [
   { provide: GetProposal, useFactory: () => new GetProposal(inject(OrdersRepository)) },
   { provide: DecideProposal, useFactory: () => new DecideProposal(inject(OrdersRepository)) },
   { provide: ReviewOrder, useFactory: () => new ReviewOrder(inject(OrdersRepository)) },
+  { provide: ShadowRepository, useClass: HttpShadowRepository },
+  { provide: GetShadowReport, useFactory: () => new GetShadowReport(inject(ShadowRepository)) },
+  {
+    provide: RecordShadowSnapshot,
+    useFactory: () => new RecordShadowSnapshot(inject(ShadowRepository)),
+  },
+  { provide: EditShadowFinding, useFactory: () => new EditShadowFinding(inject(ShadowRepository)) },
+  { provide: ListShadowEdits, useFactory: () => new ListShadowEdits(inject(ShadowRepository)) },
 
   // users
   { provide: UsersRepository, useClass: HttpUsersRepository },

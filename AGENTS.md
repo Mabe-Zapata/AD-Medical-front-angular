@@ -58,6 +58,13 @@ src/app/app.interceptor.ts  agrega el bearer y cierra sesión ante 401
 
 Documéntalas aquí y en el README cuando una funcionalidad dependa de ellas; quítalas cuando el backend las cierre.
 
+### Hallazgos en sombra (detalle de la orden)
+
+- Panel `app-shadow-panel` (`orders/presentation/pages/shadow-panel.ts`), con puerto propio `ShadowRepository`. Solo lo ve quien tiene `resultados.leer_con_acceso`; guardar instantánea y actuar sobre un hallazgo exigen `revisiones.registrar` y ser el médico que ordenó.
+- Lectura en vivo (`GET /sombra`, no guarda nada) → instantánea inmutable (`POST /sombra/snapshots`) → acción por hallazgo (`CONFIRMAR`, `DESCARTAR` o `MODIFICAR`, siempre con motivo ≤500) con historial append-only. Nada de esto cambia la orden ni la propuesta.
+- Las categorías permitidas para `MODIFICAR` están duplicadas en `shadow-policies.ts` (el backend manda; esto solo evita un viaje).
+- El contrato OpenAPI tipa la respuesta de `/sombra` como `object`: la forma real se tomó del código del backend (`routes.py`, `domain/shadow.py`) y se **verificó contra el backend real** con una orden sintética (lectura, instantánea, acción `MODIFICAR` con historial; validación del cliente). Sin probar: `CONFIRMAR`/`DESCARTAR`, los 403/409 reales y el ancho móvil.
+
 ## Seguridad
 
 - Sesión en `sessionStorage`, nunca `localStorage`. Ningún token en URLs.
