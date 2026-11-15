@@ -14,6 +14,7 @@ import {
   NewResult,
   OrderSummary,
   PatientOption,
+  TestTypeOption,
   Proposal,
   UploadedReport,
 } from '../domain/entities/orders';
@@ -120,6 +121,13 @@ export class HttpOrdersRepository extends OrdersRepository {
       patients.push(...page.items.map((p) => ({ id: p.id, name: `${p.nombres} ${p.apellidos}`.trim() })));
       if (page.items.length < limit) return patients;
     }
+  }
+
+  async listTestTypes(): Promise<TestTypeOption[]> {
+    const response = await this.call(
+      this.http.get<{ items: { id: string; codigo: string; nombre: string }[] }>(`${this.api}/lab/test-types`),
+    );
+    return response.items.map((t) => ({ id: t.id, code: t.codigo, name: t.nombre }));
   }
 
   async getOrder(orderId: string): Promise<LabOrder> {
