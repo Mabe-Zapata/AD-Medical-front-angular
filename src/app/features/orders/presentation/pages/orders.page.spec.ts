@@ -1,10 +1,10 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 
 import { AppError } from '../../../../core/domain/app-error';
 import { SessionState } from '../../../auth/presentation/session.state';
-import { OrderSummary, PatientOption, TestTypeOption } from '../../domain/entities/orders';
-import { CreateOrder, ListOrders, ListPatients, ListTestTypes } from '../../domain/usecases/orders-usecases';
+import { OrderSummary, PatientOption, TestTypeOption, WorklistOrder } from '../../domain/entities/orders';
+import { CreateOrder, ListOrders, ListPatients, ListTestTypes, ListWorklist } from '../../domain/usecases/orders-usecases';
 import { OrdersPage } from './orders.page';
 
 const ORDER_ID = '3b9f2a52-1c61-4f0e-9d0a-6a1c1c2f7e11';
@@ -30,6 +30,7 @@ function setup(
   list: () => Promise<OrderSummary[]>,
   permissions: string[] = ['ordenes.crear'],
   listPatients: () => Promise<PatientOption[]> = async () => patients,
+  listWorklist: () => Promise<WorklistOrder[]> = async () => [],
 ) {
   TestBed.configureTestingModule({
     providers: [
@@ -40,6 +41,7 @@ function setup(
       },
       { provide: ListOrders, useValue: { execute: list } },
       { provide: ListTestTypes, useValue: { execute: async () => tests } },
+      { provide: ListWorklist, useValue: { execute: listWorklist } },
       { provide: ListPatients, useValue: { execute: listPatients } },
       { provide: CreateOrder, useValue: { execute: async () => orders[0] } },
     ],
@@ -81,9 +83,10 @@ describe('OrdersPage', () => {
     expect(asked).toBe(0);
     expect(el.textContent).not.toContain('Mis órdenes');
     expect(el.textContent).not.toContain('Tu rol no ve este listado');
-    // Opening by identifier is what the lab technician uses.
-    expect(el.querySelector('#order-id')).not.toBeNull();
-    expect(el.textContent).toContain('El médico te da el identificador');
+    // The laboratory works from its worklist, not from a typed identifier.
+    expect(el.querySelector('#order-id')).toBeNull();
+    expect(el.querySelector('#worklist-search')).not.toBeNull();
+    expect(el.textContent).toContain('Órdenes pendientes');
   });
 
   it('treats a 403 as a role that does not see the listing, not as a failure', async () => {
@@ -175,5 +178,51 @@ describe('OrdersPage', () => {
 
       expect(el.textContent).toContain('Marca al menos una prueba.');
     });
+  });
+});
+
+describe('laboratory worklist', () => {
+  const pending: WorklistOrder[] = [
+    {
+      id: ORDER_ID,
+      origin: 'PACIENTE',
+      priority: 'NORMAL',
+      status: 'SOLICITADA',
+      orderedAt: '2026-11-10T16:30:59Z',
+      tests: [
+        { detailId: 'd-done', testTypeId: 't1', status: 'COMPLETADO' },
+        { detailId: 'd-pending', testTypeId: 't2', status: 'PENDIENTE' },
+      ],
+    },
+  ];
+
+  it('opens the order picked from the worklist on its pending test', async () => {
+    const { fixture, el } = setup(async () => orders, ['resultados.registrar'], undefined, async () => pending);
+    const router = TestBed.inject(Router);
+    const calls: unknown[][] = [];
+    router.navigate = ((...args: Parameters<Router['navigate']>) => {
+      calls.push(args);
+      return Promise.resolve(true);
+    }) as Router['navigate'];
+    await settle(fixture);
+
+    const input = el.querySelector<HTMLInputElement>('#worklist-search')!;
+    input.value = '3b9f';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    el.querySelector<HTMLButtonElement>('#worklist-options button')!.click();
+    await settle(fixture);
+
+    expect(calls).toEqual([[['/ordenes', ORDER_ID], { queryParams: { detalle: 'd-pending' } }]]);
+  });
+
+  it('is not loaded for a role that cannot record results', async () => {
+    let asked = 0;
+    const { fixture, el } = setup(async () => orders, ['ordenes.crear'], undefined, async () => (asked++, pending));
+    await settle(fixture);
+
+    expect(asked).toBe(0);
+    expect(el.querySelector('#worklist-search')).toBeNull();
+    expect(el.querySelector('#order-id')).not.toBeNull();
   });
 });

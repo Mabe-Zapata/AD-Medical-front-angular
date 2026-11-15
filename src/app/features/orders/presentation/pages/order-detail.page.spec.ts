@@ -93,7 +93,15 @@ function setup(stubs: Partial<Stubs>, ...granted: string[]) {
     providers: [
       provideRouter([]),
       permissions(...granted),
-      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => ORDER_ID } } } },
+      {
+        provide: ActivatedRoute,
+        useValue: {
+          snapshot: {
+            paramMap: { get: () => ORDER_ID },
+            queryParamMap: { get: () => null },
+          },
+        },
+      },
       {
         provide: GetOrder,
         useValue: {

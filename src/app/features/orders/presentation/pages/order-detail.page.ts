@@ -209,6 +209,7 @@ const REVIEW_ERRORS: Overrides = {
               [tests]="pendingTests()"
               [analytes]="analytes()"
               [busy]="busy() === 'results'"
+              [initialDetailId]="initialDetail"
               (submitted)="saveResults($event)"
             />
           </app-modal>
@@ -360,7 +361,10 @@ const REVIEW_ERRORS: Overrides = {
 export class OrderDetailPage {
   protected readonly testsPager = new PageState();
   protected readonly resultsPager = new PageState();
-  protected readonly orderId = inject(ActivatedRoute).snapshot.paramMap.get('id') ?? '';
+  private readonly route = inject(ActivatedRoute);
+  protected readonly orderId = this.route.snapshot.paramMap.get('id') ?? '';
+  /** Set when the laboratory opened the order from its worklist, on the test that is pending. */
+  protected readonly initialDetail = this.route.snapshot.queryParamMap.get('detalle') ?? '';
 
   private readonly getOrder = inject(GetOrder);
   private readonly listResults = inject(ListOrderResults);

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, inject, input, output } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { NewResult, OrderTest } from '../../domain/entities/orders';
@@ -155,8 +155,10 @@ export interface ResultsSubmission {
     }
   `,
 })
-export class ResultsFormComponent {
+export class ResultsFormComponent implements OnInit {
   readonly tests = input<readonly OrderTest[]>([]);
+  /** Pre-fills the test identifier when the laboratory came from the worklist. */
+  readonly initialDetailId = input('');
   readonly analytes = input<readonly AnalyteOption[]>([]);
   readonly busy = input(false);
   readonly submitted = output<ResultsSubmission>();
@@ -168,6 +170,10 @@ export class ResultsFormComponent {
     detailId: ['', [Validators.required, Validators.pattern(UUID)]],
     rows: this.fb.array([this.newRow()]),
   });
+
+  ngOnInit(): void {
+    if (this.initialDetailId()) this.form.controls.detailId.setValue(this.initialDetailId());
+  }
 
   protected get rows() {
     return this.form.controls.rows;
