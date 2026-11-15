@@ -1,3 +1,4 @@
+import { hasEmoji } from '../../../../core/domain/text';
 import { Decision, NewResult } from '../entities/orders';
 
 /** Same limits as the API; checking here saves a round trip and gives a clearer message. */
@@ -24,6 +25,7 @@ export function orderProblems(
   if (testTypeIds.length > MAX_TESTS_PER_ORDER) problems.push('too many tests');
   if (testTypeIds.some((id) => !uuid.test(id))) problems.push('every test id must be a UUID');
   if (notes.length > MAX_NOTES) problems.push('the notes are too long');
+  if (hasEmoji(notes)) problems.push('the notes cannot contain emoji');
   return problems;
 }
 

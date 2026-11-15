@@ -7,6 +7,7 @@ import {
   NewOrder,
   NewResult,
   OrderSummary,
+  PatientOption,
   Proposal,
   UploadedReport,
 } from '../entities/orders';
@@ -45,6 +46,14 @@ export class ListOrders {
 
   execute(): Promise<OrderSummary[]> {
     return this.repository.listOrders();
+  }
+}
+
+export class ListPatients {
+  constructor(private readonly repository: OrdersRepository) {}
+
+  execute(): Promise<PatientOption[]> {
+    return this.repository.listPatients();
   }
 }
 

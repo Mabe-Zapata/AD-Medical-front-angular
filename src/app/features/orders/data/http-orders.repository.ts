@@ -13,6 +13,7 @@ import {
   NewOrder,
   NewResult,
   OrderSummary,
+  PatientOption,
   Proposal,
   UploadedReport,
 } from '../domain/entities/orders';
@@ -104,6 +105,21 @@ export class HttpOrdersRepository extends OrdersRepository {
       status: o.estado,
       orderedAt: o.fecha,
     }));
+  }
+
+  async listPatients(): Promise<PatientOption[]> {
+    const limit = 100;
+    const patients: PatientOption[] = [];
+    for (let offset = 0; ; offset += limit) {
+      const page = await this.call(
+        this.http.get<{ items: { id: string; nombres: string; apellidos: string }[] }>(
+          `${this.api}/patients`,
+          { params: { limit, offset } },
+        ),
+      );
+      patients.push(...page.items.map((p) => ({ id: p.id, name: `${p.nombres} ${p.apellidos}`.trim() })));
+      if (page.items.length < limit) return patients;
+    }
   }
 
   async getOrder(orderId: string): Promise<LabOrder> {
