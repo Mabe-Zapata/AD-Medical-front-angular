@@ -3,8 +3,8 @@ import { provideRouter } from '@angular/router';
 
 import { AppError } from '../../../../core/domain/app-error';
 import { SessionState } from '../../../auth/presentation/session.state';
-import { OrderSummary, PatientOption } from '../../domain/entities/orders';
-import { CreateOrder, ListOrders, ListPatients } from '../../domain/usecases/orders-usecases';
+import { OrderSummary, PatientOption, TestTypeOption } from '../../domain/entities/orders';
+import { CreateOrder, ListOrders, ListPatients, ListTestTypes } from '../../domain/usecases/orders-usecases';
 import { OrdersPage } from './orders.page';
 
 const ORDER_ID = '3b9f2a52-1c61-4f0e-9d0a-6a1c1c2f7e11';
@@ -21,6 +21,11 @@ const patients: PatientOption[] = [
   { id: 'aaaaaaaa-0000-4000-8000-000000000011', name: 'Juan Gómez' },
 ];
 
+const tests: TestTypeOption[] = [
+  { id: 'bbbbbbbb-0000-4000-8000-000000000001', code: 'HEM', name: 'Hemograma' },
+  { id: 'bbbbbbbb-0000-4000-8000-000000000002', code: 'GLU', name: 'Glucosa' },
+];
+
 function setup(
   list: () => Promise<OrderSummary[]>,
   permissions: string[] = ['ordenes.crear'],
@@ -34,6 +39,7 @@ function setup(
         useValue: { can: (permission: string) => permissions.includes(permission), isSignedIn: () => true },
       },
       { provide: ListOrders, useValue: { execute: list } },
+      { provide: ListTestTypes, useValue: { execute: async () => tests } },
       { provide: ListPatients, useValue: { execute: listPatients } },
       { provide: CreateOrder, useValue: { execute: async () => orders[0] } },
     ],
@@ -148,6 +154,26 @@ describe('OrdersPage', () => {
       await settle(fixture);
 
       expect(el.textContent).toContain('Elige un paciente de la lista.');
+    });
+
+    it('offers the test catalog as checkboxes the doctor can tick', async () => {
+      const { fixture, el } = await openForm();
+
+      const boxes = el.querySelectorAll<HTMLInputElement>('input[type=checkbox]');
+      expect(boxes).toHaveLength(2);
+      expect(el.textContent).toContain('Hemograma');
+      boxes[1].click();
+      await settle(fixture);
+      const after = el.querySelectorAll<HTMLInputElement>('input[type=checkbox]');
+      expect([after[0].checked, after[1].checked]).toEqual([false, true]);
+    });
+
+    it('asks to tick at least one test before sending', async () => {
+      const { fixture, el } = await openForm();
+      el.querySelector<HTMLFormElement>('app-modal form')!.dispatchEvent(new Event('submit'));
+      await settle(fixture);
+
+      expect(el.textContent).toContain('Marca al menos una prueba.');
     });
   });
 });

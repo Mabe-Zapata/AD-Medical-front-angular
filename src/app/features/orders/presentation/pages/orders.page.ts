@@ -12,8 +12,8 @@ import { formatDate } from '../../../../shared/presentation/format';
 import { ModalComponent } from '../../../../shared/presentation/organisms/modal';
 import { PERMISSIONS } from '../../../auth/domain/policies/staff-access';
 import { SessionState } from '../../../auth/presentation/session.state';
-import { PRIORITIES, OrderSummary, PatientOption, Priority } from '../../domain/entities/orders';
-import { CreateOrder, ListOrders, ListPatients } from '../../domain/usecases/orders-usecases';
+import { PRIORITIES, OrderSummary, PatientOption, Priority, TestTypeOption } from '../../domain/entities/orders';
+import { CreateOrder, ListOrders, ListPatients, ListTestTypes } from '../../domain/usecases/orders-usecases';
 import { PatientPickerComponent } from '../widgets/patient-picker';
 import { ORDER_STATUS_LABELS, PRIORITY_LABELS } from '../labels';
 import { PaginatorComponent } from '../../../../shared/presentation/molecules/paginator';
@@ -152,17 +152,33 @@ import { PageState } from '../../../../shared/presentation/pagination';
                 <span class="field-error">Elige un paciente de la lista.</span>
               }
             </div>
-            <div class="field">
-              <label for="test-ids">Identificadores de las pruebas (uno por línea)</label>
-              <textarea
-                id="test-ids"
-                class="input mono"
-                rows="3"
-                name="testIds"
-                [ngModel]="testIds()"
-                (ngModelChange)="testIds.set($event)"
-              ></textarea>
-            </div>
+            <fieldset class="field tests">
+              <legend>Pruebas a realizar</legend>
+              @if (testTypesState() === 'loading') {
+                <p class="muted small">Cargando pruebas…</p>
+              } @else if (testTypesState() === 'failed') {
+                <p class="field-error">No pudimos cargar las pruebas. Cierra y vuelve a abrir el formulario.</p>
+              } @else if (testTypes().length === 0) {
+                <p class="muted small">No hay pruebas disponibles en el catálogo.</p>
+              } @else {
+                <div class="checks">
+                  @for (test of testTypes(); track test.id) {
+                    <label class="check">
+                      <input
+                        type="checkbox"
+                        [name]="'test-' + test.id"
+                        [checked]="selectedTests().has(test.id)"
+                        (change)="toggleTest(test.id)"
+                      />
+                      <span>{{ test.name }} <span class="muted small">({{ test.code }})</span></span>
+                    </label>
+                  }
+                </div>
+              }
+              @if (testsMissing()) {
+                <span class="field-error">Marca al menos una prueba.</span>
+              }
+            </fieldset>
             <div class="grid-2">
               <div class="field">
                 <label for="priority">Prioridad</label>
@@ -209,6 +225,31 @@ import { PageState } from '../../../../shared/presentation/pagination';
     .grow {
       flex: 1 1 320px;
     }
+    .tests {
+      border: 0;
+      padding: 0;
+      margin: 0;
+    }
+    .tests legend {
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .checks {
+      display: grid;
+      gap: 6px;
+      max-height: 200px;
+      overflow-y: auto;
+      padding: 10px 12px;
+      border: 1px solid var(--border, #dbe3f0);
+      border-radius: 12px;
+      background: #fff;
+    }
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
     .align {
       align-self: flex-end;
     }
@@ -220,6 +261,7 @@ export class OrdersPage {
   private readonly createOrder = inject(CreateOrder);
   private readonly listOrders = inject(ListOrders);
   private readonly listPatients = inject(ListPatients);
+  private readonly listTestTypes = inject(ListTestTypes);
 
   protected readonly canCreate = inject(SessionState).can(PERMISSIONS.ordersCreate);
   protected readonly priorities = PRIORITIES;
@@ -232,7 +274,10 @@ export class OrdersPage {
   protected readonly orderId = signal('');
   protected readonly openError = signal(false);
   protected readonly patientId = signal('');
-  protected readonly testIds = signal('');
+  protected readonly testTypes = signal<readonly TestTypeOption[]>([]);
+  protected readonly testTypesState = signal<'loading' | 'ready' | 'failed'>('loading');
+  protected readonly selectedTests = signal<ReadonlySet<string>>(new Set());
+  protected readonly testsMissing = signal(false);
   protected readonly priority = signal<Priority>('NORMAL');
   protected readonly notes = signal('');
   protected readonly saving = signal(false);
@@ -243,7 +288,7 @@ export class OrdersPage {
   protected readonly patientMissing = signal(false);
   protected readonly bullets = [
     'Busca al paciente por su nombre: solo aparecen los que tienes a tu cargo.',
-    'Las pruebas se indican por su identificador (UUID), uno por línea.',
+    'Marca las pruebas como en la solicitud en papel: puedes elegir varias.',
   ];
 
   constructor() {
@@ -280,7 +325,27 @@ export class OrdersPage {
     this.patientId.set('');
     this.patientMissing.set(false);
     this.creating.set(true);
+    this.selectedTests.set(new Set());
+    this.testsMissing.set(false);
     void this.loadPatients();
+    void this.loadTestTypes();
+  }
+
+  private async loadTestTypes(): Promise<void> {
+    this.testTypesState.set('loading');
+    try {
+      this.testTypes.set(await this.listTestTypes.execute());
+      this.testTypesState.set('ready');
+    } catch {
+      this.testTypesState.set('failed');
+    }
+  }
+
+  protected toggleTest(id: string): void {
+    const next = new Set(this.selectedTests());
+    if (!next.delete(id)) next.add(id);
+    this.selectedTests.set(next);
+    this.testsMissing.set(false);
   }
 
   private async loadPatients(): Promise<void> {
@@ -312,18 +377,15 @@ export class OrdersPage {
   }
 
   protected async create(): Promise<void> {
-    if (!this.patientId()) {
-      this.patientMissing.set(true);
-      return;
-    }
+    this.patientMissing.set(!this.patientId());
+    this.testsMissing.set(this.selectedTests().size === 0);
+    if (this.patientMissing() || this.testsMissing()) return;
     this.saving.set(true);
     this.error.set(null);
     try {
       const order = await this.createOrder.execute({
         patientId: this.patientId(),
-        testTypeIds: this.testIds()
-          .split(/[\s,]+/)
-          .filter((id) => id.length > 0),
+        testTypeIds: [...this.selectedTests()],
         priority: this.priority(),
         notes: this.notes(),
       });
@@ -331,7 +393,7 @@ export class OrdersPage {
     } catch (error) {
       this.error.set(
         describeError(error, {
-          validation: 'Revisa los identificadores: deben ser UUID válidos, uno por línea.',
+          validation: 'Revisa los datos de la orden: elige un paciente y al menos una prueba (máximo 20).',
           forbidden: 'Solo un médico con perfil profesional puede crear órdenes.',
           not_found: 'No encontramos a ese paciente.',
         }),

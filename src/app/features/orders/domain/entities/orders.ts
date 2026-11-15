@@ -1,6 +1,13 @@
 // Mirrors the laboratory and clinical tables of the backend. Field names are English; the values
 // (SOLICITADA, ACEPTAR, ...) are the backend's own codes.
 
+/** A laboratory test the doctor can tick on the order form. */
+export interface TestTypeOption {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+}
+
 /** A patient the doctor treats, as offered by the order form. */
 export interface PatientOption {
   readonly id: string;

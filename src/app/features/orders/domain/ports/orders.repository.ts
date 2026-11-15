@@ -6,6 +6,7 @@ import {
   NewResult,
   OrderSummary,
   PatientOption,
+  TestTypeOption,
   Proposal,
   UploadedReport,
 } from '../entities/orders';
@@ -17,6 +18,8 @@ export abstract class OrdersRepository {
   abstract listOrders(): Promise<OrderSummary[]>;
   /** Only the patients the calling doctor treats. */
   abstract listPatients(): Promise<PatientOption[]>;
+  /** The active catalog of laboratory tests. */
+  abstract listTestTypes(): Promise<TestTypeOption[]>;
   abstract getOrder(orderId: string): Promise<LabOrder>;
   abstract listResults(orderId: string): Promise<LabResult[]>;
   abstract recordResults(
