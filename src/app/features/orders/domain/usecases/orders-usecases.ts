@@ -9,6 +9,7 @@ import {
   OrderSummary,
   PatientOption,
   TestTypeOption,
+  WorklistOrder,
   Proposal,
   UploadedReport,
 } from '../entities/orders';
@@ -63,6 +64,14 @@ export class ListTestTypes {
 
   execute(): Promise<TestTypeOption[]> {
     return this.repository.listTestTypes();
+  }
+}
+
+export class ListWorklist {
+  constructor(private readonly repository: OrdersRepository) {}
+
+  execute(): Promise<WorklistOrder[]> {
+    return this.repository.listWorklist();
   }
 }
 

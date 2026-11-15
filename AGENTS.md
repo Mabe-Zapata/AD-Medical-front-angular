@@ -49,12 +49,13 @@ src/app/app.interceptor.ts  agrega el bearer y cierra sesión ante 401
 
 ### Brechas conocidas del backend
 
-- Ya hay listados de órdenes (`GET /lab/orders`: el médico ve las que ordenó; el laboratorista recibe 403 y abre la orden por id), de cuentas (`GET /users`, módulo **Usuarios y roles**) y de borradores de conocimiento (`GET /knowledge/rules?estado=BORRADOR` y `GET /knowledge/references?estado=BORRADOR&analito_id=…`; los borradores de referencias exigen el analito, así que se piden analito por analito). `GET /patients` (solo los pacientes del médico) ya alimenta el combo con búsqueda del formulario de orden; `GET /lab/test-types` (catálogo de pruebas activas) se muestra como casillas de verificación, como la solicitud en papel. `/me` es mínimo.
+- Ya hay listados de órdenes (`GET /lab/orders`: el médico ve las que ordenó; el laboratorista recibe 403 y abre la orden por id), de cuentas (`GET /users`, módulo **Usuarios y roles**) y de borradores de conocimiento (`GET /knowledge/rules?estado=BORRADOR` y `GET /knowledge/references?estado=BORRADOR&analito_id=…`; los borradores de referencias exigen el analito, así que se piden analito por analito). `GET /patients` (solo los pacientes del médico) ya alimenta el combo con búsqueda del formulario de orden; `GET /lab/test-types` (catálogo de pruebas activas) se muestra como casillas de verificación, como la solicitud en papel. `GET /lab/worklist` (cola pendiente del laboratorio, ambos orígenes) alimenta el combo de órdenes pendientes. `/me` es mínimo.
 - `GET /appointments` (agenda del médico) existe, pero esta app todavía no la usa.
 - El listado de órdenes no trae prioridad ni pruebas, y ninguna ruta devuelve el id del PDF de una orden: no hay descarga de informes.
-- **El laboratorista no puede leer la orden** en la que registra resultados (`GET /lab/orders/{id}` devuelve 403: solo el médico dueño y el paciente). La pantalla lo trata como un modo distinto: pide el identificador de la prueba que le da el médico.
+- **El laboratorista no puede leer una orden** (`GET /lab/orders/{id}` devuelve 403: solo el médico dueño y el paciente). Trabaja desde la cola: elige la orden en el combo y la pantalla abre la prueba pendiente precargada. Si no tiene permiso de la cola, mantiene el campo por identificador.
 - La orden pasa a `COMPLETADA` cuando todas sus pruebas tienen resultados, no al revisarla; la revisión médica se registra una vez y el estado no la refleja (un segundo intento da 409).
 - Un usuario con rol MEDICO creado por `POST /users` no tiene perfil profesional y no puede crear órdenes.
+- **Examen pedido por el paciente, sin médico** (`POST /lab/patient-orders`, origen `PACIENTE`, `medico_id` nulo, prioridad NORMAL). Ya existe en el backend y aparece en la cola del laboratorio. Esta app no lo crea: es del portal del paciente (Flutter), que todavía no lo consume. Estas órdenes no tienen revisión ni propuesta del médico.
 
 Documéntalas aquí y en el README cuando una funcionalidad dependa de ellas; quítalas cuando el backend las cierre.
 

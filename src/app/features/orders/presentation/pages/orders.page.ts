@@ -12,9 +12,10 @@ import { formatDate } from '../../../../shared/presentation/format';
 import { ModalComponent } from '../../../../shared/presentation/organisms/modal';
 import { PERMISSIONS } from '../../../auth/domain/policies/staff-access';
 import { SessionState } from '../../../auth/presentation/session.state';
-import { PRIORITIES, OrderSummary, PatientOption, Priority, TestTypeOption } from '../../domain/entities/orders';
-import { CreateOrder, ListOrders, ListPatients, ListTestTypes } from '../../domain/usecases/orders-usecases';
+import { PRIORITIES, OrderSummary, PatientOption, Priority, TestTypeOption, WorklistOrder } from '../../domain/entities/orders';
+import { CreateOrder, ListOrders, ListPatients, ListTestTypes, ListWorklist } from '../../domain/usecases/orders-usecases';
 import { PatientPickerComponent } from '../widgets/patient-picker';
+import { WorklistPickerComponent } from '../widgets/worklist-picker';
 import { ORDER_STATUS_LABELS, PRIORITY_LABELS } from '../labels';
 import { PaginatorComponent } from '../../../../shared/presentation/molecules/paginator';
 import { PageState } from '../../../../shared/presentation/pagination';
@@ -22,7 +23,7 @@ import { PageState } from '../../../../shared/presentation/pagination';
 /** Container: lists the orders the person may read, opens one by its id, or (for ordering doctors) creates one. */
 @Component({
   selector: 'app-orders-page',
-  imports: [FormsModule, RouterLink, BannerComponent, ChipComponent, ModalComponent, PaginatorComponent, PatientPickerComponent],
+  imports: [FormsModule, RouterLink, BannerComponent, ChipComponent, ModalComponent, PaginatorComponent, PatientPickerComponent, WorklistPickerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="stack">
@@ -85,6 +86,24 @@ import { PageState } from '../../../../shared/presentation/pagination';
       </section>
       }
 
+      @if (canRecord && listing() === 'denied') {
+        <section class="card stack">
+          <div>
+            <h2>Órdenes pendientes</h2>
+            <p class="muted small">
+              Elige la orden que vas a procesar. Se listan de la más antigua a la más reciente.
+            </p>
+          </div>
+          <div class="field">
+            <label for="worklist-search">Orden</label>
+            <app-worklist-picker
+              [items]="worklist()"
+              [state]="worklistState()"
+              (picked)="openFromWorklist($event)"
+            />
+          </div>
+        </section>
+      } @else {
       <section class="card stack">
         <div>
           <h2>Abrir una orden por identificador</h2>
@@ -115,6 +134,7 @@ import { PageState } from '../../../../shared/presentation/pagination';
           <button class="btn btn--primary align" type="submit">Abrir</button>
         </form>
       </section>
+      }
 
       @if (canCreate) {
         <section class="card stack">
@@ -261,9 +281,11 @@ export class OrdersPage {
   private readonly createOrder = inject(CreateOrder);
   private readonly listOrders = inject(ListOrders);
   private readonly listPatients = inject(ListPatients);
+  private readonly listWorklist = inject(ListWorklist);
   private readonly listTestTypes = inject(ListTestTypes);
 
   protected readonly canCreate = inject(SessionState).can(PERMISSIONS.ordersCreate);
+  protected readonly canRecord = inject(SessionState).can(PERMISSIONS.resultsRecord);
   protected readonly priorities = PRIORITIES;
   protected readonly priorityLabels = PRIORITY_LABELS;
   protected readonly statusLabels = ORDER_STATUS_LABELS;
@@ -283,6 +305,8 @@ export class OrdersPage {
   protected readonly saving = signal(false);
   protected readonly error = signal<ErrorView | null>(null);
   protected readonly creating = signal(false);
+  protected readonly worklist = signal<readonly WorklistOrder[]>([]);
+  protected readonly worklistState = signal<'loading' | 'ready' | 'failed'>('loading');
   protected readonly patients = signal<readonly PatientOption[]>([]);
   protected readonly patientsState = signal<'loading' | 'ready' | 'failed'>('loading');
   protected readonly patientMissing = signal(false);
@@ -298,7 +322,28 @@ export class OrdersPage {
       (permission) => session.can(permission),
     );
     if (canList) void this.load();
-    else this.listing.set('denied');
+    else {
+      this.listing.set('denied');
+      if (this.canRecord) void this.loadWorklist();
+    }
+  }
+
+  /** The laboratory's queue: the pending orders it can record results on. */
+  private async loadWorklist(): Promise<void> {
+    try {
+      this.worklist.set(await this.listWorklist.execute());
+      this.worklistState.set('ready');
+    } catch {
+      this.worklistState.set('failed');
+    }
+  }
+
+  /** Opens the order on the test still pending, so the laboratory fills in that one. */
+  protected openFromWorklist(item: WorklistOrder): void {
+    const test = item.tests.find((t) => t.status === 'PENDIENTE') ?? item.tests[0];
+    void this.router.navigate(['/ordenes', item.id], {
+      queryParams: test ? { detalle: test.detailId } : {},
+    });
   }
 
   protected dateOf(order: OrderSummary): string {

@@ -26,6 +26,37 @@ describe('HttpOrdersRepository', () => {
 
   afterEach(() => http.verify());
 
+  it('maps the worklist rows with their origin, date and test lines', async () => {
+    const result = repository.listWorklist();
+    http.expectOne((req) => req.url === '/api/v1/lab/worklist').flush({
+      items: [
+        {
+          id: ID,
+          paciente_id: 'p1',
+          medico_id: null,
+          prioridad: 'NORMAL',
+          estado: 'SOLICITADA',
+          origen: 'PACIENTE',
+          fecha: '2026-11-15T09:00:00Z',
+          pruebas: [{ detalle_id: 'd1', tipo_prueba_id: 't1', estado: 'PENDIENTE' }],
+        },
+      ],
+      limit: 200,
+      offset: 0,
+    });
+
+    expect(await result).toEqual([
+      {
+        id: ID,
+        origin: 'PACIENTE',
+        priority: 'NORMAL',
+        status: 'SOLICITADA',
+        orderedAt: '2026-11-15T09:00:00Z',
+        tests: [{ detailId: 'd1', testTypeId: 't1', status: 'PENDIENTE' }],
+      },
+    ]);
+  });
+
   it('maps an order from the backend fields', async () => {
     const result = repository.getOrder(ID);
     http.expectOne(`/api/v1/lab/orders/${ID}`).flush({
