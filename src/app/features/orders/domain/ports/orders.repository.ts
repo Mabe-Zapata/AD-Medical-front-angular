@@ -6,6 +6,8 @@ import {
   NewResult,
   OrderSummary,
   PatientOption,
+  OrderDocument,
+  TestAnalyte,
   TestTypeOption,
   WorklistOrder,
   Proposal,
@@ -23,6 +25,8 @@ export abstract class OrdersRepository {
   abstract listTestTypes(): Promise<TestTypeOption[]>;
   /** Pending orders of both origins for the laboratory, oldest first. */
   abstract listWorklist(): Promise<WorklistOrder[]>;
+  /** The analytes a test asks for, in presentation order. */
+  abstract listTestAnalytes(testTypeId: string): Promise<TestAnalyte[]>;
   abstract getOrder(orderId: string): Promise<LabOrder>;
   abstract listResults(orderId: string): Promise<LabResult[]>;
   abstract recordResults(
@@ -31,6 +35,10 @@ export abstract class OrdersRepository {
     results: readonly NewResult[],
   ): Promise<LabOrder>;
   abstract uploadReport(orderId: string, file: File): Promise<UploadedReport>;
+  /** The uploaded reports of an order; empty when there are none. */
+  abstract listOrderDocuments(orderId: string): Promise<OrderDocument[]>;
+  /** Closes a completed order: its results and reports can no longer change. */
+  abstract confirmOrder(orderId: string): Promise<void>;
   abstract evaluate(orderId: string): Promise<Proposal>;
   /** Null when the order has no proposal yet. */
   abstract getProposal(orderId: string): Promise<Proposal | null>;

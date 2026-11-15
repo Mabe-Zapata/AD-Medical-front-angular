@@ -28,6 +28,25 @@ export interface OrderTest {
   readonly detailId: string;
   readonly testTypeId: string;
   readonly status: string;
+  /** Set on the worklist only: the test's name and code, so the queue reads by name. */
+  readonly name?: string;
+  readonly code?: string;
+}
+
+/** An uploaded report of an order. Metadata only; the file comes from the download route. */
+export interface OrderDocument {
+  readonly id: string;
+  readonly name: string;
+  readonly sizeBytes: number;
+}
+
+/** An analyte a test asks for. Mandatory ones make the test complete. */
+export interface TestAnalyte {
+  readonly id: string;
+  readonly name: string;
+  readonly unit: string | null;
+  readonly valueType: string;
+  readonly mandatory: boolean;
 }
 
 export interface LabOrder {
@@ -114,5 +133,7 @@ export interface WorklistOrder {
   readonly priority: string;
   readonly status: string;
   readonly orderedAt: string;
+  /** The patient's name, for the laboratory to match the sample to the person. Null when unknown. */
+  readonly patientName: string | null;
   readonly tests: readonly OrderTest[];
 }

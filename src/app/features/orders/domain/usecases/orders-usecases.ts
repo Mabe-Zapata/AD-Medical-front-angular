@@ -8,6 +8,8 @@ import {
   NewResult,
   OrderSummary,
   PatientOption,
+  OrderDocument,
+  TestAnalyte,
   TestTypeOption,
   WorklistOrder,
   Proposal,
@@ -75,6 +77,14 @@ export class ListWorklist {
   }
 }
 
+export class ListTestAnalytes {
+  constructor(private readonly repository: OrdersRepository) {}
+
+  execute(testTypeId: string): Promise<TestAnalyte[]> {
+    return this.repository.listTestAnalytes(testTypeId);
+  }
+}
+
 export class GetOrder {
   constructor(private readonly repository: OrdersRepository) {}
 
@@ -102,6 +112,22 @@ export class RecordResults {
       requireUuid(detailId, 'test detail id'),
       results,
     );
+  }
+}
+
+export class ConfirmOrder {
+  constructor(private readonly repository: OrdersRepository) {}
+
+  execute(orderId: string): Promise<void> {
+    return this.repository.confirmOrder(requireUuid(orderId, 'order id'));
+  }
+}
+
+export class ListOrderDocuments {
+  constructor(private readonly repository: OrdersRepository) {}
+
+  execute(orderId: string): Promise<OrderDocument[]> {
+    return this.repository.listOrderDocuments(requireUuid(orderId, 'order id'));
   }
 }
 

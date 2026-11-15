@@ -52,6 +52,17 @@ class FakeRepository extends OrdersRepository {
     this.calls.push('listPatients');
     return [];
   }
+  async confirmOrder() {
+    this.calls.push('confirmOrder');
+  }
+  async listOrderDocuments() {
+    this.calls.push('listOrderDocuments');
+    return [];
+  }
+  async listTestAnalytes() {
+    this.calls.push('listTestAnalytes');
+    return [];
+  }
   async listWorklist() {
     this.calls.push('listWorklist');
     return [];

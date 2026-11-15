@@ -38,6 +38,7 @@ describe('HttpOrdersRepository', () => {
           estado: 'SOLICITADA',
           origen: 'PACIENTE',
           fecha: '2026-11-15T09:00:00Z',
+          paciente_nombre: 'Ana Lopez',
           pruebas: [{ detalle_id: 'd1', tipo_prueba_id: 't1', estado: 'PENDIENTE' }],
         },
       ],
@@ -52,6 +53,7 @@ describe('HttpOrdersRepository', () => {
         priority: 'NORMAL',
         status: 'SOLICITADA',
         orderedAt: '2026-11-15T09:00:00Z',
+        patientName: 'Ana Lopez',
         tests: [{ detailId: 'd1', testTypeId: 't1', status: 'PENDIENTE' }],
       },
     ]);
