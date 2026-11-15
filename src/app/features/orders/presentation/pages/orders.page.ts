@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
+import { stripEmoji } from '../../../../core/domain/text';
 import { AppError } from '../../../../core/domain/app-error';
 import { isUuid } from '../../../../core/domain/dates';
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
@@ -11,8 +12,9 @@ import { formatDate } from '../../../../shared/presentation/format';
 import { ModalComponent } from '../../../../shared/presentation/organisms/modal';
 import { PERMISSIONS } from '../../../auth/domain/policies/staff-access';
 import { SessionState } from '../../../auth/presentation/session.state';
-import { PRIORITIES, OrderSummary, Priority } from '../../domain/entities/orders';
-import { CreateOrder, ListOrders } from '../../domain/usecases/orders-usecases';
+import { PRIORITIES, OrderSummary, PatientOption, Priority } from '../../domain/entities/orders';
+import { CreateOrder, ListOrders, ListPatients } from '../../domain/usecases/orders-usecases';
+import { PatientPickerComponent } from '../widgets/patient-picker';
 import { ORDER_STATUS_LABELS, PRIORITY_LABELS } from '../labels';
 import { PaginatorComponent } from '../../../../shared/presentation/molecules/paginator';
 import { PageState } from '../../../../shared/presentation/pagination';
@@ -20,7 +22,7 @@ import { PageState } from '../../../../shared/presentation/pagination';
 /** Container: lists the orders the person may read, opens one by its id, or (for ordering doctors) creates one. */
 @Component({
   selector: 'app-orders-page',
-  imports: [FormsModule, RouterLink, BannerComponent, ChipComponent, ModalComponent, PaginatorComponent],
+  imports: [FormsModule, RouterLink, BannerComponent, ChipComponent, ModalComponent, PaginatorComponent, PatientPickerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="stack">
@@ -139,15 +141,16 @@ import { PageState } from '../../../../shared/presentation/pagination';
           }
           <form class="stack" (ngSubmit)="create()" novalidate>
             <div class="field">
-              <label for="patient-id">Identificador del paciente</label>
-              <input
-                id="patient-id"
-                class="input mono"
-                name="patientId"
-                [ngModel]="patientId()"
-                (ngModelChange)="patientId.set($event)"
-                autocomplete="off"
+              <label for="patient-search">Paciente</label>
+              <app-patient-picker
+                [options]="patients()"
+                [loading]="patientsState() === 'loading'"
+                [failed]="patientsState() === 'failed'"
+                (picked)="choose($event)"
               />
+              @if (patientMissing()) {
+                <span class="field-error">Elige un paciente de la lista.</span>
+              }
             </div>
             <div class="field">
               <label for="test-ids">Identificadores de las pruebas (uno por línea)</label>
@@ -183,7 +186,7 @@ import { PageState } from '../../../../shared/presentation/pagination';
                   name="notes"
                   maxlength="1000"
                   [ngModel]="notes()"
-                  (ngModelChange)="notes.set($event)"
+                  (ngModelChange)="notes.set(clean($event))"
                 />
               </div>
             </div>
@@ -216,6 +219,7 @@ export class OrdersPage {
   private readonly router = inject(Router);
   private readonly createOrder = inject(CreateOrder);
   private readonly listOrders = inject(ListOrders);
+  private readonly listPatients = inject(ListPatients);
 
   protected readonly canCreate = inject(SessionState).can(PERMISSIONS.ordersCreate);
   protected readonly priorities = PRIORITIES;
@@ -234,9 +238,12 @@ export class OrdersPage {
   protected readonly saving = signal(false);
   protected readonly error = signal<ErrorView | null>(null);
   protected readonly creating = signal(false);
+  protected readonly patients = signal<readonly PatientOption[]>([]);
+  protected readonly patientsState = signal<'loading' | 'ready' | 'failed'>('loading');
+  protected readonly patientMissing = signal(false);
   protected readonly bullets = [
-    'Usa los identificadores (UUID) del paciente y de las pruebas.',
-    'El sistema todavía no ofrece un catálogo para elegirlos por nombre.',
+    'Busca al paciente por su nombre: solo aparecen los que tienes a tu cargo.',
+    'Las pruebas se indican por su identificador (UUID), uno por línea.',
   ];
 
   constructor() {
@@ -270,7 +277,29 @@ export class OrdersPage {
 
   protected openForm(): void {
     this.error.set(null);
+    this.patientId.set('');
+    this.patientMissing.set(false);
     this.creating.set(true);
+    void this.loadPatients();
+  }
+
+  private async loadPatients(): Promise<void> {
+    this.patientsState.set('loading');
+    try {
+      this.patients.set(await this.listPatients.execute());
+      this.patientsState.set('ready');
+    } catch {
+      this.patientsState.set('failed');
+    }
+  }
+
+  protected choose(patient: PatientOption | null): void {
+    this.patientId.set(patient?.id ?? '');
+    this.patientMissing.set(false);
+  }
+
+  protected clean(text: string): string {
+    return stripEmoji(text);
   }
 
   protected async open(): Promise<void> {
@@ -283,6 +312,10 @@ export class OrdersPage {
   }
 
   protected async create(): Promise<void> {
+    if (!this.patientId()) {
+      this.patientMissing.set(true);
+      return;
+    }
     this.saving.set(true);
     this.error.set(null);
     try {

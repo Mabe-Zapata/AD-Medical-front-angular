@@ -48,6 +48,10 @@ class FakeRepository extends OrdersRepository {
     this.calls.push('listOrders');
     return [];
   }
+  async listPatients() {
+    this.calls.push('listPatients');
+    return [];
+  }
   async getOrder() {
     this.calls.push('getOrder');
     return this.order;
@@ -79,6 +83,11 @@ class FakeRepository extends OrdersRepository {
 }
 
 describe('orders policies', () => {
+  it('refuses emoji in the notes of a new order', () => {
+    expect(orderProblems(ID, [OTHER], 'urgente 🚑')).toHaveLength(1);
+    expect(orderProblems(ID, [OTHER], 'urgente')).toEqual([]);
+  });
+
   it('accepts a numeric and a text result', () => {
     expect(
       resultProblems([numeric, { ...numeric, numericValue: null, textValue: 'Negativo' }]),

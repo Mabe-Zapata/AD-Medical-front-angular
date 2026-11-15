@@ -1,6 +1,12 @@
 // Mirrors the laboratory and clinical tables of the backend. Field names are English; the values
 // (SOLICITADA, ACEPTAR, ...) are the backend's own codes.
 
+/** A patient the doctor treats, as offered by the order form. */
+export interface PatientOption {
+  readonly id: string;
+  readonly name: string;
+}
+
 /** One row of the order listing: it carries no tests and no results. */
 export interface OrderSummary {
   readonly id: string;

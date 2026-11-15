@@ -5,6 +5,7 @@ import {
   LabResult,
   NewResult,
   OrderSummary,
+  PatientOption,
   Proposal,
   UploadedReport,
 } from '../entities/orders';
@@ -14,6 +15,8 @@ export abstract class OrdersRepository {
   abstract createOrder(order: NewOrder): Promise<LabOrder>;
   /** The orders the caller may read, newest first. A doctor sees the ones they placed. */
   abstract listOrders(): Promise<OrderSummary[]>;
+  /** Only the patients the calling doctor treats. */
+  abstract listPatients(): Promise<PatientOption[]>;
   abstract getOrder(orderId: string): Promise<LabOrder>;
   abstract listResults(orderId: string): Promise<LabResult[]>;
   abstract recordResults(
