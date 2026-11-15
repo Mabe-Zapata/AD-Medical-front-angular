@@ -26,6 +26,7 @@ import { ReviewsState } from '../reviews.state';
 import { ProposalViewComponent } from '../widgets/proposal-view';
 import { AnalyteOption, ResultsFormComponent, ResultsSubmission } from '../widgets/results-form';
 import { ReviewFormComponent, ReviewSubmission } from '../widgets/review-form';
+import { ShadowPanelComponent } from './shadow-panel';
 import { PaginatorComponent } from '../../../../shared/presentation/molecules/paginator';
 import { PageState } from '../../../../shared/presentation/pagination';
 
@@ -74,6 +75,7 @@ const REVIEW_ERRORS: Overrides = {
     ProposalViewComponent,
     DecisionFormComponent,
     ReviewFormComponent,
+    ShadowPanelComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -289,6 +291,10 @@ const REVIEW_ERRORS: Overrides = {
             </div>
           }
         </section>
+      }
+
+      @if (order() && canSeeProposal) {
+        <app-shadow-panel [orderId]="orderId" [canRecord]="canDecide" />
       }
 
       @if (order(); as o) {

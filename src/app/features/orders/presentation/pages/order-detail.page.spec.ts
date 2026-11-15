@@ -15,6 +15,12 @@ import {
   ReviewOrder,
   UploadReport,
 } from '../../domain/usecases/orders-usecases';
+import {
+  EditShadowFinding,
+  GetShadowReport,
+  ListShadowEdits,
+  RecordShadowSnapshot,
+} from '../../domain/usecases/shadow-usecases';
 import { OrderDetailPage } from './order-detail.page';
 
 const ORDER_ID = '3b9f2a52-1c61-4f0e-9d0a-6a1c1c2f7e11';
@@ -98,6 +104,11 @@ function setup(stubs: Partial<Stubs>, ...granted: string[]) {
         },
       },
       { provide: ListOrderResults, useValue: { execute: async () => [] } },
+      // The shadow panel has its own spec; here it only needs to exist.
+      { provide: GetShadowReport, useValue: { execute: async () => ({ findings: [] }) } },
+      { provide: RecordShadowSnapshot, useValue: { execute: async () => null } },
+      { provide: EditShadowFinding, useValue: { execute: async () => '' } },
+      { provide: ListShadowEdits, useValue: { execute: async () => [] } },
       { provide: GetProposal, useValue: { execute: async () => state.proposal } },
       {
         provide: ListAnalytes,
