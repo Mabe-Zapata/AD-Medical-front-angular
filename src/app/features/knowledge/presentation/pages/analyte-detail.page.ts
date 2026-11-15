@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { APP_SETTINGS } from '../../../../core/config/app-settings';
@@ -7,6 +7,8 @@ import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
 import { ErrorView, describeError } from '../../../../shared/presentation/error-message';
 import { formatRange } from '../../../../shared/presentation/format';
 import { ModalComponent } from '../../../../shared/presentation/organisms/modal';
+import { PageHeaderComponent } from '../../../../shared/presentation/organisms/page-header';
+import { Crumb } from '../../../../shared/presentation/molecules/breadcrumbs';
 import { PERMISSIONS } from '../../../auth/domain/policies/staff-access';
 import { SessionState } from '../../../auth/presentation/session.state';
 import { Analyte, NewReference, ReferenceRange } from '../../domain/entities/knowledge';
@@ -22,11 +24,15 @@ import { ReferenceTableComponent } from '../widgets/reference-table';
 /** Container: validated reference ranges of one analyte on a chosen date, plus draft creation. */
 @Component({
   selector: 'app-analyte-detail-page',
-  imports: [ReferenceFormComponent, ReferenceTableComponent, BannerComponent, ModalComponent, RouterLink],
+  imports: [ReferenceFormComponent, ReferenceTableComponent, BannerComponent, ModalComponent, RouterLink, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="stack">
-      <a routerLink="/conocimiento/analitos" class="small">← Volver a los analitos</a>
+      <app-page-header
+        area="Conocimiento clínico"
+        [title]="analyte()?.name ?? 'Analito'"
+        [crumbs]="crumbs()"
+      />
 
       @if (error(); as e) {
         @if (!creating()) {
@@ -123,6 +129,11 @@ export class AnalyteDetailPage {
   protected readonly defaultSourceId = inject(APP_SETTINGS).defaultSourceId;
 
   protected readonly analyte = signal<Analyte | null>(null);
+  protected readonly crumbs = computed<readonly Crumb[]>(() => [
+    { label: 'Inicio', link: '/inicio' },
+    { label: 'Conocimiento clínico', link: '/conocimiento/analitos' },
+    { label: this.analyte()?.name ?? 'Analito' },
+  ]);
   protected readonly references = signal<readonly ReferenceRange[]>([]);
   protected readonly onDate = signal(toIsoDate(new Date()));
   protected readonly loading = signal(true);
