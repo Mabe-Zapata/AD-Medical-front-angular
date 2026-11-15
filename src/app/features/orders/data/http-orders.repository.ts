@@ -15,6 +15,7 @@ import {
   OrderSummary,
   PatientOption,
   TestTypeOption,
+  WorklistOrder,
   Proposal,
   UploadedReport,
 } from '../domain/entities/orders';
@@ -69,6 +70,15 @@ interface ProposalDto {
   decision: string | null;
   conclusion_medica: string | null;
   hallazgos: FindingDto[];
+}
+
+interface WorklistDto {
+  id: string;
+  origen: string;
+  prioridad: string;
+  estado: string;
+  fecha: string;
+  pruebas: { detalle_id: string; tipo_prueba_id: string; estado: string }[];
 }
 
 interface DocumentDto {
@@ -128,6 +138,20 @@ export class HttpOrdersRepository extends OrdersRepository {
       this.http.get<{ items: { id: string; codigo: string; nombre: string }[] }>(`${this.api}/lab/test-types`),
     );
     return response.items.map((t) => ({ id: t.id, code: t.codigo, name: t.nombre }));
+  }
+
+  async listWorklist(): Promise<WorklistOrder[]> {
+    const response = await this.call(
+      this.http.get<{ items: WorklistDto[] }>(`${this.api}/lab/worklist`, { params: { limit: 200 } }),
+    );
+    return response.items.map((o) => ({
+      id: o.id,
+      origin: o.origen,
+      priority: o.prioridad,
+      status: o.estado,
+      orderedAt: o.fecha,
+      tests: o.pruebas.map((t) => ({ detailId: t.detalle_id, testTypeId: t.tipo_prueba_id, status: t.estado })),
+    }));
   }
 
   async getOrder(orderId: string): Promise<LabOrder> {

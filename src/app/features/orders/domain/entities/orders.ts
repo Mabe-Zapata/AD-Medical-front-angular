@@ -105,3 +105,14 @@ export interface NewOrder {
   readonly priority: Priority;
   readonly notes: string | null;
 }
+
+/** One pending order of the laboratory worklist: both origins, oldest first, with its test lines. */
+export interface WorklistOrder {
+  readonly id: string;
+  /** 'PACIENTE' when the patient asked for the exam, 'MEDICO' when a doctor ordered it. */
+  readonly origin: string;
+  readonly priority: string;
+  readonly status: string;
+  readonly orderedAt: string;
+  readonly tests: readonly OrderTest[];
+}
