@@ -1,20 +1,32 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { AppError, ErrorKind } from '../../../../core/domain/app-error';
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
+import { Crumb } from '../../../../shared/presentation/molecules/breadcrumbs';
+import { PageHeaderComponent } from '../../../../shared/presentation/organisms/page-header';
 import { ChipComponent } from '../../../../shared/presentation/atoms/chip';
 import { ModalComponent } from '../../../../shared/presentation/organisms/modal';
 import { ErrorView, describeError } from '../../../../shared/presentation/error-message';
 import { PERMISSIONS } from '../../../auth/domain/policies/staff-access';
 import { SessionState } from '../../../auth/presentation/session.state';
 import { ListAnalytes } from '../../../knowledge/domain/usecases/knowledge-usecases';
-import { LabOrder, LabResult, Proposal } from '../../domain/entities/orders';
+import { ConfirmOrder, ListTestAnalytes, ListWorklist } from '../../domain/usecases/orders-usecases';
+import {
+  LabOrder,
+  LabResult,
+  OrderDocument,
+  OrderTest,
+  Proposal,
+  TestAnalyte,
+  WorklistOrder,
+} from '../../domain/entities/orders';
 import {
   DecideProposal,
   EvaluateOrder,
   GetOrder,
   GetProposal,
+  ListOrderDocuments,
   ListOrderResults,
   RecordResults,
   ReviewOrder,
@@ -24,7 +36,19 @@ import { ORDER_STATUS_LABELS, PRIORITY_LABELS, TEST_STATUS_LABELS, label } from 
 import { DecisionFormComponent, DecisionSubmission } from '../widgets/decision-form';
 import { ReviewsState } from '../reviews.state';
 import { ProposalViewComponent } from '../widgets/proposal-view';
-import { AnalyteOption, ResultsFormComponent, ResultsSubmission } from '../widgets/results-form';
+import {
+  AnalyteOption,
+  ResultsFormComponent,
+  ResultsFormDraft,
+  ResultsSubmission,
+} from '../widgets/results-form';
+import {
+  ResultsDraft,
+  clearResultsDraft,
+  readResultsDraft,
+  writeResultsDraft,
+} from '../results-draft';
+import { DialogAction, DialogComponent } from '../../../../shared/presentation/organisms/dialog';
 import { ReviewFormComponent, ReviewSubmission } from '../widgets/review-form';
 import { ShadowPanelComponent } from './shadow-panel';
 import { PaginatorComponent } from '../../../../shared/presentation/molecules/paginator';
@@ -58,6 +82,16 @@ const REVIEW_ERRORS: Overrides = {
   validation: 'Escribe la conclusión de la revisión.',
 };
 
+/** A decision the person must make before the page moves on. */
+interface OrderDialog {
+  readonly kind: 'unsaved' | 'sent' | 'info' | 'confirm';
+  readonly title: string;
+  readonly message: string;
+  readonly actions: readonly DialogAction[];
+  /** The value Escape sends: the one that keeps the person where they are. */
+  readonly dismiss: string;
+}
+
 /**
  * Container: one order and what each role can do with it. The backend lets only the ordering doctor
  * (and the patient) read an order, so laboratory staff may find it closed and enter results blind,
@@ -66,6 +100,8 @@ const REVIEW_ERRORS: Overrides = {
 @Component({
   selector: 'app-order-detail-page',
   imports: [
+    DialogComponent,
+    PageHeaderComponent,
     PaginatorComponent,
     ModalComponent,
     RouterLink,
@@ -78,9 +114,81 @@ const REVIEW_ERRORS: Overrides = {
     ShadowPanelComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styles: `
+    .flow-head {
+      display: grid;
+      gap: 4px;
+    }
+    .flow-head h2 {
+      margin: 0;
+    }
+    .step {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 14px;
+      align-items: start;
+      padding-top: 16px;
+      border-top: 1px solid var(--border, #dbe3f0);
+    }
+    .step h3 {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+    }
+    .step-no {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: var(--blue-deep, #1e3a8a);
+      color: #fff;
+      font-weight: 700;
+    }
+    .step-body {
+      min-width: 0;
+    }
+    .docs {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .docs li {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 12px;
+      border: 1px solid var(--border, #dbe3f0);
+      border-radius: 10px;
+    }
+    .tag {
+      padding: 2px 10px;
+      border-radius: 999px;
+      background: var(--blue-tint, #eef3fb);
+      color: var(--blue-text, #1d4f91);
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    @media (max-width: 720px) {
+      .step {
+        grid-template-columns: auto 1fr;
+      }
+      .step > button {
+        grid-column: 2;
+      }
+    }
+`,
   template: `
     <div class="stack">
-      <a routerLink="/ordenes" class="small">← Volver a las órdenes</a>
+      <app-page-header area="Órdenes y resultados" title="Detalle de la orden" [crumbs]="crumbs()">
+        <div actions>
+          <a routerLink="/ordenes" class="btn btn--small">← Regresar a resultados</a>
+        </div>
+      </app-page-header>
 
       @if (notice(); as text) {
         <app-banner tone="success">{{ text }}</app-banner>
@@ -143,9 +251,12 @@ const REVIEW_ERRORS: Overrides = {
               <app-paginator [total]="o.tests.length" [state]="testsPager" />
         } @else if (restricted()) {
           <app-banner tone="warning">
-            El contenido de esta orden solo lo ve el médico que la creó. Si tienes el identificador
-            de la prueba, puedes registrar sus resultados y subir el informe.
+            El laboratorio no abre la orden completa: registra los resultados desde la cola de
+            trabajo. Aquí puedes registrar los resultados de la prueba y subir el informe.
           </app-banner>
+          @if (queueItem()?.patientName; as name) {
+            <p class="small"><strong>Paciente:</strong> {{ name }}</p>
+          }
         }
       </section>
 
@@ -181,68 +292,117 @@ const REVIEW_ERRORS: Overrides = {
       }
 
       @if (canRecord && (order() || restricted())) {
-        <section class="card stack">
-          <div>
-            <h2>Registrar resultados</h2>
-            <p class="muted small">
-              Los resultados de una prueba se registran una sola vez y no se reescriben.
-            </p>
-          </div>
-          <div>
-            <button class="btn btn--primary" type="button" (click)="openModal('results')">
+        <section class="card stack results-flow">
+          <header class="flow-head">
+            <h2>Resultados</h2>
+            <p class="muted small">Registrar resultados es obligatorio. El informe PDF es opcional.</p>
+          </header>
+
+          <div class="step">
+            <span class="step-no" aria-hidden="true">1</span>
+            <div class="step-body">
+              <h3>Registrar resultados</h3>
+              <p class="muted small">Cada prueba se registra una sola vez y no se reescribe.</p>
+            </div>
+            @if (!readyToConfirm()) {
+            <button class="btn btn--primary" type="button" (click)="openResults()">
               Registrar resultados
             </button>
+            }
           </div>
-        </section>
 
+          <div class="step">
+            <span class="step-no" aria-hidden="true">2</span>
+            <div class="step-body stack">
+              <h3>Informe en PDF <span class="tag">Opcional</span></h3>
+              <p class="muted small">
+                Si lo hay, se envía al paciente junto con los resultados. PDF de hasta 10 MB; se guarda en
+                privado.
+              </p>
+              @if (documents().length > 0) {
+                <ul class="docs">
+                  @for (doc of documents(); track doc.id) {
+                    <li>
+                      <span>{{ doc.name }}</span>
+                      <span class="muted small">{{ sizeOf(doc.sizeBytes) }}</span>
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <p class="muted small">Todavía no hay informe registrado para esta orden.</p>
+              }
+              <div class="row">
+                <input
+                  id="report-file"
+                  class="input"
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  aria-label="Archivo PDF del informe"
+                  (change)="pickFile($event)"
+                />
+                <button
+                  class="btn btn--primary"
+                  type="button"
+                  [disabled]="!file() || busy() === 'upload'"
+                  (click)="upload()"
+                >
+                  @if (busy() === 'upload') {
+                    <span class="spinner" aria-hidden="true"></span> Subiendo…
+                  } @else {
+                    Subir informe
+                  }
+                </button>
+              </div>
+            </div>
+          </div>
+          @if (readyToConfirm()) {
+            <div class="step">
+              <span class="step-no" aria-hidden="true">3</span>
+              <div class="step-body">
+                <h3>Confirmar la orden</h3>
+                <p class="muted small">
+                  Cierra la orden, con o sin informe. Después no podrás cambiar resultados ni subir informes.
+                </p>
+              </div>
+              <button class="btn btn--primary" type="button" (click)="askConfirm()">Confirmar orden</button>
+            </div>
+          }
+        </section>
         @if (modal() === 'results') {
           <app-modal
             tag="Resultados"
             headline="Registra los resultados de la prueba"
             [bullets]="resultsBullets"
-            (closed)="closeModal()"
+            (closed)="requestCloseResults()"
           >
             @if (error(); as e) {
               <app-banner tone="danger">{{ e.message }}</app-banner>
             }
             <app-results-form
               [tests]="pendingTests()"
-              [analytes]="analytes()"
+              [analytes]="analyteOptions()"
+              [testAnalytes]="testAnalytes()"
+              (testChanged)="loadTestAnalytes($event)"
               [busy]="busy() === 'results'"
               [initialDetailId]="initialDetail"
+              [draft]="draft()"
+              (state)="formState.set($event)"
+              (back)="requestCloseResults()"
               (submitted)="saveResults($event)"
             />
           </app-modal>
         }
 
-        <section class="card stack">
-          <div>
-            <h2>Informe en PDF</h2>
-            <p class="muted small">PDF de hasta 10 MB. Se guarda en privado.</p>
-          </div>
-          <div class="row">
-            <input
-              id="report-file"
-              class="input"
-              type="file"
-              accept="application/pdf,.pdf"
-              aria-label="Archivo PDF del informe"
-              (change)="pickFile($event)"
-            />
-            <button
-              class="btn btn--primary"
-              type="button"
-              [disabled]="!file() || busy() === 'upload'"
-              (click)="upload()"
-            >
-              @if (busy() === 'upload') {
-                <span class="spinner" aria-hidden="true"></span> Subiendo…
-              } @else {
-                Subir informe
-              }
-            </button>
-          </div>
-        </section>
+        @if (dialog(); as d) {
+          <app-dialog
+            [title]="d.title"
+            [message]="d.message"
+            [actions]="d.actions"
+            [dismissValue]="d.dismiss"
+            (chosen)="onDialog($event)"
+          />
+        }
+
       }
 
       @if (order() && canSeeProposal) {
@@ -360,6 +520,11 @@ const REVIEW_ERRORS: Overrides = {
 })
 export class OrderDetailPage {
   protected readonly testsPager = new PageState();
+  protected readonly crumbs = computed<readonly Crumb[]>(() => [
+    { label: 'Inicio', link: '/inicio' },
+    { label: 'Órdenes y resultados', link: '/ordenes' },
+    { label: `Orden ${this.orderId.slice(0, 8).toUpperCase()}` },
+  ]);
   protected readonly resultsPager = new PageState();
   private readonly route = inject(ActivatedRoute);
   protected readonly orderId = this.route.snapshot.paramMap.get('id') ?? '';
@@ -370,11 +535,21 @@ export class OrderDetailPage {
   private readonly listResults = inject(ListOrderResults);
   private readonly recordResults = inject(RecordResults);
   private readonly uploadReport = inject(UploadReport);
+  private readonly listDocuments = inject(ListOrderDocuments);
+  protected readonly documents = signal<readonly OrderDocument[]>([]);
   private readonly evaluateOrder = inject(EvaluateOrder);
   private readonly getProposal = inject(GetProposal);
   private readonly decideProposal = inject(DecideProposal);
   private readonly reviewOrder = inject(ReviewOrder);
   private readonly listAnalytes = inject(ListAnalytes);
+  private readonly listWorklist = inject(ListWorklist);
+  private readonly confirmOrder = inject(ConfirmOrder);
+  /** The laboratory's queue says every test has results: the order is ready to be closed. */
+  protected readonly readyToConfirm = computed(
+    () => this.restricted() && this.queueItem()?.status === 'COMPLETADA',
+  );
+  private readonly listTestAnalytes = inject(ListTestAnalytes);
+  private readonly router = inject(Router);
   private readonly reviews = inject(ReviewsState);
 
   private readonly session = inject(SessionState);
@@ -387,6 +562,14 @@ export class OrderDetailPage {
   protected readonly proposal = signal<Proposal | null>(null);
   protected readonly analytes = signal<readonly AnalyteOption[]>([]);
   protected readonly restricted = signal(false);
+  /** What the open results form holds, reported by the form on every change. */
+  protected readonly formState = signal<{ dirty: boolean; draft: ResultsFormDraft } | null>(null);
+  protected readonly draft = signal<ResultsDraft | null>(null);
+  protected readonly dialog = signal<OrderDialog | null>(null);
+  /** The laboratory's queue entry for this order: its tests carry names, the order itself is closed. */
+  protected readonly queueItem = signal<WorklistOrder | null>(null);
+  /** The analytes of the test being recorded, mandatory ones first. */
+  protected readonly testAnalytes = signal<readonly TestAnalyte[]>([]);
   /** The API said this order already has its review (written elsewhere): the text cannot be read back. */
   protected readonly alreadyReviewed = signal(false);
   protected readonly reviewed = computed(() => this.reviews.of(this.orderId));
@@ -410,9 +593,24 @@ export class OrderDetailPage {
   ];
 
   /** Tests still waiting for results: the only ones a laboratory can fill in. */
-  protected readonly pendingTests = computed(
-    () => this.order()?.tests.filter((t) => t.status === 'PENDIENTE') ?? [],
+  protected readonly pendingTests = computed<readonly OrderTest[]>(
+    () =>
+      this.order()?.tests.filter((t) => t.status === 'PENDIENTE') ??
+      this.queueItem()?.tests.filter((t) => t.status === 'PENDIENTE') ??
+      [],
   );
+
+  /** The analytes of the chosen test first, then the rest of the clinical knowledge. */
+  protected readonly analyteOptions = computed<readonly AnalyteOption[]>(() => {
+    const fromTest = this.testAnalytes().map((a) => ({
+      id: a.id,
+      name: a.name,
+      unit: a.unit,
+      valueType: a.valueType,
+    }));
+    const known = new Set(fromTest.map((a) => a.id));
+    return [...fromTest, ...this.analytes().filter((a) => !known.has(a.id))];
+  });
 
   protected readonly orderStatus = (code: string) => label(ORDER_STATUS_LABELS, code);
   protected readonly testStatus = (code: string) => label(TEST_STATUS_LABELS, code);
@@ -429,6 +627,97 @@ export class OrderDetailPage {
 
   protected closeModal(): void {
     this.modal.set(null);
+    this.formState.set(null);
+  }
+
+  /** Opens the results form, with the draft saved in this browser for this order if there is one. */
+  protected askConfirm(): void {
+    this.dialog.set({
+      kind: 'confirm',
+      title: 'Confirmar la orden',
+      message: 'Al confirmar, la orden queda cerrada: no podrás cambiar resultados ni subir informes. Si hay un informe, se envía al paciente con sus resultados.',
+      actions: [
+        { label: 'Confirmar orden', value: 'confirm', tone: 'primary' },
+        { label: 'Volver', value: 'cancel', tone: 'ghost' },
+      ],
+      dismiss: 'cancel',
+    });
+  }
+
+  protected openResults(): void {
+    this.draft.set(readResultsDraft(this.orderId));
+    this.openModal('results');
+  }
+
+  /** Leaving with typed values asks first: a draft in this browser, or discard, or keep editing. */
+  protected requestCloseResults(): void {
+    // A decision is already on screen (Escape reaches both the modal and the dialog): keep it.
+    if (this.dialog()) return;
+    if (!this.formState()?.dirty) {
+      this.closeModal();
+      return;
+    }
+    this.dialog.set({
+      kind: 'unsaved',
+      title: 'Tienes cambios sin guardar',
+      message:
+        '¿Quieres guardarlos como borrador en este navegador o regresar sin guardar los cambios?',
+      actions: [
+        { label: 'Guardar borrador', value: 'draft', tone: 'primary' },
+        { label: 'Regresar sin guardar', value: 'discard', tone: 'danger' },
+        { label: 'Seguir editando', value: 'stay', tone: 'ghost' },
+      ],
+      dismiss: 'stay',
+    });
+  }
+
+  protected onDialog(value: string): void {
+    const kind = this.dialog()?.kind;
+    this.dialog.set(null);
+    if (kind === 'unsaved') {
+      if (value === 'draft') this.saveDraft();
+      else if (value === 'discard') this.closeModal();
+      return;
+    }
+    if (kind === 'sent') void this.leaveAfterSent();
+    if (kind === 'confirm' && value === 'confirm') void this.confirm();
+  }
+
+  private saveDraft(): void {
+    const state = this.formState();
+    const saved = state !== null && writeResultsDraft({ orderId: this.orderId, ...state.draft });
+    this.closeModal();
+    if (!saved) {
+      this.dialog.set({
+        kind: 'info',
+        title: 'No pudimos guardar el borrador',
+        message:
+          'Este navegador no permite guardar borradores ahora. Registra los resultados antes de salir.',
+        actions: [{ label: 'Entendido', value: 'ok', tone: 'primary' }],
+        dismiss: 'ok',
+      });
+    }
+  }
+
+  /** Closes the order and returns to the queue, which no longer lists it. */
+  private async confirm(): Promise<void> {
+    try {
+      await this.confirmOrder.execute(this.orderId);
+      await this.router.navigate(['/ordenes'], { queryParams: { confirmada: '1' } });
+    } catch (error) {
+      this.error.set(
+        describeError(error, {
+          conflict: 'Esta orden ya está confirmada o le faltan resultados.',
+          not_found: 'No encontramos esa orden.',
+          forbidden: 'No tienes permiso para confirmar esta orden.',
+        }),
+      );
+    }
+  }
+
+  private async leaveAfterSent(): Promise<void> {
+    // The laboratory goes back to its queue, where the next pending order is one click away.
+    if (this.restricted()) await this.router.navigate(['/ordenes'], { queryParams: { guardado: '1' } });
   }
 
   protected async saveResults({ detailId, results }: ResultsSubmission): Promise<void> {
@@ -440,11 +729,35 @@ export class OrderDetailPage {
       },
       RESULTS_ERRORS,
     );
+    if (this.error()) return;
+    clearResultsDraft(this.orderId);
+    this.draft.set(null);
+    this.dialog.set({
+      kind: 'sent',
+      title: 'Resultado enviado',
+      message: 'Los resultados de la prueba quedaron registrados.',
+      actions: [{ label: 'Entendido', value: 'ok', tone: 'primary' }],
+      dismiss: 'ok',
+    });
+  }
+
+  protected async loadTestAnalytes(testTypeId: string): Promise<void> {
+    try {
+      this.testAnalytes.set(await this.listTestAnalytes.execute(testTypeId));
+    } catch {
+      // Without the list the form still works with every analyte, just without the prefill.
+      this.testAnalytes.set([]);
+    }
   }
 
   protected pickFile(event: Event): void {
     const input = event.target as HTMLInputElement;
     this.file.set(input.files?.item(0) ?? null);
+  }
+
+  protected sizeOf(bytes: number): string {
+    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   }
 
   protected async upload(): Promise<void> {
@@ -455,6 +768,7 @@ export class OrderDetailPage {
       async () => {
         const report = await this.uploadReport.execute(this.orderId, file);
         this.file.set(null);
+        this.documents.set(await this.listDocuments.execute(this.orderId));
         this.notice.set(`Informe «${report.fileName}» guardado.`);
       },
       UPLOAD_ERRORS,
@@ -534,6 +848,8 @@ export class OrderDetailPage {
   private async load(): Promise<void> {
     try {
       await this.refresh();
+      await this.loadDocuments();
+      if (this.restricted()) await this.loadQueueItem();
       if (this.canRecord) {
         const analytes = await this.listAnalytes.execute().catch(() => []);
         this.analytes.set(analytes);
@@ -549,6 +865,17 @@ export class OrderDetailPage {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  /** The laboratory cannot read the order, so its test names come from the queue. */
+  /** Only who may read the order gets its reports; for anyone else the list simply stays empty. */
+  private async loadDocuments(): Promise<void> {
+    this.documents.set(await this.listDocuments.execute(this.orderId).catch(() => []));
+  }
+
+  private async loadQueueItem(): Promise<void> {
+    const items = await this.listWorklist.execute().catch(() => []);
+    this.queueItem.set(items.find((item) => item.id === this.orderId) ?? null);
   }
 
   /** Reads the order, its results and (for the ordering doctor) its proposal. */

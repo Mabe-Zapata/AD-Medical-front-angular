@@ -10,7 +10,11 @@ import {
   EvaluateOrder,
   GetOrder,
   GetProposal,
+  ConfirmOrder,
+  ListOrderDocuments,
   ListOrderResults,
+  ListTestAnalytes,
+  ListWorklist,
   RecordResults,
   ReviewOrder,
   UploadReport,
@@ -25,6 +29,7 @@ import { OrderDetailPage } from './order-detail.page';
 
 const ORDER_ID = '3b9f2a52-1c61-4f0e-9d0a-6a1c1c2f7e11';
 const DETAIL_ID = '8d3c7a11-92b4-4d0b-8e56-0f5d9a3b6c22';
+const OTHER_DETAIL = '1f2e3d4c-5b6a-4978-8a9b-0c1d2e3f4a5b';
 const ANALYTE_ID = 'c1a2b3d4-0000-4000-8000-000000000001';
 
 const baseOrder: LabOrder = {
@@ -118,6 +123,10 @@ function setup(stubs: Partial<Stubs>, ...granted: string[]) {
       { provide: EditShadowFinding, useValue: { execute: async () => '' } },
       { provide: ListShadowEdits, useValue: { execute: async () => [] } },
       { provide: GetProposal, useValue: { execute: async () => state.proposal } },
+      { provide: ListWorklist, useValue: { execute: async () => [] } },
+      { provide: ListOrderDocuments, useValue: { execute: async () => [] } },
+      { provide: ConfirmOrder, useValue: { execute: async () => undefined } },
+      { provide: ListTestAnalytes, useValue: { execute: async () => [] } },
       {
         provide: ListAnalytes,
         useValue: {
@@ -323,17 +332,29 @@ describe('OrderDetailPage', () => {
       },
     ]);
     expect(el.textContent).toContain('Resultados registrados.');
+    expect(el.textContent).toContain('Resultado enviado');
   });
 
   it('lets the laboratory work blind when the order is closed to it, using the test id', async () => {
     const { fixture, el } = setup({ orderFails: new AppError('forbidden', 'x') }, ...LAB);
     await settle(fixture);
 
-    expect(el.textContent).toContain('solo lo ve el médico que la creó');
+    expect(el.textContent).toContain('registra los resultados desde la cola de trabajo');
     expect(el.textContent).not.toContain('No encontramos esa orden');
     await openModal(fixture, el, 'Registrar resultados');
     expect(el.querySelector('#result-test')?.tagName).toBe('INPUT');
     expect(el.textContent).toContain('Registrar resultados');
+  });
+
+  it('shows where the laboratory is and a way back to the results', async () => {
+    const { fixture, el } = setup({ orderFails: new AppError('forbidden', 'x') }, ...LAB);
+    await settle(fixture);
+
+    const trail = el.querySelector('nav[aria-label="Migas de pan"]');
+    expect(trail?.textContent).toContain('Inicio');
+    expect(trail?.textContent).toContain('Órdenes y resultados');
+    const back = [...el.querySelectorAll('a')].find((a) => a.textContent?.includes('Regresar a resultados'));
+    expect(back?.getAttribute('href')).toBe('/ordenes');
   });
 
   it('tells a doctor without access that the order is not theirs, in Spanish', async () => {
@@ -347,4 +368,64 @@ describe('OrderDetailPage', () => {
     expect(el.textContent).not.toContain('c-7');
     expect(el.textContent).not.toContain('Access denied');
   });
+
+  it('asks before leaving a form with typed values, and keeps them as a draft in this browser', async () => {
+    sessionStorage.clear();
+    const { fixture, el } = setup({}, ...LAB);
+    await settle(fixture);
+    await openModal(fixture, el, 'Registrar resultados');
+    type(el, '#result-test', DETAIL_ID);
+    type(el, '#value-0', '13,5');
+    await settle(fixture);
+
+    buttonWith(el, '← Regresar').click();
+    await settle(fixture);
+    expect(el.textContent).toContain('Tienes cambios sin guardar');
+
+    buttonWith(el, 'Guardar borrador').click();
+    await settle(fixture);
+    expect(el.textContent).not.toContain('Tienes cambios sin guardar');
+    expect(sessionStorage.getItem(`medilo.results-draft.${ORDER_ID}`)).toContain(DETAIL_ID);
+    sessionStorage.clear();
+  });
+
+  it('leaves at once when nothing was typed', async () => {
+    const { fixture, el } = setup({}, ...LAB);
+    await settle(fixture);
+    await openModal(fixture, el, 'Registrar resultados');
+
+    buttonWith(el, '← Regresar').click();
+    await settle(fixture);
+
+    expect(el.textContent).not.toContain('Tienes cambios sin guardar');
+    expect(el.querySelector('#result-test')).toBeNull();
+  });
+
+  it('discarding drops what was typed and keeps the draft that was already saved', async () => {
+    sessionStorage.setItem(
+      `medilo.results-draft.${ORDER_ID}`,
+      JSON.stringify({ orderId: ORDER_ID, detailId: DETAIL_ID, rows: [{ analyteId: '', value: '12', unit: '' }] }),
+    );
+    const { fixture, el } = setup({}, ...LAB);
+    await settle(fixture);
+    await openModal(fixture, el, 'Registrar resultados');
+    expect(el.textContent).toContain('Recuperamos tu borrador guardado en este navegador.');
+    expect((el.querySelector('#result-test') as HTMLInputElement).value).toBe(DETAIL_ID);
+
+    type(el, '#value-0', '14');
+    await settle(fixture);
+    buttonWith(el, '← Regresar').click();
+    await settle(fixture);
+    buttonWith(el, 'Regresar sin guardar').click();
+    await settle(fixture);
+
+    expect(el.querySelector('#result-test')).toBeNull();
+    expect(sessionStorage.getItem(`medilo.results-draft.${ORDER_ID}`)).toContain(DETAIL_ID);
+    sessionStorage.clear();
+  });
 });
+
+function buttonWith(el: HTMLElement, text: string): HTMLButtonElement {
+  return [...el.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.includes(text))!;
+}
+

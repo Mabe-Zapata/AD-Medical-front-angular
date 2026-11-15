@@ -1,11 +1,14 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { stripEmoji } from '../../../../core/domain/text';
 import { AppError } from '../../../../core/domain/app-error';
 import { isUuid } from '../../../../core/domain/dates';
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
+import { Crumb } from '../../../../shared/presentation/molecules/breadcrumbs';
+import { DialogAction, DialogComponent } from '../../../../shared/presentation/organisms/dialog';
+import { PageHeaderComponent } from '../../../../shared/presentation/organisms/page-header';
 import { ChipComponent } from '../../../../shared/presentation/atoms/chip';
 import { ErrorView, describeError } from '../../../../shared/presentation/error-message';
 import { formatDate } from '../../../../shared/presentation/format';
@@ -13,32 +16,30 @@ import { ModalComponent } from '../../../../shared/presentation/organisms/modal'
 import { PERMISSIONS } from '../../../auth/domain/policies/staff-access';
 import { SessionState } from '../../../auth/presentation/session.state';
 import { PRIORITIES, OrderSummary, PatientOption, Priority, TestTypeOption, WorklistOrder } from '../../domain/entities/orders';
-import { CreateOrder, ListOrders, ListPatients, ListTestTypes, ListWorklist } from '../../domain/usecases/orders-usecases';
+import { CreateOrder, ListOrders, ListPatients, ListTestTypes, ListWorklist, ConfirmOrder } from '../../domain/usecases/orders-usecases';
 import { PatientPickerComponent } from '../widgets/patient-picker';
-import { WorklistPickerComponent } from '../widgets/worklist-picker';
 import { ORDER_STATUS_LABELS, PRIORITY_LABELS } from '../labels';
 import { PaginatorComponent } from '../../../../shared/presentation/molecules/paginator';
 import { PageState } from '../../../../shared/presentation/pagination';
 
+type QueueFilter = 'todas' | 'urgentes' | 'paciente';
+
 /** Container: lists the orders the person may read, opens one by its id, or (for ordering doctors) creates one. */
 @Component({
   selector: 'app-orders-page',
-  imports: [FormsModule, RouterLink, BannerComponent, ChipComponent, ModalComponent, PaginatorComponent, PatientPickerComponent, WorklistPickerComponent],
+  imports: [FormsModule, RouterLink, BannerComponent, DialogComponent, PageHeaderComponent, ChipComponent, ModalComponent, PaginatorComponent, PatientPickerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="stack">
-      <a routerLink="/inicio" class="small back">← Volver al resumen</a>
-      <header class="stack head">
-        <div class="eyebrow">Medilo · Órdenes y resultados</div>
-        <h1>Órdenes y resultados</h1>
-        <p class="muted">
+      <app-page-header area="Órdenes y resultados" title="Órdenes y resultados" [crumbs]="crumbs">
+        <p lede class="muted">
           @if (listing() === 'denied') {
             Abre una orden para registrar sus resultados y subir el informe PDF.
           } @else {
             Registrar resultados, subir informes PDF y revisar propuestas.
           }
         </p>
-      </header>
+      </app-page-header>
       @if (listing() !== 'denied') {
       <section class="card stack">
         <div>
@@ -88,20 +89,84 @@ import { PageState } from '../../../../shared/presentation/pagination';
 
       @if (canRecord && listing() === 'denied') {
         <section class="card stack">
-          <div>
-            <h2>Órdenes pendientes</h2>
-            <p class="muted small">
-              Elige la orden que vas a procesar. Se listan de la más antigua a la más reciente.
-            </p>
-          </div>
-          <div class="field">
-            <label for="worklist-search">Orden</label>
-            <app-worklist-picker
-              [items]="worklist()"
-              [state]="worklistState()"
-              (picked)="openFromWorklist($event)"
+          @if (confirmTarget(); as target) {
+            <app-dialog
+              title="Confirmar la orden"
+              message="Al confirmar, la orden queda cerrada: no podrás cambiar resultados ni subir informes. Si hay un informe, se envía al paciente con sus resultados."
+              [actions]="confirmActions"
+              dismissValue="cancel"
+              (chosen)="onConfirmChoice($event, target)"
             />
+          }
+          <div>
+            <h2>Cola de trabajo</h2>
+            <p class="muted small">Urgentes primero, luego las más antiguas. Elige una orden para registrar sus resultados.</p>
           </div>
+          @if (savedNotice()) {
+            <app-banner tone="success">Resultados registrados. Esta es tu cola actualizada.</app-banner>
+          }
+          @if (queueBanner(); as banner) {
+            <app-banner [tone]="banner.tone">{{ banner.text }}</app-banner>
+          }
+          @if (worklistState() === 'failed') {
+            <app-banner tone="danger">No pudimos cargar la cola de trabajo.</app-banner>
+            <div><button class="btn btn--small" type="button" (click)="reloadWorklist()">Reintentar</button></div>
+          } @else if (worklistState() === 'loading') {
+            <p class="muted"><span class="spinner" aria-hidden="true"></span> Cargando…</p>
+          } @else {
+            <div class="row" role="group" aria-label="Filtrar la cola">
+              @for (filter of queueFilters; track filter.key) {
+                <button
+                  class="btn btn--small"
+                  type="button"
+                  [class.btn--primary]="queueFilter() === filter.key"
+                  [attr.aria-pressed]="queueFilter() === filter.key"
+                  (click)="setQueueFilter(filter.key)"
+                >
+                  {{ filter.label }} ({{ countFor(filter.key) }})
+                </button>
+              }
+            </div>
+            @if (queueVisible().length === 0) {
+              <p class="empty">
+                {{ worklist().length === 0 ? 'No hay órdenes pendientes por ahora.' : 'No hay órdenes en este filtro.' }}
+              </p>
+            } @else {
+              <ul class="queue">
+                @for (item of queuePager.slice(queueVisible()); track item.id) {
+                  <li class="queue-item">
+                    <div class="queue-info">
+                      <div class="row">
+                        @if (item.priority === 'URGENTE') {
+                          <app-chip tone="danger">Urgente</app-chip>
+                        }
+                        <app-chip tone="info">{{ originLabel(item.origin) }}</app-chip>
+                        <span class="muted small">{{ queueDate(item) }}</span>
+                      </div>
+                      <strong>{{ item.patientName ?? 'Paciente sin nombre registrado' }}</strong>
+                      <span>{{ testNames(item) }}</span>
+                      @if (item.status === 'COMPLETADA') {
+                        <app-chip tone="success">Lista para confirmar</app-chip>
+                      }
+                      <span class="muted small mono">
+                        Orden {{ shortId(item.id) }} · {{ pendingCount(item) }} pendiente(s)
+                      </span>
+                    </div>
+                    @if (item.status === 'COMPLETADA') {
+                      <button class="btn btn--primary" type="button" (click)="askConfirm(item)">
+                        Confirmar orden
+                      </button>
+                    } @else {
+                      <button class="btn btn--primary" type="button" (click)="openFromWorklist(item)">
+                        Registrar resultados
+                      </button>
+                    }
+                  </li>
+                }
+              </ul>
+              <app-paginator [total]="queueVisible().length" [state]="queuePager" />
+            }
+          }
         </section>
       } @else {
       <section class="card stack">
@@ -245,6 +310,30 @@ import { PageState } from '../../../../shared/presentation/pagination';
     .grow {
       flex: 1 1 320px;
     }
+    .queue {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 10px;
+    }
+    .queue-item {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border: 1px solid var(--border, #dbe3f0);
+      border-radius: 14px;
+      background: #fff;
+    }
+    .queue-info {
+      display: grid;
+      gap: 4px;
+      flex: 1 1 320px;
+      min-width: 0;
+    }
     .tests {
       border: 0;
       padding: 0;
@@ -282,8 +371,20 @@ export class OrdersPage {
   private readonly listOrders = inject(ListOrders);
   private readonly listPatients = inject(ListPatients);
   private readonly listWorklist = inject(ListWorklist);
+  private readonly confirmOrder = inject(ConfirmOrder);
+  /** The completed order the laboratory is about to close, if any. */
+  protected readonly confirmTarget = signal<WorklistOrder | null>(null);
+  protected readonly queueBanner = signal<{ text: string; tone: 'success' | 'danger' } | null>(null);
+  protected readonly confirmActions: readonly DialogAction[] = [
+    { label: 'Confirmar orden', value: 'confirm', tone: 'primary' },
+    { label: 'Volver', value: 'cancel', tone: 'ghost' },
+  ];
   private readonly listTestTypes = inject(ListTestTypes);
 
+  protected readonly crumbs: readonly Crumb[] = [
+    { label: 'Inicio', link: '/inicio' },
+    { label: 'Órdenes y resultados' },
+  ];
   protected readonly canCreate = inject(SessionState).can(PERMISSIONS.ordersCreate);
   protected readonly canRecord = inject(SessionState).can(PERMISSIONS.resultsRecord);
   protected readonly priorities = PRIORITIES;
@@ -307,6 +408,24 @@ export class OrdersPage {
   protected readonly creating = signal(false);
   protected readonly worklist = signal<readonly WorklistOrder[]>([]);
   protected readonly worklistState = signal<'loading' | 'ready' | 'failed'>('loading');
+  private readonly route = inject(ActivatedRoute);
+  protected readonly queuePager = new PageState();
+  protected readonly queueFilter = signal<QueueFilter>('todas');
+  protected readonly queueFilters: readonly { key: QueueFilter; label: string }[] = [
+    { key: 'todas', label: 'Todas' },
+    { key: 'urgentes', label: 'Urgentes' },
+    { key: 'paciente', label: 'Pedidas por el paciente' },
+  ];
+  /** Shown once after saving results: the page is reached with ?guardado=1. */
+  protected readonly savedNotice = signal(this.route.snapshot.queryParamMap.get('guardado') === '1');
+  protected readonly queueVisible = computed(() => {
+    const filter = this.queueFilter();
+    return this.worklist().filter((item) => {
+      if (filter === 'urgentes') return item.priority === 'URGENTE';
+      if (filter === 'paciente') return item.origin === 'PACIENTE';
+      return true;
+    });
+  });
   protected readonly patients = signal<readonly PatientOption[]>([]);
   protected readonly patientsState = signal<'loading' | 'ready' | 'failed'>('loading');
   protected readonly patientMissing = signal(false);
@@ -321,11 +440,74 @@ export class OrdersPage {
     const canList = [PERMISSIONS.ordersCreate, PERMISSIONS.resultsReadWithAccess, PERMISSIONS.reviewsRecord].some(
       (permission) => session.can(permission),
     );
+    // Back from closing an order in the detail page: say so once, here in the queue.
+    if (this.route.snapshot.queryParamMap.get('confirmada') === '1') {
+      this.queueBanner.set({
+        text: 'Orden confirmada. El paciente recibirá sus resultados por correo.',
+        tone: 'success',
+      });
+    }
     if (canList) void this.load();
     else {
       this.listing.set('denied');
       if (this.canRecord) void this.loadWorklist();
     }
+  }
+
+  protected askConfirm(item: WorklistOrder): void {
+    this.queueBanner.set(null);
+    this.confirmTarget.set(item);
+  }
+
+  protected async onConfirmChoice(value: string, target: WorklistOrder): Promise<void> {
+    this.confirmTarget.set(null);
+    if (value !== 'confirm') return;
+    try {
+      await this.confirmOrder.execute(target.id);
+      this.worklist.update((items) => items.filter((item) => item.id !== target.id));
+      this.queueBanner.set({
+        text: 'Orden confirmada. El paciente recibirá sus resultados por correo.',
+        tone: 'success',
+      });
+    } catch {
+      this.queueBanner.set({ text: 'No pudimos confirmar la orden. Intenta de nuevo.', tone: 'danger' });
+    }
+  }
+
+  protected reloadWorklist(): void {
+    this.worklistState.set('loading');
+    void this.loadWorklist();
+  }
+
+  protected setQueueFilter(filter: QueueFilter): void {
+    this.queueFilter.set(filter);
+    this.queuePager.page.set(0);
+  }
+
+  protected countFor(filter: QueueFilter): number {
+    if (filter === 'urgentes') return this.worklist().filter((i) => i.priority === 'URGENTE').length;
+    if (filter === 'paciente') return this.worklist().filter((i) => i.origin === 'PACIENTE').length;
+    return this.worklist().length;
+  }
+
+  protected originLabel(origin: string): string {
+    return origin === 'PACIENTE' ? 'Pedido por el paciente' : 'Orden médica';
+  }
+
+  protected queueDate(item: WorklistOrder): string {
+    return formatDate(item.orderedAt);
+  }
+
+  protected testNames(item: WorklistOrder): string {
+    return item.tests.map((t) => t.name ?? 'Prueba').join(' · ');
+  }
+
+  protected pendingCount(item: WorklistOrder): number {
+    return item.tests.filter((t) => t.status === 'PENDIENTE').length;
+  }
+
+  protected shortId(id: string): string {
+    return id.slice(0, 8).toUpperCase();
   }
 
   /** The laboratory's queue: the pending orders it can record results on. */

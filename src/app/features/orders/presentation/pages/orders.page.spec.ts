@@ -4,7 +4,7 @@ import { Router, provideRouter } from '@angular/router';
 import { AppError } from '../../../../core/domain/app-error';
 import { SessionState } from '../../../auth/presentation/session.state';
 import { OrderSummary, PatientOption, TestTypeOption, WorklistOrder } from '../../domain/entities/orders';
-import { CreateOrder, ListOrders, ListPatients, ListTestTypes, ListWorklist } from '../../domain/usecases/orders-usecases';
+import { ConfirmOrder, CreateOrder, ListOrders, ListPatients, ListTestTypes, ListWorklist } from '../../domain/usecases/orders-usecases';
 import { OrdersPage } from './orders.page';
 
 const ORDER_ID = '3b9f2a52-1c61-4f0e-9d0a-6a1c1c2f7e11';
@@ -42,6 +42,7 @@ function setup(
       { provide: ListOrders, useValue: { execute: list } },
       { provide: ListTestTypes, useValue: { execute: async () => tests } },
       { provide: ListWorklist, useValue: { execute: listWorklist } },
+      { provide: ConfirmOrder, useValue: { execute: async () => undefined } },
       { provide: ListPatients, useValue: { execute: listPatients } },
       { provide: CreateOrder, useValue: { execute: async () => orders[0] } },
     ],
@@ -83,10 +84,9 @@ describe('OrdersPage', () => {
     expect(asked).toBe(0);
     expect(el.textContent).not.toContain('Mis órdenes');
     expect(el.textContent).not.toContain('Tu rol no ve este listado');
-    // The laboratory works from its worklist, not from a typed identifier.
+    // The laboratory works from its queue, not from a typed identifier.
     expect(el.querySelector('#order-id')).toBeNull();
-    expect(el.querySelector('#worklist-search')).not.toBeNull();
-    expect(el.textContent).toContain('Órdenes pendientes');
+    expect(el.textContent).toContain('Cola de trabajo');
   });
 
   it('treats a 403 as a role that does not see the listing, not as a failure', async () => {
@@ -181,23 +181,68 @@ describe('OrdersPage', () => {
   });
 });
 
-describe('laboratory worklist', () => {
-  const pending: WorklistOrder[] = [
-    {
-      id: ORDER_ID,
-      origin: 'PACIENTE',
-      priority: 'NORMAL',
-      status: 'SOLICITADA',
-      orderedAt: '2026-11-10T16:30:59Z',
-      tests: [
-        { detailId: 'd-done', testTypeId: 't1', status: 'COMPLETADO' },
-        { detailId: 'd-pending', testTypeId: 't2', status: 'PENDIENTE' },
-      ],
-    },
-  ];
+describe('laboratory queue', () => {
+  const urgent: WorklistOrder = {
+    id: ORDER_ID,
+    origin: 'MEDICO',
+    priority: 'URGENTE',
+    status: 'SOLICITADA',
+    orderedAt: '2026-11-10T16:30:59Z',
+    patientName: 'Ana Pérez',
+    tests: [
+      { detailId: 'd-done', testTypeId: 't1', status: 'COMPLETADO', name: 'Glucosa' },
+      { detailId: 'd-pending', testTypeId: 't2', status: 'PENDIENTE', name: 'Hemograma' },
+    ],
+  };
+  const normal: WorklistOrder = {
+    id: OTHER_ID,
+    origin: 'PACIENTE',
+    priority: 'NORMAL',
+    status: 'SOLICITADA',
+    orderedAt: '2026-11-09T10:00:00Z',
+    patientName: 'Juan Gómez',
+    tests: [{ detailId: 'd-other', testTypeId: 't3', status: 'PENDIENTE', name: 'Lipidos' }],
+  };
 
-  it('opens the order picked from the worklist on its pending test', async () => {
-    const { fixture, el } = setup(async () => orders, ['resultados.registrar'], undefined, async () => pending);
+  function queueSetup(items: WorklistOrder[], fail = false) {
+    return setup(
+      async () => orders,
+      ['resultados.registrar'],
+      undefined,
+      async () => {
+        if (fail) throw new AppError('unavailable', 'down');
+        return items;
+      },
+    );
+  }
+
+  function clickFilter(el: HTMLElement, label: string) {
+    [...el.querySelectorAll<HTMLButtonElement>('[role=group] button')]
+      .find((b) => b.textContent?.includes(label))!
+      .click();
+  }
+
+  it('shows the queue with names and urgent orders first, and the filter narrows it', async () => {
+    const { fixture, el } = queueSetup([urgent, normal]);
+    await settle(fixture);
+
+    const rows = () => [...el.querySelectorAll('.queue-item')].map((row) => row.textContent ?? '');
+    expect(rows()).toHaveLength(2);
+    expect(rows()[0]).toContain('Urgente');
+    expect(rows()[0]).toContain('Ana Pérez');
+    expect(rows()[1]).toContain('Juan Gómez');
+    expect(rows()[0]).toContain('Hemograma');
+    expect(rows()[0]).toContain('1 pendiente(s)');
+    expect(rows()[1]).toContain('Pedido por el paciente');
+
+    clickFilter(el, 'Urgentes');
+    fixture.detectChanges();
+    expect(rows()).toHaveLength(1);
+    expect(rows()[0]).toContain('Hemograma');
+  });
+
+  it('opens the order picked from the queue on its pending test', async () => {
+    const { fixture, el } = queueSetup([urgent]);
     const router = TestBed.inject(Router);
     const calls: unknown[][] = [];
     router.navigate = ((...args: Parameters<Router['navigate']>) => {
@@ -206,23 +251,34 @@ describe('laboratory worklist', () => {
     }) as Router['navigate'];
     await settle(fixture);
 
-    const input = el.querySelector<HTMLInputElement>('#worklist-search')!;
-    input.value = '3b9f';
-    input.dispatchEvent(new Event('input'));
-    fixture.detectChanges();
-    el.querySelector<HTMLButtonElement>('#worklist-options button')!.click();
+    el.querySelector<HTMLButtonElement>('.queue-item button.btn--primary')!.click();
     await settle(fixture);
 
     expect(calls).toEqual([[['/ordenes', ORDER_ID], { queryParams: { detalle: 'd-pending' } }]]);
   });
 
+  it('says there are no pending orders when the queue is empty', async () => {
+    const { fixture, el } = queueSetup([]);
+    await settle(fixture);
+
+    expect(el.textContent).toContain('No hay órdenes pendientes por ahora.');
+  });
+
+  it('offers to try again when the queue fails to load', async () => {
+    const { fixture, el } = queueSetup([], true);
+    await settle(fixture);
+
+    expect(el.textContent).toContain('No pudimos cargar la cola de trabajo.');
+    expect(el.textContent).toContain('Reintentar');
+  });
+
   it('is not loaded for a role that cannot record results', async () => {
     let asked = 0;
-    const { fixture, el } = setup(async () => orders, ['ordenes.crear'], undefined, async () => (asked++, pending));
+    const { fixture, el } = setup(async () => orders, ['ordenes.crear'], undefined, async () => (asked++, [urgent]));
     await settle(fixture);
 
     expect(asked).toBe(0);
-    expect(el.querySelector('#worklist-search')).toBeNull();
+    expect(el.querySelector('.queue')).toBeNull();
     expect(el.querySelector('#order-id')).not.toBeNull();
   });
 });

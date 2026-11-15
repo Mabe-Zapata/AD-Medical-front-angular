@@ -14,6 +14,8 @@ import {
   NewResult,
   OrderSummary,
   PatientOption,
+  OrderDocument,
+  TestAnalyte,
   TestTypeOption,
   WorklistOrder,
   Proposal,
@@ -78,7 +80,8 @@ interface WorklistDto {
   prioridad: string;
   estado: string;
   fecha: string;
-  pruebas: { detalle_id: string; tipo_prueba_id: string; estado: string }[];
+  paciente_nombre: string | null;
+  pruebas: { detalle_id: string; tipo_prueba_id: string; estado: string; nombre: string; codigo: string }[];
 }
 
 interface DocumentDto {
@@ -150,7 +153,42 @@ export class HttpOrdersRepository extends OrdersRepository {
       priority: o.prioridad,
       status: o.estado,
       orderedAt: o.fecha,
-      tests: o.pruebas.map((t) => ({ detailId: t.detalle_id, testTypeId: t.tipo_prueba_id, status: t.estado })),
+      patientName: o.paciente_nombre,
+      tests: o.pruebas.map((t) => ({
+        detailId: t.detalle_id,
+        testTypeId: t.tipo_prueba_id,
+        status: t.estado,
+        name: t.nombre,
+        code: t.codigo,
+      })),
+    }));
+  }
+
+  async confirmOrder(orderId: string): Promise<void> {
+    await this.call(this.http.post(`${this.api}/lab/orders/${orderId}/confirm`, null));
+  }
+
+  async listOrderDocuments(orderId: string): Promise<OrderDocument[]> {
+    const response = await this.call(
+      this.http.get<{ items: { id: string; nombre_archivo: string; tamano_bytes: number }[] }>(
+        `${this.api}/lab/orders/${orderId}/documents`,
+      ),
+    );
+    return response.items.map((d) => ({ id: d.id, name: d.nombre_archivo, sizeBytes: d.tamano_bytes }));
+  }
+
+  async listTestAnalytes(testTypeId: string): Promise<TestAnalyte[]> {
+    const response = await this.call(
+      this.http.get<{ items: { id: string; nombre: string; unidad: string | null; tipo_valor: string; obligatorio: boolean }[] }>(
+        `${this.api}/lab/test-types/${testTypeId}/analytes`,
+      ),
+    );
+    return response.items.map((a) => ({
+      id: a.id,
+      name: a.nombre,
+      unit: a.unidad,
+      valueType: a.tipo_valor,
+      mandatory: a.obligatorio,
     }));
   }
 

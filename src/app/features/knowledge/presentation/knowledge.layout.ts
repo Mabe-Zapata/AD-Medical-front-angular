@@ -3,29 +3,26 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { PERMISSIONS } from '../../auth/domain/policies/staff-access';
 import { SessionState } from '../../auth/presentation/session.state';
+import { Crumb } from '../../../shared/presentation/molecules/breadcrumbs';
+import { PageHeaderComponent } from '../../../shared/presentation/organisms/page-header';
 import { DraftsState } from './drafts.state';
 
 /** Frame of the knowledge area: title, tabs and the active page. Same look as the home page. */
 @Component({
   selector: 'app-knowledge-layout',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <header class="stack head">
-      <a routerLink="/inicio" class="small back">← Volver al resumen</a>
-      <div>
-        <div class="eyebrow">Medilo · Conocimiento clínico</div>
-        <h1>Conocimiento clínico</h1>
-        <p class="muted">
-          @if (canSeeRules) {
-            Analitos, rangos de referencia y reglas que usa el motor de propuestas preliminares. Nunca
-            emite un diagnóstico.
-          } @else {
-            Los analitos y sus rangos de referencia validados.
-          }
-        </p>
-      </div>
-      <nav class="tabs" aria-label="Secciones del conocimiento clínico">
+    <app-page-header area="Conocimiento clínico" title="Conocimiento clínico" [crumbs]="crumbs">
+      <p lede class="muted">
+        @if (canSeeRules) {
+          Analitos, rangos de referencia y reglas que usa el motor de propuestas preliminares. Nunca
+          emite un diagnóstico.
+        } @else {
+          Los analitos y sus rangos de referencia validados.
+        }
+      </p>
+      <nav tabs class="tabs" aria-label="Secciones del conocimiento clínico">
         <a routerLink="analitos" routerLinkActive="active">Analitos</a>
         @if (canSeeRules) {
           <a routerLink="reglas" routerLinkActive="active">Reglas</a>
@@ -40,19 +37,10 @@ import { DraftsState } from './drafts.state';
           </a>
         }
       </nav>
-    </header>
+    </app-page-header>
     <router-outlet />
   `,
   styles: `
-    .head {
-      margin-bottom: 20px;
-    }
-    .back {
-      font-weight: 700;
-    }
-    h1 {
-      margin-top: 6px;
-    }
     /* Section tabs: the same pills as the main navigation, on a white rail. */
     .tabs {
       align-self: flex-start;
@@ -91,6 +79,10 @@ import { DraftsState } from './drafts.state';
 })
 export class KnowledgeLayout {
   protected readonly drafts = inject(DraftsState);
+  protected readonly crumbs: readonly Crumb[] = [
+    { label: 'Inicio', link: '/inicio' },
+    { label: 'Conocimiento clínico' },
+  ];
   private readonly session = inject(SessionState);
   /** Only what the role can use is offered: rules belong to the administrator, review and drafts to who validates. */
   protected readonly canSeeRules = this.session.can(PERMISSIONS.knowledgeAdmin);

@@ -1,10 +1,12 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
 import { ChipComponent } from '../../../../shared/presentation/atoms/chip';
 import { ErrorView, describeError } from '../../../../shared/presentation/error-message';
+import { Crumb } from '../../../../shared/presentation/molecules/breadcrumbs';
+import { PageHeaderComponent } from '../../../../shared/presentation/organisms/page-header';
 import { ROLE_LABELS } from '../../../auth/domain/policies/staff-access';
 import { ASSIGNABLE_ROLES, UserSummary } from '../../domain/entities/users';
 import { MIN_PASSWORD_LENGTH, userProblems } from '../../domain/policies/user-policies';
@@ -16,7 +18,7 @@ import { PageState } from '../../../../shared/presentation/pagination';
 /** Container: lists the accounts and lets an administrator create one. */
 @Component({
   selector: 'app-users-page',
-  imports: [FormsModule, RouterLink, BannerComponent, ChipComponent, ModalComponent, PaginatorComponent],
+  imports: [FormsModule, BannerComponent, ChipComponent, ModalComponent, PaginatorComponent, PageHeaderComponent],
   styles: `
     .back {
       font-weight: 700;
@@ -25,12 +27,9 @@ import { PageState } from '../../../../shared/presentation/pagination';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="stack">
-      <a routerLink="/inicio" class="small back">← Volver al resumen</a>
-      <header class="stack head">
-        <div class="eyebrow">Medilo · Usuarios y roles</div>
-        <h1>Usuarios y roles</h1>
-        <p class="muted">Las cuentas del personal y de pacientes, y quién puede hacer qué.</p>
-      </header>
+      <app-page-header area="Usuarios y roles" title="Usuarios y roles" [crumbs]="crumbs">
+        <p lede class="muted">Las cuentas del personal y de pacientes, y quién puede hacer qué.</p>
+      </app-page-header>
 
       @if (notice(); as text) {
         <app-banner tone="success">{{ text }}</app-banner>
@@ -161,6 +160,10 @@ import { PageState } from '../../../../shared/presentation/pagination';
   `,
 })
 export class UsersPage {
+  protected readonly crumbs: readonly Crumb[] = [
+    { label: 'Inicio', link: '/inicio' },
+    { label: 'Usuarios y roles' },
+  ];
   protected readonly pager = new PageState();
   private readonly listUsers = inject(ListUsers);
   private readonly createUser = inject(CreateUser);

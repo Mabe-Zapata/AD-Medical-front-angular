@@ -20,7 +20,7 @@ function tabs(permissions: string[]): string[] {
   });
   const fixture = TestBed.createComponent(KnowledgeLayout);
   fixture.detectChanges();
-  return [...(fixture.nativeElement as HTMLElement).querySelectorAll('nav a')].map((a) => a.textContent!.trim());
+  return [...(fixture.nativeElement as HTMLElement).querySelectorAll('nav.tabs a')].map((a) => a.textContent!.trim());
 }
 
 describe('KnowledgeLayout tabs', () => {
