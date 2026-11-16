@@ -208,6 +208,7 @@ export const CONSULTATION_NOTES_MAX = 500;
           tag="Registrar consulta"
           headline="Confirmar atención de la cita"
           [bullets]="consultationBullets"
+          [centered]="true"
           (closed)="closeConsultationModal()"
         >
           @if (consultationError(); as err) {
