@@ -12,6 +12,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AppError } from '../../../../core/domain/app-error';
 import { isUuid } from '../../../../core/domain/dates';
 import { sanitizeFreeText, sanitizeIdentifier, sanitizeSearch } from '../../../../core/domain/text';
+import { sanitizeInputEvent } from '../../../../shared/presentation/forms/sanitize-on-type';
 import { formatBranchDate, formatBranchTimeRange } from '../../../../core/time/branch-time';
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
 import { describeError } from '../../../../shared/presentation/error-message';
@@ -134,6 +135,7 @@ import { ListAgenda } from '../../domain/usecases/list-agenda';
                   placeholder="ej. TEST-MED-0001, 0991234567 o nombre del médico..."
                   [ngModel]="searchTerm()"
                   (ngModelChange)="onSearchTermChange($event)"
+                  (input)="cleanSearchInput($event)"
                   [disabled]="submitting() || loadingAppointments()"
                 />
                 @if (searchTerm()) {
@@ -432,6 +434,10 @@ export class CancellationApprovalPage implements OnInit {
     } finally {
       this.loadingAppointments.set(false);
     }
+  }
+
+  protected cleanSearchInput(event: Event): void {
+    sanitizeInputEvent(event, sanitizeSearch);
   }
 
   protected onSearchTermChange(term: string): void {
