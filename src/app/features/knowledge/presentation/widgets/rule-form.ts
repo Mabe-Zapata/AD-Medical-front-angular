@@ -12,6 +12,7 @@ import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angula
 import {
   isValidThreshold,
   parseThreshold,
+  sanitizeCode,
   sanitizeFreeText,
   sanitizeThreshold,
   sanitizeUnit,
@@ -226,7 +227,7 @@ export class RuleFormComponent {
 
   constructor() {
     // No emojis anywhere in the rule form; the message and names keep the database limits (2000 and 200).
-    sanitizeOnType(this.form.controls.code, sanitizeFreeText, this.destroyRef);
+    sanitizeOnType(this.form.controls.code, sanitizeCode, this.destroyRef);
     sanitizeOnType(this.form.controls.name, sanitizeFreeText, this.destroyRef);
     sanitizeOnType(this.form.controls.description, sanitizeFreeText, this.destroyRef);
     sanitizeOnType(this.form.controls.message, sanitizeFreeText, this.destroyRef);

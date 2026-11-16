@@ -84,6 +84,11 @@ export function sanitizeSearch(text: string): string {
   return stripEmoji(text).replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s.,\-_@'/&]/g, '');
 }
 
+/** Rule and catalog codes (e.g. HEMO-SINT, GLUC_01): letters, digits, "-" and "_", no spaces. */
+export function sanitizeCode(text: string): string {
+  return text.replace(/[^A-Za-z0-9_-]/g, '');
+}
+
 /**
  * Sanitizes free text (notes, reasons): whitelist of Latin letters (with Spanish accents), digits,
  * whitespace and common punctuation. Anything else (emojis, ©, box-drawing, code symbols) is removed
