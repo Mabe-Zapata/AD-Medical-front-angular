@@ -145,6 +145,8 @@ describe('orders policies', () => {
   it('requires a conclusion for the review', () => {
     expect(reviewProblems('', '')).toHaveLength(1);
     expect(reviewProblems('Resultados coherentes.', '')).toEqual([]);
+    expect(reviewProblems('Conclusión con emoji 📋', '')).toContain('the conclusion cannot contain emoji');
+    expect(reviewProblems('Conclusión válida.', 'Recomendación con emoji 💊')).toContain('the recommendations cannot contain emoji');
   });
 
   it('checks the ids and the amount of tests of a new order', () => {

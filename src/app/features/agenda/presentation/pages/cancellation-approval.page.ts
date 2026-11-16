@@ -11,7 +11,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { AppError } from '../../../../core/domain/app-error';
 import { isUuid } from '../../../../core/domain/dates';
-import { hasEmoji, sanitizeFreeText, sanitizeIdentifier, sanitizeSearch } from '../../../../core/domain/text';
+import { sanitizeFreeText, sanitizeIdentifier, sanitizeSearch } from '../../../../core/domain/text';
 import { formatBranchDate, formatBranchTimeRange } from '../../../../core/time/branch-time';
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
 import { describeError } from '../../../../shared/presentation/error-message';
@@ -617,9 +617,6 @@ export class CancellationApprovalPage implements OnInit {
 
     if (motivo.length < 1) {
       this.reasonError.set('El motivo de la aprobación es obligatorio.');
-      hasClientErrors = true;
-    } else if (hasEmoji(motivo)) {
-      this.reasonError.set('El motivo de la aprobación no puede contener emojis.');
       hasClientErrors = true;
     } else if (motivo.length > 1500) {
       this.reasonError.set('El motivo no puede superar los 1500 caracteres.');

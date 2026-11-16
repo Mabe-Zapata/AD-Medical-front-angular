@@ -19,6 +19,7 @@ import { PageState } from '../../../../shared/presentation/pagination';
 import {
   AgendaAppointment,
   AppointmentStatus,
+  canCancelAppointment,
   DoctorCancellationCode,
   isAppointmentElapsed,
 } from '../../domain/entities/appointment';
@@ -468,7 +469,7 @@ export class AgendaPage {
   }
 
   protected canCancel(appointment: AgendaAppointment): boolean {
-    return appointment.status === 'CONFIRMADA' || appointment.status === 'PENDIENTE_PAGO';
+    return canCancelAppointment(appointment);
   }
 
   // ── Consultation modal ────────────────────────────────────────────────────
@@ -583,14 +584,19 @@ export class AgendaPage {
   }
 
   protected onReasonTextChange(text: string): void {
-    const cleaned = sanitizeFreeText(text);
-    this.cancelReasonText.set(cleaned);
+    // Emojis and symbols are removed as they are typed, so they are never stored or counted.
     if (this.cancelValidationError()) {
       this.cancelValidationError.set(null);
     }
+    this.cancelReasonText.set(sanitizeFreeText(text));
   }
 
   protected async submitCancel(target: AgendaAppointment): Promise<void> {
+    if (!canCancelAppointment(target)) {
+      this.cancelValidationError.set('No se puede cancelar una cita cuyo horario ya ha concluido.');
+      return;
+    }
+
     const reason = this.cancelReasonText().trim();
     if (!reason) {
       this.cancelValidationError.set('Ingresa el motivo de la cancelación.');

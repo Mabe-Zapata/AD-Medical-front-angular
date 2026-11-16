@@ -5,6 +5,7 @@ import {
   ApproveCancellationCommand,
   CancellationApprovalResult,
   CancelDoctorAppointmentCommand,
+  canCancelAppointment,
   ConsultationResult,
   isAppointmentElapsed,
   OpenConsultationCommand,
@@ -125,6 +126,23 @@ describe('CancelDoctorAppointment usecase', () => {
     ).rejects.toMatchObject({
       kind: 'validation',
       message: 'El motivo de la cancelación es obligatorio.',
+    });
+    expect(repo.lastCancelCommand).toBeUndefined();
+  });
+
+  it('rejects reason containing emojis without calling repository', async () => {
+    const repo = new FakeAgendaRepository();
+    const usecase = new CancelDoctorAppointment(repo);
+
+    await expect(
+      usecase.execute({
+        appointmentId: 'apt-1',
+        code: 'IMPREVISTO_MEDICO',
+        reason: 'Emergencia médica 🚑 urgente',
+      }),
+    ).rejects.toMatchObject({
+      kind: 'validation',
+      message: 'El motivo de la cancelación no puede contener emojis.',
     });
     expect(repo.lastCancelCommand).toBeUndefined();
   });
@@ -358,6 +376,52 @@ describe('isAppointmentElapsed policy', () => {
     expect(
       isAppointmentElapsed(
         { status: 'EXPIRADA', endUtc: '2026-11-16T10:00:00Z' },
+        refTime,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('canCancelAppointment policy', () => {
+  const refTime = new Date('2026-11-16T12:00:00Z').getTime();
+
+  it('returns true when a confirmed appointment is in the future', () => {
+    expect(
+      canCancelAppointment(
+        { status: 'CONFIRMADA', endUtc: '2026-11-16T13:00:00Z' },
+        refTime,
+      ),
+    ).toBe(true);
+  });
+
+  it('returns true when a pending-payment appointment is in the future', () => {
+    expect(
+      canCancelAppointment(
+        { status: 'PENDIENTE_PAGO', endUtc: '2026-11-16T14:00:00Z' },
+        refTime,
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false when the appointment end time is in the past', () => {
+    expect(
+      canCancelAppointment(
+        { status: 'CONFIRMADA', endUtc: '2026-11-16T11:00:00Z' },
+        refTime,
+      ),
+    ).toBe(false);
+  });
+
+  it('returns false for terminal statuses even in the future', () => {
+    expect(
+      canCancelAppointment(
+        { status: 'COMPLETADA', endUtc: '2026-11-16T15:00:00Z' },
+        refTime,
+      ),
+    ).toBe(false);
+    expect(
+      canCancelAppointment(
+        { status: 'CANCELADA', endUtc: '2026-11-16T15:00:00Z' },
         refTime,
       ),
     ).toBe(false);

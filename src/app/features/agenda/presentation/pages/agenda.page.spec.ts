@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppError } from '../../../../core/domain/app-error';
 import {
@@ -114,6 +114,7 @@ describe('AgendaPage', () => {
   ];
 
   beforeEach(() => {
+    vi.useFakeTimers({ now: new Date('2026-11-01T00:00:00Z') });
     fakeListAgenda = new FakeListAgenda();
     fakeCancelAppointment = new FakeCancelDoctorAppointment();
     fakeOpenConsultation = new FakeOpenConsultation();
@@ -127,6 +128,10 @@ describe('AgendaPage', () => {
         { provide: OpenConsultation, useValue: fakeOpenConsultation },
       ],
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   async function createComponent(items = sampleAppointments, shouldFail = false) {
@@ -482,14 +487,48 @@ describe('AgendaPage', () => {
       // Reloads agenda so state is not uncertain:
       expect(fakeListAgenda.calls.length).toBeGreaterThan(initialLoadCalls);
     });
+
+    it('strips emojis from the reason so only the clean text is submitted', async () => {
+      await createComponent();
+
+      const cancelBtn = el.querySelector('tbody tr button.btn--danger') as HTMLButtonElement;
+      cancelBtn.click();
+      fixture.detectChanges();
+
+      const textarea = el.querySelector('app-modal textarea') as HTMLTextAreaElement;
+      textarea.value = 'Emergencia médica 🚑';
+      textarea.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      const submitBtn = el.querySelector('app-modal button[type="submit"]') as HTMLButtonElement;
+      submitBtn.click();
+      fixture.detectChanges();
+
+      expect(fakeCancelAppointment.calls).toHaveLength(1);
+      expect(fakeCancelAppointment.calls[0]?.reason).toBe('Emergencia médica');
+    });
+
+    it('hides "Cancelar" button when an appointment has already passed', async () => {
+      const pastApt: AgendaAppointment = {
+        id: 'apt-past-cancel',
+        status: 'CONFIRMADA',
+        startUtc: '2026-10-30T10:00:00Z',
+        endUtc: '2026-10-30T10:30:00Z',
+        patient: { id: 'p-past', name: 'Paciente Anterior' },
+      };
+      await createComponent([pastApt]);
+
+      const rows = el.querySelectorAll('tbody tr');
+      expect(rows[0].querySelector('button.btn--danger')).toBeNull();
+    });
   });
 
   it('displays "Horario concluido" badge when a confirmed appointment end time is in the past', async () => {
     const pastApt: AgendaAppointment = {
       id: 'apt-past',
       status: 'CONFIRMADA',
-      startUtc: '2026-11-01T10:00:00Z',
-      endUtc: '2026-11-01T10:30:00Z',
+      startUtc: '2026-10-31T10:00:00Z',
+      endUtc: '2026-10-31T10:30:00Z',
       patient: { id: 'p-1', name: 'Paciente Pasado' },
     };
     const futureApt: AgendaAppointment = {

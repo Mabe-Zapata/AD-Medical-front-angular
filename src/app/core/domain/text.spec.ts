@@ -60,6 +60,8 @@ describe('text sanitization and validation', () => {
     expect(sanitizeFreeText('Motivo válido: paciente solicita alta médica. <script>')).toBe(
       'Motivo válido: paciente solicita alta médica. script',
     );
+    expect(sanitizeFreeText('a © b')).toBe('a  b');
+    expect(sanitizeFreeText('Ok ¿sí? ¡bien! 50% ✓')).toBe('Ok ¿sí? ¡bien! 50% ');
   });
 
   it('sanitizes and validates clinical text (diagnoses, treatments)', () => {

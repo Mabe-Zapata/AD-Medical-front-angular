@@ -66,6 +66,20 @@ export function isAppointmentElapsed(
   return appointment.status === 'CONFIRMADA' && isPastUtc(appointment.endUtc, nowMillis);
 }
 
+/**
+ * Returns true if an appointment can be cancelled by the doctor:
+ * must be CONFIRMADA or PENDIENTE_PAGO, and its scheduled slot must not be in the past.
+ */
+export function canCancelAppointment(
+  appointment: Pick<AgendaAppointment, 'status' | 'endUtc'>,
+  nowMillis = Date.now(),
+): boolean {
+  if (appointment.status !== 'CONFIRMADA' && appointment.status !== 'PENDIENTE_PAGO') {
+    return false;
+  }
+  return !isPastUtc(appointment.endUtc, nowMillis);
+}
+
 /** Command to open (register) the consultation for an appointment. */
 export interface OpenConsultationCommand {
   readonly appointmentId: string;

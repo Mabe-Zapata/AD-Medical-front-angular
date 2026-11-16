@@ -75,5 +75,7 @@ export function reviewProblems(conclusion: string, recommendations: string): str
   if (!conclusion.trim()) problems.push('the conclusion is required');
   if (conclusion.length > MAX_CONCLUSION) problems.push('the conclusion is too long');
   if (recommendations.length > MAX_CONCLUSION) problems.push('the recommendations are too long');
+  if (hasEmoji(conclusion)) problems.push('the conclusion cannot contain emoji');
+  if (hasEmoji(recommendations)) problems.push('the recommendations cannot contain emoji');
   return problems;
 }
