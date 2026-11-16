@@ -160,12 +160,12 @@ describe('UsersPage', () => {
     const passwordInput = el.querySelector<HTMLInputElement>('#password')!;
     const toggleBtn = el.querySelector<HTMLButtonElement>('.password-toggle')!;
     expect(passwordInput.type).toBe('password');
-    expect(toggleBtn.textContent).toContain('Mostrar');
+    expect(toggleBtn.getAttribute('aria-label')).toBe('Ver contraseña');
 
     toggleBtn.click();
     fixture.detectChanges();
     expect(passwordInput.type).toBe('text');
-    expect(toggleBtn.textContent).toContain('Ocultar');
+    expect(toggleBtn.getAttribute('aria-label')).toBe('Ocultar contraseña');
 
     toggleBtn.click();
     fixture.detectChanges();
@@ -198,7 +198,7 @@ describe('UsersPage', () => {
     type(el, 'password', 'ClaveLarga123!🔒');
     fixture.detectChanges();
 
-    expect(el.querySelector<HTMLInputElement>('#first-name')!.value).toBe('Carlos  ');
+    expect(el.querySelector<HTMLInputElement>('#first-name')!.value).toBe('Carlos ');
     expect(el.querySelector<HTMLInputElement>('#last-name')!.value).toBe('Gómez ');
     expect(el.querySelector<HTMLInputElement>('#email')!.value).toBe('carlos@lab.test');
     expect(el.querySelector<HTMLInputElement>('#password')!.value).toBe('ClaveLarga123!');
