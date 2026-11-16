@@ -13,7 +13,7 @@ export function userProblems(user: NewUser): string[] {
   if (!isValidName(user.firstName)) problems.push('firstName');
   if (!isValidName(user.lastName)) problems.push('lastName');
   const roles = new Set(user.roles);
-  if (roles.size < 1 || [...roles].some((role) => !(ASSIGNABLE_ROLES as readonly string[]).includes(role))) {
+  if (roles.size !== 1 || [...roles].some((role) => !(ASSIGNABLE_ROLES as readonly string[]).includes(role))) {
     problems.push('roles');
   }
   return problems;

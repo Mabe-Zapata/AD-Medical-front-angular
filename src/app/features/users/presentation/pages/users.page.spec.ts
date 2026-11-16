@@ -82,7 +82,7 @@ function fill(el: HTMLElement, over: { email?: string } = {}) {
   type(el, 'last-name', 'Mora');
   type(el, 'email', over.email ?? 'luis@lab.test');
   type(el, 'password', secret);
-  el.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click();
+  el.querySelector<HTMLInputElement>('input[type="radio"]')!.click();
 }
 
 describe('UsersPage', () => {
@@ -114,7 +114,7 @@ describe('UsersPage', () => {
     expect(el.textContent).toContain('Escribe los nombres.');
     expect(el.textContent).toContain('Escribe un correo válido.');
     expect(el.textContent).toContain('al menos 12 caracteres');
-    expect(el.textContent).toContain('Elige al menos un rol.');
+    expect(el.textContent).toContain('Elige un rol para el usuario.');
     expect(state.created).toEqual([]);
   });
 

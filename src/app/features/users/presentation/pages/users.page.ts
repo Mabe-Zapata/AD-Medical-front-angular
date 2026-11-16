@@ -77,7 +77,7 @@ import { PageState } from '../../../../shared/presentation/pagination';
       font-weight: 600;
       box-shadow: 0 0 0 1px var(--primary, #ea580c);
     }
-    .role-pill input[type="checkbox"] {
+    .role-pill input[type="radio"] {
       cursor: pointer;
       accent-color: var(--primary, #ea580c);
       width: 16px;
@@ -261,16 +261,18 @@ import { PageState } from '../../../../shared/presentation/pagination';
 
             <div class="field roles-section">
               <span class="roles-label">
-                <strong>Roles de la cuenta</strong> <span class="required" aria-hidden="true">*</span>
+                <strong>Rol de la cuenta</strong> <span class="required" aria-hidden="true">*</span>
               </span>
-              <p class="muted small" style="margin: 0;">Selecciona al menos un rol para el usuario.</p>
-              <div class="roles-grid">
+              <p class="muted small" style="margin: 0;">Selecciona el rol asignado a este usuario.</p>
+              <div class="roles-grid" role="radiogroup" aria-label="Rol de la cuenta">
                 @for (role of assignable; track role) {
-                  <label class="role-pill" [class.role-pill--selected]="roles().includes(role)">
+                  <label class="role-pill" [class.role-pill--selected]="selectedRole() === role">
                     <input
-                      type="checkbox"
-                      [checked]="roles().includes(role)"
-                      (change)="toggle(role)"
+                      type="radio"
+                      name="userRole"
+                      [value]="role"
+                      [checked]="selectedRole() === role"
+                      (change)="selectRole(role)"
                     />
                     <span>{{ roleLabels[role] }}</span>
                   </label>
@@ -318,7 +320,7 @@ export class UsersPage {
   protected readonly password = signal('');
   protected readonly firstName = signal('');
   protected readonly lastName = signal('');
-  protected readonly roles = signal<readonly string[]>([]);
+  protected readonly selectedRole = signal<string>('');
   protected readonly submitted = signal(false);
   protected readonly saving = signal(false);
   protected readonly notice = signal<string | null>(null);
@@ -426,7 +428,7 @@ export class UsersPage {
 
   protected rolesError(): string | null {
     if (!this.submitted()) return null;
-    if (this.roles().length === 0) return 'Elige al menos un rol.';
+    if (!this.selectedRole()) return 'Elige un rol para el usuario.';
     return null;
   }
 
@@ -435,14 +437,15 @@ export class UsersPage {
     return this.submitted() && this.problems().includes(field);
   }
 
-  protected toggle(role: string): void {
-    this.roles.update((list) => (list.includes(role) ? list.filter((r) => r !== role) : [...list, role]));
+  protected selectRole(role: string): void {
+    this.selectedRole.set(role);
   }
 
   protected openForm(): void {
     this.error.set(null);
     this.notice.set(null);
     this.showPassword.set(false);
+    this.selectedRole.set('');
     this.creating.set(true);
   }
 
@@ -464,7 +467,7 @@ export class UsersPage {
       this.password.set('');
       this.firstName.set('');
       this.lastName.set('');
-      this.roles.set([]);
+      this.selectedRole.set('');
       this.submitted.set(false);
       this.creating.set(false);
       await this.load();
@@ -490,7 +493,7 @@ export class UsersPage {
       password: this.password(),
       firstName: this.firstName(),
       lastName: this.lastName(),
-      roles: this.roles(),
+      roles: this.selectedRole() ? [this.selectedRole()] : [],
     };
   }
 
