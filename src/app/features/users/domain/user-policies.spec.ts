@@ -42,9 +42,21 @@ describe('userProblems', () => {
     expect(userProblems({ ...valid, roles: ['SUPERUSUARIO'] })).toEqual(['roles']);
   });
 
+  it('rejects multiple roles since an account must have exactly one role', () => {
+    expect(userProblems({ ...valid, roles: ['MEDICO', 'LABORATORISTA'] })).toEqual(['roles']);
+  });
+
   it('asks for at least 12 characters in the password, like the backend', () => {
     expect(userProblems({ ...valid, password: 'a'.repeat(11) })).toEqual(['password']);
     expect(userProblems({ ...valid, password: 'a'.repeat(12) })).toEqual([]);
+  });
+
+  it('rejects emojis and invalid characters in names, email, and password', () => {
+    expect(userProblems({ ...valid, firstName: 'Carlos 👨‍⚕️' })).toEqual(['firstName']);
+    expect(userProblems({ ...valid, firstName: 'Carlos123' })).toEqual(['firstName']);
+    expect(userProblems({ ...valid, lastName: 'Pérez <script>' })).toEqual(['lastName']);
+    expect(userProblems({ ...valid, email: 'carlos😃@lab.test' })).toEqual(['email']);
+    expect(userProblems({ ...valid, password: 'a'.repeat(12) + '🔒' })).toEqual(['password']);
   });
 });
 

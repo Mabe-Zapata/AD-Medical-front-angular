@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
+import { normalizeSearch, sanitizeSearch } from '../../../../core/domain/text';
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
 import { ChipComponent } from '../../../../shared/presentation/atoms/chip';
 import { ErrorView, describeError } from '../../../../shared/presentation/error-message';
@@ -47,25 +48,59 @@ const CONFLICT_MESSAGES: Readonly<Record<Kind, string>> = {
       }
 
       <section class="card stack">
-        <div>
-          <h2>Borradores</h2>
-          <p class="muted small">
-            @if (canList) {
-              Las referencias y reglas que esperan validación médica.
-            } @else {
-              Tu rol no ve el listado completo: solo los borradores que creaste en esta sesión.
-            }
-          </p>
+        <div class="row spread">
+          <div>
+            <h2>Borradores clínicos</h2>
+            <p class="muted small">
+              @if (canList) {
+                Las referencias y reglas que esperan validación médica.
+              } @else {
+                Tu rol no ve el listado completo: solo los borradores que creaste en esta sesión.
+              }
+            </p>
+          </div>
+          <div class="row filter-bar" style="gap: 12px; align-items: center;">
+            <div class="filter-field">
+              <label for="drafts-type-filter" class="muted small">Tipo:</label>
+              <select
+                id="drafts-type-filter"
+                class="input input--small"
+                [ngModel]="typeFilter()"
+                (ngModelChange)="onTypeFilterChange($event)"
+              >
+                <option value="ALL">Todos los tipos</option>
+                <option value="reference">Solo referencias</option>
+                <option value="rule">Solo reglas</option>
+              </select>
+            </div>
+            <div class="filter-field">
+              <label for="drafts-search-input" class="muted small">Buscar:</label>
+              <input
+                id="drafts-search-input"
+                class="input input--small"
+                placeholder="Filtrar por analito o regla..."
+                [ngModel]="searchQuery()"
+                (ngModelChange)="onSearchQueryChange($event)"
+              />
+            </div>
+          </div>
         </div>
+
         @if (loading()) {
           <p class="muted"><span class="spinner" aria-hidden="true"></span> Cargando…</p>
         } @else if (loadFailed()) {
           <app-banner tone="danger">No pudimos cargar los borradores.</app-banner>
           <div><button class="btn btn--small" type="button" (click)="load()">Reintentar</button></div>
         }
-        @if (!loading() && items().length === 0) {
-          <p class="empty">No hay borradores.</p>
-        } @else if (items().length > 0) {
+        @if (!loading() && filteredItems().length === 0) {
+          <p class="empty">
+            @if (searchQuery() || typeFilter() !== 'ALL') {
+              No se encontraron borradores con los filtros aplicados.
+            } @else {
+              No hay borradores.
+            }
+          </p>
+        } @else if (filteredItems().length > 0) {
           <div class="table-wrap">
             <table class="table">
               <thead>
@@ -74,15 +109,15 @@ const CONFLICT_MESSAGES: Readonly<Record<Kind, string>> = {
                   <th>Descripción</th>
                   <th>ID</th>
                   <th>Estado</th>
-                  <th></th>
+                  <th>Acción</th>
                 </tr>
               </thead>
               <tbody>
-                @for (draft of pager.slice(items()); track draft.id) {
+                @for (draft of pager.slice(filteredItems()); track draft.id) {
                   <tr>
                     <td>{{ kindLabel(draft.kind) }}</td>
                     <td>{{ draft.label }}</td>
-                    <td class="mono">{{ draft.id }}</td>
+                    <td class="mono small muted">{{ draft.id }}</td>
                     <td>
                       <app-chip [tone]="draft.state === 'VALIDADA' ? 'success' : 'warning'">
                         {{ draft.state === 'VALIDADA' ? 'Validada' : 'Borrador' }}
@@ -105,46 +140,57 @@ const CONFLICT_MESSAGES: Readonly<Record<Kind, string>> = {
               </tbody>
             </table>
           </div>
-      <app-paginator [total]="items().length" [state]="pager" />
+          <app-paginator [total]="filteredItems().length" [state]="pager" />
         }
       </section>
 
       @if (canValidate) {
         <section class="card stack">
           <div>
-            <h2>Validar por ID</h2>
-            <p class="muted small">Si ya tienes el identificador de un borrador.</p>
+            <h2>Validación rápida por selección</h2>
+            <p class="muted small">Selecciona directamente cualquier borrador pendiente de la lista sin memorizar identificadores técnicos.</p>
           </div>
-          <div class="row">
-            <select class="input kind" [(ngModel)]="manualKind" aria-label="Tipo de borrador">
-              <option value="reference">Referencia</option>
-              <option value="rule">Regla</option>
-            </select>
-            <input
-              class="input mono id"
-              [(ngModel)]="manualId"
-              placeholder="UUID del borrador"
-              aria-label="ID del borrador"
-            />
-            <button
-              class="btn btn--primary"
-              type="button"
-              [disabled]="busyId() === 'manual' || !manualId.trim()"
-              (click)="validate(manualKind, manualId, true)"
-            >
-              Validar
-            </button>
+          <div class="row" style="gap: 12px; align-items: flex-end;">
+            <div class="field" style="flex: 3; min-width: 240px;">
+              <label for="draft-select-picker">Elegir borrador para validar</label>
+              <select
+                id="draft-select-picker"
+                class="input"
+                [ngModel]="selectedDraftId()"
+                (ngModelChange)="selectedDraftId.set($event)"
+              >
+                <option value="">-- Selecciona un borrador pendiente ({{ pendingDrafts().length }}) --</option>
+                @for (d of pendingDrafts(); track d.id) {
+                  <option [value]="d.id">
+                    [{{ kindLabel(d.kind) }}] {{ d.label }}
+                  </option>
+                }
+              </select>
+            </div>
+            @if (selectedDraft(); as selected) {
+              <button
+                class="btn btn--primary"
+                type="button"
+                [disabled]="busyId() === selected.id"
+                (click)="validate(selected.kind, selected.id)"
+              >
+                {{ busyId() === selected.id ? 'Validando…' : 'Validar seleccionado' }}
+              </button>
+            }
           </div>
         </section>
       }
     </div>
   `,
   styles: `
-    .kind {
-      width: 160px;
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
     }
-    .id {
-      flex: 1 1 320px;
+    .filter-field {
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
   `,
 })
@@ -168,12 +214,35 @@ export class DraftsPage {
     const ids = new Set(this.listed().map((d) => d.id));
     return [...this.listed(), ...this.drafts.drafts().filter((d) => !ids.has(d.id))];
   });
+
+  protected readonly typeFilter = signal<'ALL' | Kind>('ALL');
+  protected readonly searchQuery = signal('');
+  protected readonly selectedDraftId = signal('');
+
+  protected readonly filteredItems = computed(() => {
+    const type = this.typeFilter();
+    const query = normalizeSearch(this.searchQuery());
+    return this.items().filter((d) => {
+      if (type !== 'ALL' && d.kind !== type) return false;
+      if (!query) return true;
+      const haystack = normalizeSearch(`${d.label} ${d.id} ${KIND_LABELS[d.kind]}`);
+      return haystack.includes(query);
+    });
+  });
+
+  protected readonly pendingDrafts = computed(() => {
+    return this.items().filter((d) => d.state === 'BORRADOR');
+  });
+
+  protected readonly selectedDraft = computed(() => {
+    const id = this.selectedDraftId();
+    if (!id) return null;
+    return this.items().find((d) => d.id === id) ?? null;
+  });
+
   protected readonly busyId = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
   protected readonly error = signal<ErrorView | null>(null);
-
-  protected manualKind: Kind = 'reference';
-  protected manualId = '';
 
   protected readonly kindLabel = (kind: Kind) => KIND_LABELS[kind];
 
@@ -193,8 +262,19 @@ export class DraftsPage {
     }
   }
 
-  protected async validate(kind: Kind, id: string, manual = false): Promise<void> {
-    this.busyId.set(manual ? 'manual' : id);
+  protected onTypeFilterChange(type: 'ALL' | Kind): void {
+    this.typeFilter.set(type);
+    this.pager.page.set(0);
+  }
+
+  protected onSearchQueryChange(query: string): void {
+    const cleaned = sanitizeSearch(query);
+    this.searchQuery.set(cleaned);
+    this.pager.page.set(0);
+  }
+
+  protected async validate(kind: Kind, id: string): Promise<void> {
+    this.busyId.set(id);
     this.notice.set(null);
     this.error.set(null);
     try {
@@ -203,7 +283,9 @@ export class DraftsPage {
       this.drafts.markValidated(id.trim());
       this.listed.update((list) => list.map((d) => (d.id === id.trim() ? { ...d, state: 'VALIDADA' as const } : d)));
       this.notice.set(`${KIND_LABELS[kind]} validada: ya puede usarse.`);
-      if (manual) this.manualId = '';
+      if (this.selectedDraftId() === id) {
+        this.selectedDraftId.set('');
+      }
     } catch (error) {
       this.error.set(
         describeError(error, {
@@ -217,3 +299,4 @@ export class DraftsPage {
     }
   }
 }
+

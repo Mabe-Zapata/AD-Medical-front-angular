@@ -1,5 +1,23 @@
-import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+
+import {
+  isValidThreshold,
+  parseThreshold,
+  sanitizeFreeText,
+  sanitizeThreshold,
+  sanitizeUnit,
+  stripEmoji,
+} from '../../../../core/domain/text';
+import { sanitizeOnType } from '../../../../shared/presentation/forms/sanitize-on-type';
 
 import {
   Analyte,
@@ -114,8 +132,10 @@ import {
                 <input
                   [id]="'c-threshold-' + i"
                   class="input"
-                  type="number"
-                  step="any"
+                  type="text"
+                  inputmode="decimal"
+                  maxlength="19"
+                  placeholder="0.5"
                   formControlName="threshold"
                 />
               </div>
@@ -188,6 +208,7 @@ export class RuleFormComponent {
   protected readonly isNumeric = isNumericOperator;
 
   private readonly fb = inject(NonNullableFormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
   protected readonly form = this.fb.group({
     code: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(80)]],
     name: ['', [Validators.required, Validators.maxLength(200)]],
@@ -198,6 +219,14 @@ export class RuleFormComponent {
     message: ['', [Validators.required, Validators.maxLength(2000)]],
     criteria: this.fb.array([this.newCriterion()]),
   });
+
+  constructor() {
+    // No emojis anywhere in the rule form; the message and names keep the database limits (2000 and 200).
+    sanitizeOnType(this.form.controls.code, stripEmoji, this.destroyRef);
+    sanitizeOnType(this.form.controls.name, stripEmoji, this.destroyRef);
+    sanitizeOnType(this.form.controls.description, sanitizeFreeText, this.destroyRef);
+    sanitizeOnType(this.form.controls.message, sanitizeFreeText, this.destroyRef);
+  }
 
   protected get criteria() {
     return this.form.controls.criteria;
@@ -226,6 +255,13 @@ export class RuleFormComponent {
       return;
     }
     const v = this.form.getRawValue();
+    const badThreshold = v.criteria.some(
+      (c) => isNumericOperator(c.operator) && c.threshold !== '' && !isValidThreshold(c.threshold),
+    );
+    if (badThreshold) {
+      this.problems.set(['threshold_invalid']);
+      return;
+    }
     const rule: NewRule = {
       code: v.code.trim(),
       name: v.name.trim(),
@@ -237,7 +273,7 @@ export class RuleFormComponent {
       criteria: v.criteria.map((c) => ({
         analyteId: c.analyteId,
         operator: c.operator,
-        threshold: c.threshold,
+        threshold: c.threshold === '' ? null : parseThreshold(c.threshold),
         unit: c.unit.trim() || null,
       })),
     };
@@ -247,11 +283,14 @@ export class RuleFormComponent {
   }
 
   private newCriterion() {
-    return this.fb.group({
+    const group = this.fb.group({
       analyteId: [''],
       operator: ['LT' as Operator],
-      threshold: [null as number | null],
+      threshold: [''],
       unit: [''],
     });
+    sanitizeOnType(group.controls.threshold, sanitizeThreshold, this.destroyRef);
+    sanitizeOnType(group.controls.unit, sanitizeUnit, this.destroyRef);
+    return group;
   }
 }

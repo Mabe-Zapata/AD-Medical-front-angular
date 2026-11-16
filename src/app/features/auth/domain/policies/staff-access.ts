@@ -18,6 +18,9 @@ export const PERMISSIONS = {
   resultsRecord: 'resultados.registrar',
   resultsReadWithAccess: 'resultados.leer_con_acceso',
   reviewsRecord: 'revisiones.registrar',
+  consultationsOpen: 'consultas.abrir',
+  appointmentsDoctorCancel: 'citas.cancelar_medico',
+  cancellationApprovalsReview: 'citas.revisar_cancelaciones',
 } as const;
 
 export function isStaff(roles: readonly string[]): boolean {

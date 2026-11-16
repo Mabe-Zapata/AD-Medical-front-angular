@@ -46,6 +46,7 @@ import { AnalyteTableComponent } from '../widgets/analyte-table';
       @if (creating()) {
         <app-modal
           tag="Nuevo analito"
+          [centered]="true"
           headline="Agrega un analito al catálogo"
           [bullets]="bullets"
           (closed)="creating.set(false)"

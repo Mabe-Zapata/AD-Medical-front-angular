@@ -1,8 +1,21 @@
-import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  inject,
+  input,
+  output,
+} from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
+import { sanitizeUnit } from '../../../../core/domain/text';
+import { sanitizeOnType } from '../../../../shared/presentation/forms/sanitize-on-type';
 import { NewAnalyte, VALUE_TYPES, ValueType } from '../../domain/entities/knowledge';
 import { VALUE_TYPE_LABELS, labelOf } from '../labels';
+
+/** Letters and "/" only, at most 10 characters (well under the 40 the database allows). */
+const UNIT_PATTERN = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ/]*$/;
+const UNIT_MAX_LENGTH = 10;
 
 @Component({
   selector: 'app-analyte-form',
@@ -24,9 +37,12 @@ import { VALUE_TYPE_LABELS, labelOf } from '../labels';
             id="analyte-unit"
             class="input"
             formControlName="unit"
-            maxlength="40"
+            [maxlength]="unitMaxLength"
             placeholder="mg/dL"
           />
+          @if (form.controls.unit.touched && form.controls.unit.invalid) {
+            <span class="field-error">La unidad admite solo letras y "/", hasta 10 caracteres.</span>
+          }
         </div>
         <div class="field">
           <label for="analyte-type">Tipo de valor</label>
@@ -52,12 +68,19 @@ export class AnalyteFormComponent {
   protected readonly valueTypes = VALUE_TYPES;
   protected readonly label = (code: string) => labelOf(VALUE_TYPE_LABELS, code);
 
+  protected readonly unitMaxLength = UNIT_MAX_LENGTH;
+
   private readonly fb = inject(NonNullableFormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
   protected readonly form = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(150)]],
-    unit: [''],
+    unit: ['', [Validators.maxLength(UNIT_MAX_LENGTH), Validators.pattern(UNIT_PATTERN)]],
     valueType: ['NUMERICO' as ValueType],
   });
+
+  constructor() {
+    sanitizeOnType(this.form.controls.unit, sanitizeUnit, this.destroyRef);
+  }
 
   reset(): void {
     this.form.reset();

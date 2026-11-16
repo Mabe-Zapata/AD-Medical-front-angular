@@ -23,4 +23,8 @@ export class Session {
   can(permission: string): boolean {
     return this.user.permissions.includes(permission);
   }
+
+  hasRole(role: string): boolean {
+    return this.user.roles.includes(role);
+  }
 }

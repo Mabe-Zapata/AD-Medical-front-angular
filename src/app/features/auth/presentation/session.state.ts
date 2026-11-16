@@ -54,6 +54,10 @@ export class SessionState {
     return this.current()?.can(permission) ?? false;
   }
 
+  hasRole(role: string): boolean {
+    return this.current()?.hasRole(role) ?? false;
+  }
+
   private armExpiry(): void {
     clearTimeout(this.timer);
     const session = this.current();

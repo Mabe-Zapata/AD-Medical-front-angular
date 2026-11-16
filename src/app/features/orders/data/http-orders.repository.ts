@@ -177,6 +177,14 @@ export class HttpOrdersRepository extends OrdersRepository {
     return response.items.map((d) => ({ id: d.id, name: d.nombre_archivo, sizeBytes: d.tamano_bytes }));
   }
 
+  async downloadDocument(documentId: string): Promise<Blob> {
+    return this.call(
+      this.http.get(`${this.api}/documents/${documentId}/download`, {
+        responseType: 'blob',
+      }),
+    );
+  }
+
   async listTestAnalytes(testTypeId: string): Promise<TestAnalyte[]> {
     const response = await this.call(
       this.http.get<{ items: { id: string; nombre: string; unidad: string | null; tipo_valor: string; obligatorio: boolean }[] }>(

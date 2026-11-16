@@ -6,6 +6,7 @@ import {
   authGuard,
   guestGuard,
   permissionGuard,
+  roleGuard,
 } from './features/auth/presentation/guards';
 import { StaffShell } from './shell/staff-shell';
 
@@ -28,6 +29,22 @@ export const routes: Routes = [
         title: 'Inicio · Medilo',
         loadComponent: () =>
           import('./features/home/presentation/home.page').then((m) => m.HomePage),
+      },
+      {
+        path: 'agenda',
+        title: 'Agenda del médico · Medilo',
+        canActivate: [roleGuard('MEDICO')],
+        loadComponent: () =>
+          import('./features/agenda/presentation/pages/agenda.page').then((m) => m.AgendaPage),
+      },
+      {
+        path: 'agenda/aprobaciones',
+        title: 'Aprobación de cancelaciones · Medilo',
+        canActivate: [permissionGuard(PERMISSIONS.cancellationApprovalsReview)],
+        loadComponent: () =>
+          import('./features/agenda/presentation/pages/cancellation-approval.page').then(
+            (m) => m.CancellationApprovalPage,
+          ),
       },
       {
         path: 'ordenes',

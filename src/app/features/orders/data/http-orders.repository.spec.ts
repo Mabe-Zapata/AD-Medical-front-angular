@@ -232,4 +232,20 @@ describe('HttpOrdersRepository', () => {
     await expect(result).rejects.toMatchObject({ kind: 'forbidden', correlationId: 'c-9' });
     expect(HttpErrorResponse).toBeDefined();
   });
+
+  it('downloads a stored document as a blob', async () => {
+    const docId = '11111111-2222-3333-4444-555555555555';
+    const result = repository.downloadDocument(docId);
+
+    const req = http.expectOne(`/api/v1/documents/${docId}/download`);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.responseType).toBe('blob');
+
+    const fakeBlob = new Blob(['pdf-bytes'], { type: 'application/pdf' });
+    req.flush(fakeBlob);
+
+    const blob = await result;
+    expect(blob).toBeInstanceOf(Blob);
+    expect(blob.type).toBe('application/pdf');
+  });
 });

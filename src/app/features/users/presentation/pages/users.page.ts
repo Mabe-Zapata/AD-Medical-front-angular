@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 
+import { hasEmoji, isValidEmail, isValidName, sanitizeEmail, sanitizeName, sanitizePassword } from '../../../../core/domain/text';
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
 import { ChipComponent } from '../../../../shared/presentation/atoms/chip';
 import { ErrorView, describeError } from '../../../../shared/presentation/error-message';
@@ -22,6 +23,78 @@ import { PageState } from '../../../../shared/presentation/pagination';
   styles: `
     .back {
       font-weight: 700;
+    }
+    .required {
+      color: var(--danger, #dc2626);
+      font-weight: 700;
+      margin-left: 2px;
+    }
+    .password-wrapper {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .password-wrapper input {
+      flex: 1;
+    }
+    .password-toggle {
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .roles-section {
+      display: grid;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .roles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+      gap: 8px;
+      margin-top: 2px;
+    }
+    .role-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border: 1px solid var(--border, #dbe3f0);
+      border-radius: 10px;
+      background: var(--surface-subtle, #f8fafc);
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+      font-size: 14px;
+      font-weight: 500;
+      user-select: none;
+    }
+    .role-pill:hover {
+      border-color: var(--primary, #ea580c);
+      background: #fff;
+    }
+    .role-pill--selected {
+      border-color: var(--primary, #ea580c);
+      background: #fff7ed;
+      color: var(--primary-deep, #9a3412);
+      font-weight: 600;
+      box-shadow: 0 0 0 1px var(--primary, #ea580c);
+    }
+    .role-pill input[type="radio"] {
+      cursor: pointer;
+      accent-color: var(--primary, #ea580c);
+      width: 16px;
+      height: 16px;
+      margin: 0;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-top: 12px;
+    }
+    .field-error {
+      color: var(--danger, #dc2626);
+      font-size: 13px;
+      font-weight: 500;
+      margin-top: 3px;
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -81,7 +154,7 @@ import { PageState } from '../../../../shared/presentation/pagination';
               </tbody>
             </table>
           </div>
-      <app-paginator [total]="users().length" [state]="pager" />
+          <app-paginator [total]="users().length" [state]="pager" />
         }
       </section>
 
@@ -90,70 +163,139 @@ import { PageState } from '../../../../shared/presentation/pagination';
           tag="Nueva cuenta"
           headline="Crea una cuenta del personal"
           [bullets]="bullets"
-          (closed)="creating.set(false)"
+          (closed)="closeForm()"
         >
-        @if (error(); as e) {
-          <app-banner tone="danger">
-            {{ e.message }}
-          </app-banner>
-        }
-        <form class="stack" (ngSubmit)="create()" novalidate>
-          <div class="grid-2">
-            <div class="field">
-              <label for="first-name">Nombres</label>
-              <input id="first-name" class="input" name="firstName" maxlength="100" [ngModel]="firstName()" (ngModelChange)="firstName.set($event)" />
-              @if (problem('firstName')) {
-                <span class="field-error">Escribe los nombres.</span>
-              }
-            </div>
-            <div class="field">
-              <label for="last-name">Apellidos</label>
-              <input id="last-name" class="input" name="lastName" maxlength="100" [ngModel]="lastName()" (ngModelChange)="lastName.set($event)" />
-              @if (problem('lastName')) {
-                <span class="field-error">Escribe los apellidos.</span>
-              }
-            </div>
-          </div>
-          <div class="grid-2">
-            <div class="field">
-              <label for="email">Correo electrónico</label>
-              <input id="email" class="input" name="email" type="email" maxlength="255" autocomplete="off" [ngModel]="email()" (ngModelChange)="email.set($event)" />
-              @if (problem('email')) {
-                <span class="field-error">Escribe un correo válido.</span>
-              }
-            </div>
-            <div class="field">
-              <label for="password">Contraseña inicial</label>
-              <input id="password" class="input" type="password" autocomplete="new-password" [value]="password()" (input)="password.set(passwordValue($event))" />
-              @if (problem('password')) {
-                <span class="field-error">Usa al menos {{ minPassword }} caracteres.</span>
-              }
-            </div>
-          </div>
-          <fieldset class="field">
-            <legend>Roles</legend>
-            <div class="row">
-              @for (role of assignable; track role) {
-                <label class="row small">
-                  <input type="checkbox" [checked]="roles().includes(role)" (change)="toggle(role)" />
-                  {{ roleLabels[role] }}
+          @if (error(); as e) {
+            <app-banner tone="danger">
+              {{ e.message }}
+            </app-banner>
+          }
+          <form class="stack" (ngSubmit)="create()" novalidate>
+            <div class="grid-2">
+              <div class="field">
+                <label for="first-name">
+                  <strong>Nombres</strong> <span class="required" aria-hidden="true">*</span>
                 </label>
+                <input
+                  id="first-name"
+                  class="input"
+                  name="firstName"
+                  maxlength="100"
+                  placeholder="ej. María Carmen"
+                  autocomplete="given-name"
+                  [value]="firstName()"
+                  (input)="onFirstNameInput($event)"
+                />
+                @if (firstNameError(); as err) {
+                  <span class="field-error">{{ err }}</span>
+                }
+              </div>
+              <div class="field">
+                <label for="last-name">
+                  <strong>Apellidos</strong> <span class="required" aria-hidden="true">*</span>
+                </label>
+                <input
+                  id="last-name"
+                  class="input"
+                  name="lastName"
+                  maxlength="100"
+                  placeholder="ej. Pérez Gómez"
+                  autocomplete="family-name"
+                  [value]="lastName()"
+                  (input)="onLastNameInput($event)"
+                />
+                @if (lastNameError(); as err) {
+                  <span class="field-error">{{ err }}</span>
+                }
+              </div>
+            </div>
+            <div class="grid-2">
+              <div class="field">
+                <label for="email">
+                  <strong>Correo electrónico</strong> <span class="required" aria-hidden="true">*</span>
+                </label>
+                <input
+                  id="email"
+                  class="input"
+                  name="email"
+                  type="email"
+                  maxlength="255"
+                  placeholder="ej. usuario@medilo.lab"
+                  autocomplete="email"
+                  [value]="email()"
+                  (input)="onEmailInput($event)"
+                />
+                @if (emailError(); as err) {
+                  <span class="field-error">{{ err }}</span>
+                }
+              </div>
+              <div class="field">
+                <label for="password">
+                  <strong>Contraseña inicial</strong> <span class="required" aria-hidden="true">*</span>
+                </label>
+                <div class="password-wrapper">
+                  <input
+                    id="password"
+                    class="input"
+                    [type]="showPassword() ? 'text' : 'password'"
+                    autocomplete="new-password"
+                    placeholder="Mínimo 12 caracteres..."
+                    [value]="password()"
+                    (input)="onPasswordInput($event)"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn--ghost btn--small password-toggle"
+                    (click)="togglePasswordVisibility()"
+                    [title]="showPassword() ? 'Ocultar contraseña' : 'Ver contraseña'"
+                  >
+                    {{ showPassword() ? 'Ocultar' : 'Mostrar' }}
+                  </button>
+                </div>
+                <p class="muted small" style="margin-top: 4px;">Mínimo 12 caracteres (sin emojis).</p>
+                @if (passwordError(); as err) {
+                  <span class="field-error">{{ err }}</span>
+                }
+              </div>
+            </div>
+
+            <div class="field roles-section">
+              <span class="roles-label">
+                <strong>Rol de la cuenta</strong> <span class="required" aria-hidden="true">*</span>
+              </span>
+              <p class="muted small" style="margin: 0;">Selecciona el rol asignado a este usuario.</p>
+              <div class="roles-grid" role="radiogroup" aria-label="Rol de la cuenta">
+                @for (role of assignable; track role) {
+                  <label class="role-pill" [class.role-pill--selected]="selectedRole() === role">
+                    <input
+                      type="radio"
+                      name="userRole"
+                      [value]="role"
+                      [checked]="selectedRole() === role"
+                      (change)="selectRole(role)"
+                    />
+                    <span>{{ roleLabels[role] }}</span>
+                  </label>
+                }
+              </div>
+              @if (rolesError(); as err) {
+                <span class="field-error">{{ err }}</span>
               }
             </div>
-            @if (problem('roles')) {
-              <span class="field-error">Elige al menos un rol.</span>
-            }
-          </fieldset>
-          <div>
-            <button class="btn btn--primary" type="submit" [disabled]="saving()">
-              @if (saving()) {
-                <span class="spinner" aria-hidden="true"></span> Creando…
-              } @else {
-                Crear cuenta
-              }
-            </button>
-          </div>
-        </form>
+
+            <div class="modal-actions">
+              <button class="btn btn--primary" type="submit" [disabled]="saving()">
+                @if (saving()) {
+                  <span class="spinner" aria-hidden="true"></span> Creando…
+                } @else {
+                  Crear cuenta
+                }
+              </button>
+              <button class="btn btn--ghost" type="button" (click)="closeForm()" [disabled]="saving()">
+                Cancelar
+              </button>
+            </div>
+          </form>
         </app-modal>
       }
     </div>
@@ -178,12 +320,14 @@ export class UsersPage {
   protected readonly password = signal('');
   protected readonly firstName = signal('');
   protected readonly lastName = signal('');
-  protected readonly roles = signal<readonly string[]>([]);
+  protected readonly selectedRole = signal<string>('');
   protected readonly submitted = signal(false);
   protected readonly saving = signal(false);
   protected readonly notice = signal<string | null>(null);
   protected readonly error = signal<ErrorView | null>(null);
   protected readonly creating = signal(false);
+  protected readonly showPassword = signal(false);
+
   protected readonly bullets = [
     'Una cuenta de médico creada aquí no tiene perfil profesional y no podrá crear órdenes hasta que el backend lo permita.',
     'Las contraseñas nunca se muestran después de crearlas.',
@@ -195,9 +339,97 @@ export class UsersPage {
     if (inject(ActivatedRoute).snapshot.queryParamMap.has('nuevo')) this.openForm();
   }
 
-  /** The password is bound by value, not by NgModel, so clearing it clears the input at once. */
-  protected passwordValue(event: Event): string {
-    return (event.target as HTMLInputElement).value;
+  protected togglePasswordVisibility(): void {
+    this.showPassword.update((visible) => !visible);
+  }
+
+  protected onFirstNameChange(val: string): void {
+    const sanitized = sanitizeName(val);
+    this.firstName.set(sanitized);
+  }
+
+  protected onFirstNameInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const sanitized = sanitizeName(input.value);
+    if (sanitized !== input.value) {
+      input.value = sanitized;
+    }
+    this.firstName.set(sanitized);
+  }
+
+  protected onLastNameChange(val: string): void {
+    const sanitized = sanitizeName(val);
+    this.lastName.set(sanitized);
+  }
+
+  protected onLastNameInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const sanitized = sanitizeName(input.value);
+    if (sanitized !== input.value) {
+      input.value = sanitized;
+    }
+    this.lastName.set(sanitized);
+  }
+
+  protected onEmailChange(val: string): void {
+    const sanitized = sanitizeEmail(val);
+    this.email.set(sanitized);
+  }
+
+  protected onEmailInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const sanitized = sanitizeEmail(input.value);
+    if (sanitized !== input.value) {
+      input.value = sanitized;
+    }
+    this.email.set(sanitized);
+  }
+
+  protected onPasswordInput(event: Event): void {
+    const raw = (event.target as HTMLInputElement).value;
+    const sanitized = sanitizePassword(raw);
+    if (sanitized !== raw) {
+      (event.target as HTMLInputElement).value = sanitized;
+    }
+    this.password.set(sanitized);
+  }
+
+  protected firstNameError(): string | null {
+    if (!this.submitted()) return null;
+    const val = this.firstName().trim();
+    if (val.length === 0) return 'Escribe los nombres.';
+    if (!isValidName(val)) return 'Escribe los nombres (solo letras y espacios, sin números ni emojis).';
+    return null;
+  }
+
+  protected lastNameError(): string | null {
+    if (!this.submitted()) return null;
+    const val = this.lastName().trim();
+    if (val.length === 0) return 'Escribe los apellidos.';
+    if (!isValidName(val)) return 'Escribe los apellidos (solo letras y espacios, sin números ni emojis).';
+    return null;
+  }
+
+  protected emailError(): string | null {
+    if (!this.submitted()) return null;
+    const val = this.email().trim();
+    if (val.length === 0) return 'Escribe un correo válido.';
+    if (!isValidEmail(val)) return 'Escribe un correo válido (ej. usuario@dominio.com, sin emojis).';
+    return null;
+  }
+
+  protected passwordError(): string | null {
+    if (!this.submitted()) return null;
+    const val = this.password();
+    if (hasEmoji(val)) return 'La contraseña no puede contener emojis.';
+    if (val.length < this.minPassword) return `Usa al menos ${this.minPassword} caracteres.`;
+    return null;
+  }
+
+  protected rolesError(): string | null {
+    if (!this.submitted()) return null;
+    if (!this.selectedRole()) return 'Elige un rol para el usuario.';
+    return null;
   }
 
   /** A field is flagged only after the first attempt to save. */
@@ -205,14 +437,21 @@ export class UsersPage {
     return this.submitted() && this.problems().includes(field);
   }
 
-  protected toggle(role: string): void {
-    this.roles.update((list) => (list.includes(role) ? list.filter((r) => r !== role) : [...list, role]));
+  protected selectRole(role: string): void {
+    this.selectedRole.set(role);
   }
 
   protected openForm(): void {
     this.error.set(null);
     this.notice.set(null);
+    this.showPassword.set(false);
+    this.selectedRole.set('');
     this.creating.set(true);
+  }
+
+  protected closeForm(): void {
+    this.creating.set(false);
+    this.showPassword.set(false);
   }
 
   protected async create(): Promise<void> {
@@ -228,7 +467,7 @@ export class UsersPage {
       this.password.set('');
       this.firstName.set('');
       this.lastName.set('');
-      this.roles.set([]);
+      this.selectedRole.set('');
       this.submitted.set(false);
       this.creating.set(false);
       await this.load();
@@ -254,7 +493,7 @@ export class UsersPage {
       password: this.password(),
       firstName: this.firstName(),
       lastName: this.lastName(),
-      roles: this.roles(),
+      roles: this.selectedRole() ? [this.selectedRole()] : [],
     };
   }
 

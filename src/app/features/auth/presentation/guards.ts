@@ -37,3 +37,14 @@ export const anyPermissionGuard =
       ? true
       : router.createUrlTree(['/inicio'], { queryParams: { sinPermiso: '1' } });
   };
+
+/** UX gate: hides screens that belong to specific roles. */
+export const roleGuard =
+  (...roles: string[]): CanActivateFn =>
+  () => {
+    const router = inject(Router);
+    const session = inject(SessionState);
+    return roles.some((role) => session.hasRole(role))
+      ? true
+      : router.createUrlTree(['/inicio'], { queryParams: { sinPermiso: '1' } });
+  };

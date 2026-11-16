@@ -33,6 +33,23 @@ describe('visibleModules', () => {
     expect(titles(ADMIN)).not.toContain('Órdenes y resultados');
   });
 
+  it('shows the doctor agenda only to doctors', () => {
+    expect(titles(DOCTOR)).toContain('Agenda del médico');
+    expect(titles(LAB)).not.toContain('Agenda del médico');
+    expect(titles(ADMIN)).not.toContain('Agenda del médico');
+  });
+
+  it('shows cancellation approval only to whoever can review cancellations', () => {
+    expect(titles([...ADMIN, 'citas.revisar_cancelaciones'])).toContain('Aprobación de cancelaciones');
+    expect(titles(DOCTOR)).not.toContain('Aprobación de cancelaciones');
+    expect(titles(LAB)).not.toContain('Aprobación de cancelaciones');
+  });
+
+  it('restricts agenda to MEDICO role when role checker is provided', () => {
+    expect(visibleModules(() => true, (r) => r === 'MEDICO').map((m) => m.title)).toContain('Agenda del médico');
+    expect(visibleModules(() => true, (r) => r === 'ADMINISTRADOR').map((m) => m.title)).not.toContain('Agenda del médico');
+  });
+
   it('shows nothing to someone without permissions', () => {
     expect(titles([])).toEqual([]);
   });
@@ -41,7 +58,8 @@ describe('visibleModules', () => {
 describe('StaffShell', () => {
   const signedOut: string[] = [];
 
-  function render(permissions: string[], users: unknown[] = []) {
+  function render(permissions: string[], users: unknown[] = [], roles?: string[]) {
+    const assignedRoles = roles ?? (permissions === DOCTOR ? ['MEDICO'] : ['ADMINISTRADOR']);
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
@@ -49,10 +67,11 @@ describe('StaffShell', () => {
         {
           provide: SessionState,
           useValue: {
-            user: () => ({ id: 'u1', email: 'admin1@synthetic.test', roles: ['ADMINISTRADOR'] }),
+            user: () => ({ id: 'u1', email: 'admin1@synthetic.test', roles: assignedRoles }),
             isSignedIn: () => true,
             endReason: () => null,
             can: (p: string) => permissions.includes(p),
+            hasRole: (r: string) => assignedRoles.includes(r),
             signOut: (reason: string) => signedOut.push(reason),
           },
         },
@@ -67,7 +86,7 @@ describe('StaffShell', () => {
     const { el } = render(DOCTOR);
     const links = [...el.querySelectorAll('nav a')].map((a) => a.textContent!.trim());
 
-    expect(links).toEqual(['Inicio', 'Conocimiento clínico', 'Órdenes y resultados']);
+    expect(links).toEqual(['Inicio', 'Agenda del médico', 'Conocimiento clínico', 'Órdenes y resultados']);
     expect(links).not.toContain('Usuarios y roles');
     expect(el.querySelector('.avatar')!.textContent!.trim()).toBe('AD');
   });

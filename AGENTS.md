@@ -42,7 +42,7 @@ src/app/app.interceptor.ts  agrega el bearer y cierra sesión ante 401
 
 ## Contrato con el backend
 
-- Errores `application/problem+json` con `correlation_id` → `ErrorKind` (mismo conjunto que Flutter: `invalidCredentials, unauthenticated, forbidden, notFound, conflict, validation, rateLimited, network, unavailable, notPatient, unknown`). Muestra el `correlation_id` como código de soporte.
+- Errores `application/problem+json` con `correlation_id` → `ErrorKind` (mismo conjunto que Flutter: `invalidCredentials, unauthenticated, forbidden, notFound, conflict, validation, rateLimited, network, unavailable, readOnly, notPatient, unknown`; `readOnly` es el 503 con `code: READ_ONLY_MODE`, cuando la base principal no responde). Muestra el `correlation_id` como código de soporte.
 - JWT HS256 de 15 min, sin refresh ni revocación: 401 ⇒ cerrar sesión y volver a login.
 - 502/503/504 (backend caído tras el proxy) ⇒ `unavailable`.
 - Desarrollo: `proxy.conf.json` apunta a `localhost:5000`.
@@ -50,12 +50,14 @@ src/app/app.interceptor.ts  agrega el bearer y cierra sesión ante 401
 ### Brechas conocidas del backend
 
 - Ya hay listados de órdenes (`GET /lab/orders`: el médico ve las que ordenó; el laboratorista recibe 403 y abre la orden por id), de cuentas (`GET /users`, módulo **Usuarios y roles**) y de borradores de conocimiento (`GET /knowledge/rules?estado=BORRADOR` y `GET /knowledge/references?estado=BORRADOR&analito_id=…`; los borradores de referencias exigen el analito, así que se piden analito por analito). `GET /patients` (solo los pacientes del médico) ya alimenta el combo con búsqueda del formulario de orden; `GET /lab/test-types` (catálogo de pruebas activas) se muestra como casillas de verificación, como la solicitud en papel. `GET /lab/worklist` (cola pendiente del laboratorio, ambos orígenes, urgentes primero, con el nombre de cada prueba) alimenta la cola de trabajo. `GET /lab/test-types/{id}/analytes` da los analitos de una prueba, con `obligatorio` y orden de presentación, y precarga el formulario de resultados. `/me` es mínimo.
-- `GET /appointments` (agenda del médico) existe, pero esta app todavía no la usa.
+- `GET /appointments` (agenda del médico) ya alimenta la agenda médica para el rol MEDICO (hora de sucursal UTC-5, paginador y filtro por estado).
 - El listado de órdenes no trae prioridad ni pruebas, y `GET /lab/orders/{id}/documents` lista los informes subidos de una orden (metadatos; el archivo sale por `GET /documents/{id}/download`). El personal ve el informe registrado; la descarga la hace el paciente desde el portal. El laboratorio cierra la orden con `POST /lab/orders/{id}/confirm` (con o sin informe, cuando todas las pruebas tienen resultados). Después la orden no admite cambios (resultados ni informes) y sale de la cola. El correo de resultados se envía al confirmar, con el informe subido si existe.
 - **El laboratorista no puede leer una orden** (`GET /lab/orders/{id}` devuelve 403: solo el médico dueño y el paciente). Trabaja desde la cola: elige la orden y la pantalla abre la prueba pendiente con sus analitos obligatorios precargados. Al guardar vuelve a la cola. Si no tiene permiso de la cola, mantiene el campo por identificador.
 - La orden pasa a `COMPLETADA` cuando todas sus pruebas tienen resultados, no al revisarla; la revisión médica se registra una vez y el estado no la refleja (un segundo intento da 409).
 - Un usuario con rol MEDICO creado por `POST /users` no tiene perfil profesional y no puede crear órdenes.
 - **Examen pedido por el paciente, sin médico** (`POST /lab/patient-orders`, origen `PACIENTE`, `medico_id` nulo, prioridad NORMAL). Ya existe en el backend y aparece en la cola del laboratorio. Esta app no lo crea: es del portal del paciente (Flutter), que todavía no lo consume. Estas órdenes no tienen revisión ni propuesta del médico.
+- **Aprobación de cancelaciones sin listado**: El backend no lista cancelaciones pendientes de aprobación (`POST /api/v1/appointments/{id}/cancellation-approval`). El administrador solo puede registrar la aprobación si conoce el UUID de la cita mediante el formulario manual de aprobación. Se debe solicitar al equipo de backend un endpoint de listado (p. ej. `GET /api/v1/appointments/cancellation-approvals`) si el flujo de producto requiere una bandeja de solicitudes pendientes.
+- **Descarga de informes PDF en el personal**: `GET /documents/{id}/download` devuelve el binario `application/pdf`. El botón "Descargar" por documento en el detalle de la orden descarga el informe como Blob autenticado por HttpClient sin exponer tokens ni URLs en etiquetas `<a>`, manejando errores 404/403 con `describeError` y sin exponer `correlation_id`.
 
 Documéntalas aquí y en el README cuando una funcionalidad dependa de ellas; quítalas cuando el backend las cierre.
 

@@ -5,7 +5,11 @@ import { AppError, ErrorKind } from '../domain/app-error';
 interface ProblemBody {
   detail?: unknown;
   correlation_id?: unknown;
+  code?: unknown;
 }
+
+/** The backend answers 503 with this code while its primary database is unreachable (read-only mode). */
+const READ_ONLY_CODE = 'READ_ONLY_MODE';
 
 const KIND_BY_STATUS: Record<number, ErrorKind> = {
   0: 'network',
@@ -35,6 +39,8 @@ export function toAppError(error: unknown, options: { unauthorizedAs?: ErrorKind
   const kind: ErrorKind =
     error.status === 401
       ? (options.unauthorizedAs ?? 'unauthenticated')
-      : (KIND_BY_STATUS[error.status] ?? 'unknown');
+      : error.status === 503 && body.code === READ_ONLY_CODE
+        ? 'read_only'
+        : (KIND_BY_STATUS[error.status] ?? 'unknown');
   return new AppError(kind, detail, correlationId, error.status);
 }

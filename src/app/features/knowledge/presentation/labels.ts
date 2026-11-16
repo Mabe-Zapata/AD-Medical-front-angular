@@ -44,6 +44,8 @@ export const RULE_PROBLEM_LABELS: Readonly<Record<string, string>> = {
   no_analyte: 'Elige un analito en cada criterio.',
   numeric_without_threshold: 'Los criterios numéricos necesitan un umbral.',
   numeric_without_unit: 'Los criterios numéricos necesitan la unidad del umbral.',
+  threshold_invalid:
+    'El umbral es un número de hasta 12 dígitos enteros y 6 decimales, con "." o ",".',
 };
 
 export function labelOf(labels: Readonly<Record<string, string>>, code: string): string {

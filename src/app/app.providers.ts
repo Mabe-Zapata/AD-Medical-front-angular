@@ -1,5 +1,6 @@
-import { Provider, inject, isDevMode } from '@angular/core';
+import { Provider, inject } from '@angular/core';
 
+import { environment } from '../environments/environment';
 import { AppSettings, APP_SETTINGS } from './core/config/app-settings';
 import { BrowserSessionStore } from './features/auth/data/browser-session.store';
 import { HttpAuthRepository } from './features/auth/data/http-auth.repository';
@@ -19,6 +20,7 @@ import {
 import {
   CreateOrder,
   DecideProposal,
+  DownloadDocument,
   EvaluateOrder,
   GetOrder,
   GetProposal,
@@ -37,6 +39,12 @@ import {
 import { HttpUsersRepository } from './features/users/data/http-users.repository';
 import { UsersRepository } from './features/users/domain/ports/users.repository';
 import { CreateUser, ListUsers } from './features/users/domain/usecases/users-usecases';
+import { HttpAgendaRepository } from './features/agenda/data/http-agenda.repository';
+import { AgendaRepository } from './features/agenda/domain/ports/agenda.ports';
+import { ApproveCancellation } from './features/agenda/domain/usecases/approve-cancellation';
+import { CancelDoctorAppointment } from './features/agenda/domain/usecases/cancel-appointment';
+import { ListAgenda } from './features/agenda/domain/usecases/list-agenda';
+import { OpenConsultation } from './features/agenda/domain/usecases/open-consultation';
 import { HttpKnowledgeRepository } from './features/knowledge/data/http-knowledge.repository';
 import { KnowledgeRepository } from './features/knowledge/domain/ports/knowledge.repository';
 import {
@@ -51,9 +59,6 @@ import {
   ValidateRule,
 } from './features/knowledge/domain/usecases/knowledge-usecases';
 
-/** Reference source created by the backend's synthetic seed, offered only in development. */
-const SEED_SOURCE_ID = 'f0000000-0000-4000-8000-000000000001';
-
 /**
  * Composition root: the only place that knows which adapter implements each port.
  * To change a backend or a storage, change the class here and nothing else.
@@ -62,10 +67,9 @@ export const appProviders: Provider[] = [
   {
     provide: APP_SETTINGS,
     useFactory: (): AppSettings => ({
-      apiBaseUrl: '/api/v1',
-      defaultSourceId: isDevMode() ? SEED_SOURCE_ID : null,
-      // In development the Flutter portal is served on 4300; in production set the real address here.
-      patientPortalUrl: isDevMode() ? 'http://localhost:4300' : null,
+      apiBaseUrl: environment.apiBaseUrl,
+      defaultSourceId: environment.defaultSourceId || null,
+      patientPortalUrl: environment.patientPortalUrl || null,
     }),
   },
 
@@ -106,6 +110,7 @@ export const appProviders: Provider[] = [
   { provide: ListWorklist, useFactory: () => new ListWorklist(inject(OrdersRepository)) },
   { provide: ConfirmOrder, useFactory: () => new ConfirmOrder(inject(OrdersRepository)) },
   { provide: ListOrderDocuments, useFactory: () => new ListOrderDocuments(inject(OrdersRepository)) },
+  { provide: DownloadDocument, useFactory: () => new DownloadDocument(inject(OrdersRepository)) },
   { provide: ListTestAnalytes, useFactory: () => new ListTestAnalytes(inject(OrdersRepository)) },
   { provide: GetOrder, useFactory: () => new GetOrder(inject(OrdersRepository)) },
   { provide: ListOrderResults, useFactory: () => new ListOrderResults(inject(OrdersRepository)) },
@@ -128,4 +133,20 @@ export const appProviders: Provider[] = [
   { provide: UsersRepository, useClass: HttpUsersRepository },
   { provide: ListUsers, useFactory: () => new ListUsers(inject(UsersRepository)) },
   { provide: CreateUser, useFactory: () => new CreateUser(inject(UsersRepository)) },
+
+  // agenda
+  { provide: AgendaRepository, useClass: HttpAgendaRepository },
+  { provide: ListAgenda, useFactory: () => new ListAgenda(inject(AgendaRepository)) },
+  {
+    provide: CancelDoctorAppointment,
+    useFactory: () => new CancelDoctorAppointment(inject(AgendaRepository)),
+  },
+  {
+    provide: ApproveCancellation,
+    useFactory: () => new ApproveCancellation(inject(AgendaRepository)),
+  },
+  {
+    provide: OpenConsultation,
+    useFactory: () => new OpenConsultation(inject(AgendaRepository)),
+  },
 ];

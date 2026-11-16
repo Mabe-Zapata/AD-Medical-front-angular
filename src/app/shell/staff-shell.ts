@@ -232,7 +232,11 @@ export class StaffShell {
   /** `/me` carries no name, so an administrator's own account is looked up in the accounts list. */
   private readonly fullName = signal<string | null>(null);
 
-  protected readonly modules = () => visibleModules((permission) => this.session.can(permission));
+  protected readonly modules = () =>
+    visibleModules(
+      (permission) => this.session.can(permission),
+      (role) => this.session.hasRole?.(role) ?? false,
+    );
   protected readonly roles = () => this.session.user()?.roles ?? [];
   protected readonly roleLabel = (role: string) => ROLE_LABELS[role] ?? role;
   protected readonly email = () => this.session.user()?.email ?? null;

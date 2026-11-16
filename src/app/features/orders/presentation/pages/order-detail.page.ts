@@ -11,23 +11,30 @@ import { ErrorView, describeError } from '../../../../shared/presentation/error-
 import { PERMISSIONS } from '../../../auth/domain/policies/staff-access';
 import { SessionState } from '../../../auth/presentation/session.state';
 import { ListAnalytes } from '../../../knowledge/domain/usecases/knowledge-usecases';
-import { ConfirmOrder, ListTestAnalytes, ListWorklist } from '../../domain/usecases/orders-usecases';
 import {
   LabOrder,
   LabResult,
   OrderDocument,
   OrderTest,
+  PatientOption,
   Proposal,
   TestAnalyte,
+  TestTypeOption,
   WorklistOrder,
 } from '../../domain/entities/orders';
 import {
+  ConfirmOrder,
   DecideProposal,
+  DownloadDocument,
   EvaluateOrder,
   GetOrder,
   GetProposal,
   ListOrderDocuments,
   ListOrderResults,
+  ListPatients,
+  ListTestAnalytes,
+  ListTestTypes,
+  ListWorklist,
   RecordResults,
   ReviewOrder,
   UploadReport,
@@ -80,6 +87,10 @@ const REVIEW_ERRORS: Overrides = {
   conflict: 'Esta orden ya fue revisada: el sistema admite una sola revisión.',
   forbidden: 'Solo el médico que ordenó puede revisar la orden.',
   validation: 'Escribe la conclusión de la revisión.',
+};
+const DOWNLOAD_ERRORS: Overrides = {
+  forbidden: 'No tienes permiso para descargar este documento.',
+  not_found: 'No encontramos el documento para descargar.',
 };
 
 /** A decision the person must make before the page moves on. */
@@ -160,10 +171,17 @@ interface OrderDialog {
     .docs li {
       display: flex;
       justify-content: space-between;
+      align-items: center;
       gap: 12px;
       padding: 8px 12px;
       border: 1px solid var(--border, #dbe3f0);
       border-radius: 10px;
+    }
+    .doc-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
     }
     .tag {
       padding: 2px 10px;
@@ -223,7 +241,7 @@ interface OrderDialog {
           <p class="muted"><span class="spinner" aria-hidden="true"></span> Cargando…</p>
         } @else if (order(); as o) {
           <p class="muted small">
-            Paciente: <span class="mono">{{ o.patientId }}</span>
+            <strong>Paciente:</strong> {{ patientName(o.patientId) }}
             @if (o.notes) {
               · {{ o.notes }}
             }
@@ -240,8 +258,10 @@ interface OrderDialog {
               <tbody>
                 @for (test of testsPager.slice(o.tests); track test.detailId) {
                   <tr>
-                    <td class="mono">{{ test.testTypeId.slice(0, 8) }}…</td>
-                    <td class="mono">{{ test.detailId }}</td>
+                    <td>
+                      <strong>{{ testTypeName(test.testTypeId) }}</strong>
+                    </td>
+                    <td class="mono small">{{ test.detailId }}</td>
                     <td>{{ testStatus(test.status) }}</td>
                   </tr>
                 }
@@ -291,6 +311,30 @@ interface OrderDialog {
         </section>
       }
 
+      @if (!canRecord && !restricted() && documents().length > 0) {
+        <section class="card stack">
+          <h2>Informes adjuntos</h2>
+          <ul class="docs">
+            @for (doc of documents(); track doc.id) {
+              <li>
+                <div class="doc-info">
+                  <span>{{ doc.name }}</span>
+                  <span class="muted small">{{ sizeOf(doc.sizeBytes) }}</span>
+                </div>
+                <button
+                  type="button"
+                  class="btn btn--small"
+                  [disabled]="busy() === 'download-' + doc.id"
+                  (click)="onDownload(doc)"
+                >
+                  {{ busy() === 'download-' + doc.id ? 'Descargando...' : 'Descargar' }}
+                </button>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+
       @if (canRecord && (order() || restricted())) {
         <section class="card stack results-flow">
           <header class="flow-head">
@@ -323,8 +367,18 @@ interface OrderDialog {
                 <ul class="docs">
                   @for (doc of documents(); track doc.id) {
                     <li>
-                      <span>{{ doc.name }}</span>
-                      <span class="muted small">{{ sizeOf(doc.sizeBytes) }}</span>
+                      <div class="doc-info">
+                        <span>{{ doc.name }}</span>
+                        <span class="muted small">{{ sizeOf(doc.sizeBytes) }}</span>
+                      </div>
+                      <button
+                        type="button"
+                        class="btn btn--small"
+                        [disabled]="busy() === 'download-' + doc.id"
+                        (click)="onDownload(doc)"
+                      >
+                        {{ busy() === 'download-' + doc.id ? 'Descargando...' : 'Descargar' }}
+                      </button>
                     </li>
                   }
                 </ul>
@@ -533,9 +587,14 @@ export class OrderDetailPage {
 
   private readonly getOrder = inject(GetOrder);
   private readonly listResults = inject(ListOrderResults);
+  private readonly listPatients = inject(ListPatients);
+  private readonly listTestTypes = inject(ListTestTypes);
+  protected readonly patients = signal<readonly PatientOption[]>([]);
+  protected readonly testTypes = signal<readonly TestTypeOption[]>([]);
   private readonly recordResults = inject(RecordResults);
   private readonly uploadReport = inject(UploadReport);
   private readonly listDocuments = inject(ListOrderDocuments);
+  private readonly downloadDocument = inject(DownloadDocument);
   protected readonly documents = signal<readonly OrderDocument[]>([]);
   private readonly evaluateOrder = inject(EvaluateOrder);
   private readonly getProposal = inject(GetProposal);
@@ -755,6 +814,20 @@ export class OrderDetailPage {
     this.file.set(input.files?.item(0) ?? null);
   }
 
+  protected patientName(patientId: string): string {
+    const found = this.patients().find((p) => p.id === patientId);
+    return found ? found.name : patientId;
+  }
+
+  protected testTypeName(testTypeId: string): string {
+    const found = this.testTypes().find((t) => t.id === testTypeId);
+    return found
+      ? found.code
+        ? `${found.name} (${found.code})`
+        : found.name
+      : `${testTypeId.slice(0, 8)}…`;
+  }
+
   protected sizeOf(bytes: number): string {
     if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     return `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -773,6 +846,26 @@ export class OrderDetailPage {
       },
       UPLOAD_ERRORS,
     );
+  }
+
+  protected async onDownload(doc: OrderDocument): Promise<void> {
+    this.busy.set(`download-${doc.id}`);
+    this.error.set(null);
+    try {
+      const blob = await this.downloadDocument.execute(doc.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.name || 'informe.pdf';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      this.error.set(describeError(error, DOWNLOAD_ERRORS));
+    } finally {
+      this.busy.set(null);
+    }
   }
 
   protected async evaluate(): Promise<void> {
@@ -849,6 +942,14 @@ export class OrderDetailPage {
     try {
       await this.refresh();
       await this.loadDocuments();
+      if (!this.restricted()) {
+        const [patients, testTypes] = await Promise.all([
+          this.listPatients.execute().catch(() => []),
+          this.listTestTypes.execute().catch(() => []),
+        ]);
+        this.patients.set(patients);
+        this.testTypes.set(testTypes);
+      }
       if (this.restricted()) await this.loadQueueItem();
       if (this.canRecord) {
         const analytes = await this.listAnalytes.execute().catch(() => []);
