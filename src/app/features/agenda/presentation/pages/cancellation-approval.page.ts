@@ -11,6 +11,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { AppError } from '../../../../core/domain/app-error';
 import { isUuid } from '../../../../core/domain/dates';
+import { hasEmoji, sanitizeFreeText, sanitizeIdentifier, sanitizeSearch } from '../../../../core/domain/text';
 import { formatBranchDate, formatBranchTimeRange } from '../../../../core/time/branch-time';
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
 import { describeError } from '../../../../shared/presentation/error-message';
@@ -433,7 +434,8 @@ export class CancellationApprovalPage implements OnInit {
   }
 
   protected onSearchTermChange(term: string): void {
-    this.searchTerm.set(term);
+    const cleaned = sanitizeSearch(term);
+    this.searchTerm.set(cleaned);
     const filtered = this.filteredAppointments();
     if (filtered.length > 0) {
       const current = this.appointmentId();
@@ -514,7 +516,11 @@ export class CancellationApprovalPage implements OnInit {
 
   protected onAppointmentIdInput(event: Event): void {
     const value = (event.target as HTMLInputElement).value;
-    this.appointmentId.set(value);
+    const cleaned = sanitizeIdentifier(value);
+    if (cleaned !== value) {
+      (event.target as HTMLInputElement).value = cleaned;
+    }
+    this.appointmentId.set(cleaned);
     if (this.appointmentIdError()) {
       this.appointmentIdError.set(null);
     }
@@ -525,7 +531,8 @@ export class CancellationApprovalPage implements OnInit {
       if (typeof navigator !== 'undefined' && navigator.clipboard?.readText) {
         const text = await navigator.clipboard.readText();
         if (text) {
-          this.appointmentId.set(text.trim());
+          const cleaned = sanitizeIdentifier(text);
+          this.appointmentId.set(cleaned);
           this.appointmentIdError.set(null);
         }
       }
@@ -535,7 +542,8 @@ export class CancellationApprovalPage implements OnInit {
   }
 
   protected onReasonChange(value: string): void {
-    this.reason.set(value);
+    const cleaned = sanitizeFreeText(value);
+    this.reason.set(cleaned);
     if (this.reasonError()) {
       this.reasonError.set(null);
     }
@@ -543,7 +551,11 @@ export class CancellationApprovalPage implements OnInit {
 
   protected onReasonInput(event: Event): void {
     const value = (event.target as HTMLTextAreaElement).value;
-    this.onReasonChange(value);
+    const cleaned = sanitizeFreeText(value);
+    if (cleaned !== value) {
+      (event.target as HTMLTextAreaElement).value = cleaned;
+    }
+    this.onReasonChange(cleaned);
   }
 
   protected onReset(): void {
@@ -604,6 +616,9 @@ export class CancellationApprovalPage implements OnInit {
 
     if (motivo.length < 1) {
       this.reasonError.set('El motivo de la aprobación es obligatorio.');
+      hasClientErrors = true;
+    } else if (hasEmoji(motivo)) {
+      this.reasonError.set('El motivo de la aprobación no puede contener emojis.');
       hasClientErrors = true;
     } else if (motivo.length > 1500) {
       this.reasonError.set('El motivo no puede superar los 1500 caracteres.');

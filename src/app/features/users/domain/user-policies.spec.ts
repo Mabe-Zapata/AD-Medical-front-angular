@@ -46,6 +46,14 @@ describe('userProblems', () => {
     expect(userProblems({ ...valid, password: 'a'.repeat(11) })).toEqual(['password']);
     expect(userProblems({ ...valid, password: 'a'.repeat(12) })).toEqual([]);
   });
+
+  it('rejects emojis and invalid characters in names, email, and password', () => {
+    expect(userProblems({ ...valid, firstName: 'Carlos 👨‍⚕️' })).toEqual(['firstName']);
+    expect(userProblems({ ...valid, firstName: 'Carlos123' })).toEqual(['firstName']);
+    expect(userProblems({ ...valid, lastName: 'Pérez <script>' })).toEqual(['lastName']);
+    expect(userProblems({ ...valid, email: 'carlos😃@lab.test' })).toEqual(['email']);
+    expect(userProblems({ ...valid, password: 'a'.repeat(12) + '🔒' })).toEqual(['password']);
+  });
 });
 
 describe('CreateUser', () => {

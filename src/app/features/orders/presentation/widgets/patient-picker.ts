@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-import { normalizeSearch, stripEmoji } from '../../../../core/domain/text';
+import { normalizeSearch, sanitizeName } from '../../../../core/domain/text';
 import { PatientOption } from '../../domain/entities/orders';
 
 const MAX_SHOWN = 6;
@@ -106,7 +106,7 @@ export class PatientPickerComponent {
   });
 
   protected type(text: string): void {
-    this.query.set(stripEmoji(text));
+    this.query.set(sanitizeName(text));
     this.open.set(true);
     if (this.selectedId() !== null) {
       this.selectedId.set(null);

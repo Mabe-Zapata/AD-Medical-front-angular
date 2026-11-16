@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { FormsModule } from '@angular/forms';
 
 import { formatBranchDate, formatBranchTimeRange } from '../../../../core/time/branch-time';
+import { hasEmoji, sanitizeFreeText } from '../../../../core/domain/text';
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
 import { ChipComponent } from '../../../../shared/presentation/atoms/chip';
 import { describeError } from '../../../../shared/presentation/error-message';
@@ -322,7 +323,8 @@ export class AgendaPage {
   }
 
   protected onReasonTextChange(text: string): void {
-    this.cancelReasonText.set(text);
+    const cleaned = sanitizeFreeText(text);
+    this.cancelReasonText.set(cleaned);
     if (this.cancelValidationError()) {
       this.cancelValidationError.set(null);
     }
@@ -332,6 +334,10 @@ export class AgendaPage {
     const reason = this.cancelReasonText().trim();
     if (!reason) {
       this.cancelValidationError.set('Ingresa el motivo de la cancelación.');
+      return;
+    }
+    if (hasEmoji(reason)) {
+      this.cancelValidationError.set('El motivo de la cancelación no puede contener emojis.');
       return;
     }
     if (reason.length > 1500) {

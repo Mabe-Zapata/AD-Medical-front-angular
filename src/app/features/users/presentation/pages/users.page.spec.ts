@@ -151,4 +151,56 @@ describe('UsersPage', () => {
     expect(el.textContent).not.toContain('c-3');
     expect(el.textContent).not.toContain('Cuenta creada');
   });
+
+  it('toggles password visibility between password and text', async () => {
+    const { fixture, el } = setup();
+    await settle(fixture);
+    await openForm(fixture, el);
+
+    const passwordInput = el.querySelector<HTMLInputElement>('#password')!;
+    const toggleBtn = el.querySelector<HTMLButtonElement>('.password-toggle')!;
+    expect(passwordInput.type).toBe('password');
+    expect(toggleBtn.textContent).toContain('Mostrar');
+
+    toggleBtn.click();
+    fixture.detectChanges();
+    expect(passwordInput.type).toBe('text');
+    expect(toggleBtn.textContent).toContain('Ocultar');
+
+    toggleBtn.click();
+    fixture.detectChanges();
+    expect(passwordInput.type).toBe('password');
+  });
+
+  it('closes the modal when Cancelar button is clicked', async () => {
+    const { fixture, el } = setup();
+    await settle(fixture);
+    await openForm(fixture, el);
+
+    const cancelBtn = [...el.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
+      b.textContent?.includes('Cancelar'),
+    );
+    expect(cancelBtn).not.toBeNull();
+    cancelBtn!.click();
+    fixture.detectChanges();
+
+    expect(el.querySelector('#password')).toBeNull();
+  });
+
+  it('strips emojis and special characters on input', async () => {
+    const { fixture, el } = setup();
+    await settle(fixture);
+    await openForm(fixture, el);
+
+    type(el, 'first-name', 'Carlos 👨‍⚕️ 123');
+    type(el, 'last-name', 'Gómez 😃');
+    type(el, 'email', 'carlos😃@lab.test');
+    type(el, 'password', 'ClaveLarga123!🔒');
+    fixture.detectChanges();
+
+    expect(el.querySelector<HTMLInputElement>('#first-name')!.value).toBe('Carlos  ');
+    expect(el.querySelector<HTMLInputElement>('#last-name')!.value).toBe('Gómez ');
+    expect(el.querySelector<HTMLInputElement>('#email')!.value).toBe('carlos@lab.test');
+    expect(el.querySelector<HTMLInputElement>('#password')!.value).toBe('ClaveLarga123!');
+  });
 });

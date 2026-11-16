@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
-import { stripEmoji } from '../../../../core/domain/text';
+import { sanitizeFreeText, sanitizeIdentifier, sanitizeSearch, stripEmoji } from '../../../../core/domain/text';
 import { AppError } from '../../../../core/domain/app-error';
 import { isUuid } from '../../../../core/domain/dates';
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
@@ -752,7 +752,7 @@ export class OrdersPage {
   }
 
   protected clean(text: string): string {
-    return stripEmoji(text);
+    return sanitizeFreeText(text);
   }
 
   protected patientName(patientId: string): string {
@@ -770,7 +770,8 @@ export class OrdersPage {
   }
 
   protected onOrderSearchTermChange(term: string): void {
-    this.orderSearchTerm.set(term);
+    const cleaned = sanitizeSearch(term);
+    this.orderSearchTerm.set(cleaned);
     this.openError.set(false);
     const filtered = this.filteredOrders();
     if (filtered.length === 1) {
@@ -788,7 +789,8 @@ export class OrdersPage {
   }
 
   protected onManualOrderIdChange(id: string): void {
-    this.orderId.set(id);
+    const cleaned = sanitizeIdentifier(id);
+    this.orderId.set(cleaned);
     this.openError.set(false);
   }
 
