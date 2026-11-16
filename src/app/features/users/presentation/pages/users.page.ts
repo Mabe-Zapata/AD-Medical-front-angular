@@ -426,9 +426,9 @@ export class UsersPage {
   }
 
   protected emailError(): string | null {
-    if (!this.submitted()) return null;
     const val = this.email().trim();
-    if (val.length === 0) return 'Escribe un correo válido.';
+    // Format feedback appears as soon as the person types, not only after submitting.
+    if (val.length === 0) return this.submitted() ? 'Escribe un correo válido.' : null;
     if (!isValidEmail(val)) return 'Escribe un correo válido (ej. usuario@dominio.com, sin espacios ni emojis).';
     return null;
   }
