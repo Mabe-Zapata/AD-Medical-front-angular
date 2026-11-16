@@ -259,64 +259,65 @@ describe('HttpAgendaRepository', () => {
   });
 
   describe('openConsultation', () => {
-    it('POSTs to /appointments/:id/consultation and maps the response', async () => {
-      const promise = repository.openConsultation({ appointmentId: 'apt-confirmed' });
+    it('POSTs the diagnosis to /appointments/:id/consultation/close and maps the response', async () => {
+      const promise = repository.openConsultation({
+        appointmentId: 'apt-confirmed',
+        diagnosis: 'Faringitis aguda',
+      });
 
-      const req = http.expectOne('/api/v1/appointments/apt-confirmed/consultation');
+      const req = http.expectOne('/api/v1/appointments/apt-confirmed/consultation/close');
       expect(req.request.method).toBe('POST');
-      expect(req.request.body).toEqual({});
+      expect(req.request.body).toEqual({ observaciones: 'Faringitis aguda', plan_tratamiento: null });
 
       req.flush({
         id: 'consult-uuid',
         cita_id: 'apt-confirmed',
-        estado: 'ABIERTA',
+        estado: 'CERRADA',
         inicio_atencion: '2026-11-16T13:00:00Z',
+        fin_atencion: '2026-11-16T13:20:00Z',
         motivo_consulta: null,
+        observaciones: 'Faringitis aguda',
+        plan_tratamiento: null,
       });
 
       const result = await promise;
       expect(result).toEqual({
         id: 'consult-uuid',
         appointmentId: 'apt-confirmed',
-        estado: 'ABIERTA',
+        estado: 'CERRADA',
         inicioAtencion: '2026-11-16T13:00:00Z',
         motivoConsulta: null,
       });
     });
 
-    it('POSTs treatment to /citas/:id/tratamientos when treatment is provided', async () => {
+    it('sends the optional treatment plan in the same close call', async () => {
       const promise = repository.openConsultation({
         appointmentId: 'apt-confirmed',
+        diagnosis: 'Faringitis aguda',
         treatment: 'Amoxicilina 500mg c/8h',
       });
 
-      const reqConsult = http.expectOne('/api/v1/appointments/apt-confirmed/consultation');
-      reqConsult.flush({
+      const req = http.expectOne('/api/v1/appointments/apt-confirmed/consultation/close');
+      expect(req.request.body).toEqual({
+        observaciones: 'Faringitis aguda',
+        plan_tratamiento: 'Amoxicilina 500mg c/8h',
+      });
+      req.flush({
         id: 'consult-uuid',
         cita_id: 'apt-confirmed',
-        estado: 'ABIERTA',
-        inicio_atencion: '2026-11-16T13:00:00Z',
+        estado: 'CERRADA',
+        inicio_atencion: null,
         motivo_consulta: null,
       });
-
-      await Promise.resolve();
-
-      const reqTreat = http.expectOne('/api/v1/citas/apt-confirmed/tratamientos');
-      expect(reqTreat.request.method).toBe('POST');
-      expect(reqTreat.request.body).toMatchObject({
-        descripcion: 'Amoxicilina 500mg c/8h',
-        estado: 'ACTIVO',
-      });
-      reqTreat.flush({ id: 'treat-1', cita_id: 'apt-confirmed' });
 
       const result = await promise;
       expect(result.appointmentId).toBe('apt-confirmed');
     });
 
     it('translates 409 to AppError kind=conflict', async () => {
-      const promise = repository.openConsultation({ appointmentId: 'apt-wrong-state' });
+      const promise = repository.openConsultation({ appointmentId: 'apt-wrong-state', diagnosis: 'Dolor' });
 
-      const req = http.expectOne('/api/v1/appointments/apt-wrong-state/consultation');
+      const req = http.expectOne('/api/v1/appointments/apt-wrong-state/consultation/close');
       req.flush(
         { type: 'about:blank', title: 'Conflict', status: 409, detail: 'Not CONFIRMADA' },
         { status: 409, statusText: 'Conflict' },
@@ -326,9 +327,9 @@ describe('HttpAgendaRepository', () => {
     });
 
     it('translates 403 to AppError kind=forbidden', async () => {
-      const promise = repository.openConsultation({ appointmentId: 'apt-other-doctor' });
+      const promise = repository.openConsultation({ appointmentId: 'apt-other-doctor', diagnosis: 'Dolor' });
 
-      const req = http.expectOne('/api/v1/appointments/apt-other-doctor/consultation');
+      const req = http.expectOne('/api/v1/appointments/apt-other-doctor/consultation/close');
       req.flush(
         { type: 'about:blank', title: 'Forbidden', status: 403, detail: 'Not in agenda' },
         { status: 403, statusText: 'Forbidden' },

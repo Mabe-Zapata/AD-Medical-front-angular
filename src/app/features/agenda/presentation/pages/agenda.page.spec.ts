@@ -270,6 +270,9 @@ describe('AgendaPage', () => {
 
       const initialLoadCalls = fakeListAgenda.calls.length;
 
+      (fixture.componentInstance as any).consultationDiagnosis.set('Dolor torácico');
+      fixture.detectChanges();
+
       const submitBtn = el.querySelector('app-modal button[type="submit"]') as HTMLButtonElement;
       submitBtn.click();
       fixture.detectChanges();
@@ -278,7 +281,7 @@ describe('AgendaPage', () => {
 
       expect(fakeOpenConsultation.calls).toEqual([{
         appointmentId: 'apt-1',
-        diagnosis: undefined,
+        diagnosis: 'Dolor torácico',
         treatment: undefined,
       }]);
       expect(el.querySelector('app-modal')).toBeNull();
@@ -377,6 +380,9 @@ describe('AgendaPage', () => {
       (fixture.componentInstance as any).consultationTreatment.set('Antibiótico 💊');
       fixture.detectChanges();
 
+      (fixture.componentInstance as any).consultationDiagnosis.set('Dolor torácico');
+      fixture.detectChanges();
+
       const submitBtn = el.querySelector('app-modal button[type="submit"]') as HTMLButtonElement;
       submitBtn.click();
       fixture.detectChanges();
@@ -392,6 +398,9 @@ describe('AgendaPage', () => {
 
       const btn = el.querySelector('tbody tr button.btn--primary') as HTMLButtonElement;
       btn.click();
+      fixture.detectChanges();
+
+      (fixture.componentInstance as any).consultationDiagnosis.set('Dolor torácico');
       fixture.detectChanges();
 
       const submitBtn = el.querySelector('app-modal button[type="submit"]') as HTMLButtonElement;
@@ -412,6 +421,9 @@ describe('AgendaPage', () => {
 
       const btn = el.querySelector('tbody tr button.btn--primary') as HTMLButtonElement;
       btn.click();
+      fixture.detectChanges();
+
+      (fixture.componentInstance as any).consultationDiagnosis.set('Dolor torácico');
       fixture.detectChanges();
 
       const submitBtn = el.querySelector('app-modal button[type="submit"]') as HTMLButtonElement;

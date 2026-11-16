@@ -135,26 +135,17 @@ export class HttpAgendaRepository extends AgendaRepository {
 
   async openConsultation(command: OpenConsultationCommand): Promise<ConsultationResult> {
     try {
+      // One call registers the attention: the diagnosis is required, the treatment plan optional.
+      // The backend closes the consultation and moves the appointment to COMPLETADA.
       const response = await firstValueFrom(
         this.http.post<ConsultationDto>(
-          `${this.base}/appointments/${command.appointmentId}/consultation`,
-          {},
+          `${this.base}/appointments/${command.appointmentId}/consultation/close`,
+          {
+            observaciones: command.diagnosis?.trim() || null,
+            plan_tratamiento: command.treatment?.trim() || null,
+          },
         ),
       );
-
-      if (command.treatment?.trim()) {
-        const today = new Date().toISOString().slice(0, 10);
-        await firstValueFrom(
-          this.http.post<unknown>(
-            `${this.base}/citas/${command.appointmentId}/tratamientos`,
-            {
-              descripcion: command.treatment.trim(),
-              fecha_inicio: today,
-              estado: 'ACTIVO',
-            },
-          ),
-        );
-      }
 
       return {
         id: response.id,

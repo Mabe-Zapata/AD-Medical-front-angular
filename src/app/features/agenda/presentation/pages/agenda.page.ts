@@ -231,7 +231,7 @@ export const CONSULTATION_NOTES_MAX = 500;
             </p>
 
             <div class="field">
-              <label for="consultation-diagnosis">Diagnóstico u observaciones clínicas</label>
+              <label for="consultation-diagnosis">Diagnóstico (obligatorio)</label>
               <textarea
                 id="consultation-diagnosis"
                 class="input"
@@ -249,7 +249,7 @@ export const CONSULTATION_NOTES_MAX = 500;
             </div>
 
             <div class="field">
-              <label for="consultation-treatment">Plan de tratamiento</label>
+              <label for="consultation-treatment">Plan de tratamiento (opcional)</label>
               <textarea
                 id="consultation-treatment"
                 class="input"
@@ -555,19 +555,21 @@ export class AgendaPage {
     }
 
     const diag = this.consultationDiagnosis().trim();
-    if (diag.length > 0) {
-      if (hasEmoji(diag)) {
-        this.diagnosisValidationError.set('El diagnóstico no puede contener emojis.');
-        return;
-      }
-      if (diag.length > 1000) {
-        this.diagnosisValidationError.set('El diagnóstico no puede superar los 1000 caracteres.');
-        return;
-      }
-      if (!isValidClinicalText(diag, 1000)) {
-        this.diagnosisValidationError.set('El diagnóstico contiene caracteres no permitidos.');
-        return;
-      }
+    if (diag.length === 0) {
+      this.diagnosisValidationError.set('El diagnóstico es obligatorio.');
+      return;
+    }
+    if (hasEmoji(diag)) {
+      this.diagnosisValidationError.set('El diagnóstico no puede contener emojis.');
+      return;
+    }
+    if (diag.length > 1000) {
+      this.diagnosisValidationError.set('El diagnóstico no puede superar los 1000 caracteres.');
+      return;
+    }
+    if (!isValidClinicalText(diag, 1000)) {
+      this.diagnosisValidationError.set('El diagnóstico contiene caracteres no permitidos.');
+      return;
     }
 
     const treat = this.consultationTreatment().trim();

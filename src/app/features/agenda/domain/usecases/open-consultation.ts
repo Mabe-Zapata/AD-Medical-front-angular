@@ -15,16 +15,17 @@ export class OpenConsultation {
 
   async execute(command: OpenConsultationCommand): Promise<ConsultationResult> {
     const diag = command.diagnosis?.trim() ?? '';
-    if (diag.length > 0) {
-      if (hasEmoji(diag)) {
-        throw new AppError('validation', 'El diagnóstico no puede contener emojis.');
-      }
-      if (diag.length > 1000) {
-        throw new AppError('validation', 'El diagnóstico no puede superar los 1000 caracteres.');
-      }
-      if (!isValidClinicalText(diag, 1000)) {
-        throw new AppError('validation', 'El diagnóstico contiene caracteres no permitidos.');
-      }
+    if (diag.length === 0) {
+      throw new AppError('validation', 'El diagnóstico es obligatorio.');
+    }
+    if (hasEmoji(diag)) {
+      throw new AppError('validation', 'El diagnóstico no puede contener emojis.');
+    }
+    if (diag.length > 1000) {
+      throw new AppError('validation', 'El diagnóstico no puede superar los 1000 caracteres.');
+    }
+    if (!isValidClinicalText(diag, 1000)) {
+      throw new AppError('validation', 'El diagnóstico contiene caracteres no permitidos.');
     }
 
     const treat = command.treatment?.trim() ?? '';

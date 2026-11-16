@@ -300,6 +300,7 @@ describe('OpenConsultation usecase', () => {
     await expect(
       usecase.execute({
         appointmentId: 'apt-1',
+        diagnosis: 'Faringitis',
         treatment: 'Tomar jarabe 💊 cada 8 horas',
       }),
     ).rejects.toMatchObject({
@@ -316,6 +317,7 @@ describe('OpenConsultation usecase', () => {
     await expect(
       usecase.execute({
         appointmentId: 'apt-1',
+        diagnosis: 'Faringitis',
         treatment: 'a'.repeat(1001),
       }),
     ).rejects.toMatchObject({
@@ -331,7 +333,7 @@ describe('OpenConsultation usecase', () => {
     repo.openConsultation = async () => { throw error; };
     const usecase = new OpenConsultation(repo);
 
-    await expect(usecase.execute({ appointmentId: 'apt-1' })).rejects.toBe(error);
+    await expect(usecase.execute({ appointmentId: 'apt-1', diagnosis: 'Faringitis' })).rejects.toBe(error);
   });
 });
 
