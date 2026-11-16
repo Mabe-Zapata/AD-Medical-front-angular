@@ -12,6 +12,7 @@ import { OrdersRepository } from './ports/orders.repository';
 import {
   CreateOrder,
   DecideProposal,
+  DownloadDocument,
   GetOrder,
   RecordResults,
   ReviewOrder,
@@ -58,6 +59,10 @@ class FakeRepository extends OrdersRepository {
   async listOrderDocuments() {
     this.calls.push('listOrderDocuments');
     return [];
+  }
+  async downloadDocument() {
+    this.calls.push('downloadDocument');
+    return new Blob(['dummy pdf'], { type: 'application/pdf' });
   }
   async listTestAnalytes() {
     this.calls.push('listTestAnalytes');
@@ -158,6 +163,7 @@ describe('orders use cases', () => {
     expect(() => new RecordResults(repository).execute(ID, OTHER, [])).toThrow(AppError);
     expect(() => new DecideProposal(repository).execute(ID, 'CORREGIR', '')).toThrow(AppError);
     expect(() => new ReviewOrder(repository).execute(ID, '  ', '')).toThrow(AppError);
+    expect(() => new DownloadDocument(repository).execute('not-a-uuid')).toThrow(AppError);
     expect(() =>
       new UploadReport(repository).execute(ID, new File(['x'], 'a.txt', { type: 'text/plain' })),
     ).toThrow(AppError);
@@ -168,6 +174,7 @@ describe('orders use cases', () => {
     const repository = new FakeRepository();
 
     await new GetOrder(repository).execute(`  ${ID} `);
+    await new DownloadDocument(repository).execute(`  ${ID} `);
     await new RecordResults(repository).execute(ID, OTHER, [numeric]);
     await new DecideProposal(repository).execute(ID, 'ACEPTAR', '');
     await new ReviewOrder(repository).execute(ID, 'Todo en orden.', '');
@@ -180,6 +187,7 @@ describe('orders use cases', () => {
 
     expect(repository.calls).toEqual([
       'getOrder',
+      'downloadDocument',
       'recordResults',
       'decide',
       'reviewOrder',

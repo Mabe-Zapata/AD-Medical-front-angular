@@ -1,0 +1,383 @@
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+
+import { formatBranchDate, formatBranchTimeRange } from '../../../../core/time/branch-time';
+import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
+import { ChipComponent } from '../../../../shared/presentation/atoms/chip';
+import { describeError } from '../../../../shared/presentation/error-message';
+import { Crumb } from '../../../../shared/presentation/molecules/breadcrumbs';
+import { PaginatorComponent } from '../../../../shared/presentation/molecules/paginator';
+import { ModalComponent } from '../../../../shared/presentation/organisms/modal';
+import { PageHeaderComponent } from '../../../../shared/presentation/organisms/page-header';
+import { PageState } from '../../../../shared/presentation/pagination';
+import {
+  AgendaAppointment,
+  AppointmentStatus,
+  DoctorCancellationCode,
+} from '../../domain/entities/appointment';
+import { CancelDoctorAppointment } from '../../domain/usecases/cancel-appointment';
+import { ListAgenda } from '../../domain/usecases/list-agenda';
+import { APPOINTMENT_STATUS_LABELS, APPOINTMENT_STATUS_TONES } from '../labels';
+
+export type StatusFilterOption = AppointmentStatus | 'TODOS';
+
+@Component({
+  selector: 'app-agenda-page',
+  imports: [
+    FormsModule,
+    BannerComponent,
+    ChipComponent,
+    ModalComponent,
+    PaginatorComponent,
+    PageHeaderComponent,
+  ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  styles: `
+    .table-wrap {
+      overflow-x: auto;
+    }
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .empty-state {
+      padding: 16px 0;
+      gap: 6px;
+    }
+    .field-error {
+      color: var(--danger, #dc2626);
+      font-size: 13px;
+      font-weight: 500;
+    }
+  `,
+  template: `
+    <div class="stack">
+      <app-page-header area="Agenda médica" title="Agenda del médico" [crumbs]="crumbs">
+        <p lede class="muted">Consulta las citas programadas de los pacientes en la sucursal.</p>
+      </app-page-header>
+
+      @if (notice(); as text) {
+        <app-banner tone="success">{{ text }}</app-banner>
+      }
+
+      <section class="card stack">
+        <div class="row spread">
+          <div>
+            <h2>Citas asignadas</h2>
+            <p class="muted small">Horarios en hora de la sucursal (UTC-5). Paginación de 5 citas por defecto.</p>
+          </div>
+          <div class="filter-group">
+            <label for="agenda-status-filter" class="muted small">Filtrar por estado:</label>
+            <select
+              id="agenda-status-filter"
+              class="input input--small"
+              [ngModel]="statusFilter()"
+              (ngModelChange)="onFilterChange($event)"
+            >
+              <option value="TODOS">Todos los estados</option>
+              <option value="CONFIRMADA">Confirmada</option>
+              <option value="PENDIENTE_PAGO">Pago pendiente</option>
+              <option value="COMPLETADA">Completada</option>
+              <option value="CANCELADA">Cancelada</option>
+              <option value="NO_ASISTIO">No asistió</option>
+              <option value="EXPIRADA">Expirada</option>
+            </select>
+          </div>
+        </div>
+
+        @if (listing() === 'loading') {
+          <p class="muted"><span class="spinner" aria-hidden="true"></span> Cargando agenda…</p>
+        } @else if (listing() === 'failed') {
+          <app-banner tone="danger">No pudimos cargar la agenda del médico.</app-banner>
+          <div>
+            <button class="btn btn--small" type="button" (click)="reload()">Reintentar</button>
+          </div>
+        } @else if (appointments().length === 0) {
+          <div class="empty-state stack">
+            <p class="empty">No tienes citas registradas en tu agenda.</p>
+            <p class="muted small">
+              @if (statusFilter() !== 'TODOS') {
+                No hay citas con el estado seleccionado. Intenta cambiar el filtro a "Todos los estados".
+              } @else {
+                Las citas aparecerán aquí cuando los pacientes las reserven desde el portal o recepción.
+              }
+            </p>
+          </div>
+        } @else {
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Horario (UTC-5)</th>
+                  <th>Paciente</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (appointment of pager.slice(appointments()); track appointment.id) {
+                  <tr>
+                    <td>{{ dateOf(appointment.startUtc) }}</td>
+                    <td>{{ timeRangeOf(appointment.startUtc, appointment.endUtc) }}</td>
+                    <td>{{ appointment.patient?.name ?? '—' }}</td>
+                    <td>
+                      <app-chip [tone]="statusTone(appointment.status)">
+                        {{ statusLabel(appointment.status) }}
+                      </app-chip>
+                    </td>
+                    <td>
+                      @if (canCancel(appointment)) {
+                        <button
+                          class="btn btn--small btn--danger"
+                          type="button"
+                          (click)="openCancelModal(appointment)"
+                        >
+                          Cancelar
+                        </button>
+                      } @else {
+                        <span class="muted small">—</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <app-paginator [total]="appointments().length" [state]="pager" />
+        }
+      </section>
+
+      @if (cancellingTarget(); as target) {
+        <app-modal
+          tag="Cancelar cita"
+          headline="Confirmar cancelación de cita"
+          [bullets]="cancelBullets"
+          (closed)="closeCancelModal()"
+        >
+          @if (cancelError(); as err) {
+            <app-banner tone="danger">
+              {{ err }}
+              @if (err.includes('aprobación del administrador')) {
+                <div class="row small" style="margin-top: 8px; align-items: center; justify-content: space-between;">
+                  <span>ID de cita: <code class="mono">{{ target.id }}</code></span>
+                  <button type="button" class="btn btn--small" (click)="copyAppointmentId(target.id)">
+                    {{ copiedId() ? '¡Copiado!' : 'Copiar ID' }}
+                  </button>
+                </div>
+              }
+            </app-banner>
+          }
+
+          <form class="stack" (ngSubmit)="submitCancel(target)" novalidate>
+            <p class="muted">
+              Vas a cancelar la cita de <strong>{{ target.patient?.name ?? 'Paciente' }}</strong> programada para el
+              <strong>{{ dateOf(target.startUtc) }}</strong> a las
+              <strong>{{ timeRangeOf(target.startUtc, target.endUtc) }}</strong>.
+            </p>
+
+            <div class="field">
+              <label for="cancel-reason-code">Tipo de motivo</label>
+              <select
+                id="cancel-reason-code"
+                class="input"
+                name="cancelReasonCode"
+                [value]="cancelReasonCode()"
+                (change)="cancelReasonCode.set($any($event.target).value)"
+              >
+                <option value="IMPREVISTO_MEDICO">Imprevisto médico</option>
+                <option value="OTRO_MEDICO">Otro motivo médico</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="cancel-reason-text">Motivo de la cancelación</label>
+              <textarea
+                id="cancel-reason-text"
+                class="input"
+                name="cancelReasonText"
+                rows="4"
+                maxlength="1500"
+                placeholder="Indica el motivo detallado (obligatorio, de 1 a 1500 caracteres)..."
+                [value]="cancelReasonText()"
+                (input)="onReasonTextChange($any($event.target).value)"
+              ></textarea>
+              @if (cancelValidationError(); as vError) {
+                <span class="field-error">{{ vError }}</span>
+              }
+            </div>
+
+            <div class="row">
+              <button
+                class="btn btn--danger"
+                type="submit"
+                [disabled]="submittingCancel()"
+              >
+                @if (submittingCancel()) {
+                  <span class="spinner" aria-hidden="true"></span> Cancelando…
+                } @else {
+                  Confirmar cancelación
+                }
+              </button>
+              <button
+                class="btn btn--ghost"
+                type="button"
+                (click)="closeCancelModal()"
+              >
+                Volver
+              </button>
+            </div>
+          </form>
+        </app-modal>
+      }
+    </div>
+  `,
+})
+export class AgendaPage {
+  private readonly listAgenda = inject(ListAgenda);
+  private readonly cancelDoctorAppointment = inject(CancelDoctorAppointment);
+
+  protected readonly pager = new PageState();
+  protected readonly listing = signal<'loading' | 'ready' | 'failed'>('loading');
+  protected readonly appointments = signal<readonly AgendaAppointment[]>([]);
+  protected readonly statusFilter = signal<StatusFilterOption>('TODOS');
+  protected readonly notice = signal<string | null>(null);
+
+  protected readonly cancellingTarget = signal<AgendaAppointment | null>(null);
+  protected readonly cancelReasonCode = signal<DoctorCancellationCode>('IMPREVISTO_MEDICO');
+  protected readonly cancelReasonText = signal('');
+  protected readonly cancelValidationError = signal<string | null>(null);
+  protected readonly cancelError = signal<string | null>(null);
+  protected readonly submittingCancel = signal(false);
+  protected readonly copiedId = signal(false);
+
+  protected async copyAppointmentId(id: string): Promise<void> {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(id);
+        this.copiedId.set(true);
+        setTimeout(() => this.copiedId.set(false), 2000);
+      }
+    } catch {
+      // Clipboard access blocked
+    }
+  }
+
+  protected readonly cancelBullets = [
+    'Al cancelar la cita, se liberará el horario de atención.',
+    'Si estás fuera de plazo o superaste el cupo mensual, requerirá aprobación del administrador.',
+  ];
+
+  protected readonly crumbs: readonly Crumb[] = [
+    { label: 'Inicio', link: '/inicio' },
+    { label: 'Agenda del médico' },
+  ];
+
+  constructor() {
+    void this.load();
+  }
+
+  protected async load(): Promise<void> {
+    this.listing.set('loading');
+    try {
+      const filter = this.statusFilter();
+      const items = await this.listAgenda.execute({
+        status: filter === 'TODOS' ? undefined : filter,
+      });
+      this.appointments.set(items);
+      this.listing.set('ready');
+    } catch {
+      this.listing.set('failed');
+    }
+  }
+
+  protected reload(): void {
+    void this.load();
+  }
+
+  protected onFilterChange(status: StatusFilterOption): void {
+    this.statusFilter.set(status);
+    this.pager.page.set(0);
+    void this.load();
+  }
+
+  protected canCancel(appointment: AgendaAppointment): boolean {
+    return appointment.status === 'CONFIRMADA' || appointment.status === 'PENDIENTE_PAGO';
+  }
+
+  protected openCancelModal(appointment: AgendaAppointment): void {
+    this.notice.set(null);
+    this.cancellingTarget.set(appointment);
+    this.cancelReasonCode.set('IMPREVISTO_MEDICO');
+    this.cancelReasonText.set('');
+    this.cancelValidationError.set(null);
+    this.cancelError.set(null);
+  }
+
+  protected closeCancelModal(): void {
+    this.cancellingTarget.set(null);
+    this.cancelValidationError.set(null);
+    this.cancelError.set(null);
+  }
+
+  protected onReasonTextChange(text: string): void {
+    this.cancelReasonText.set(text);
+    if (this.cancelValidationError()) {
+      this.cancelValidationError.set(null);
+    }
+  }
+
+  protected async submitCancel(target: AgendaAppointment): Promise<void> {
+    const reason = this.cancelReasonText().trim();
+    if (!reason) {
+      this.cancelValidationError.set('Ingresa el motivo de la cancelación.');
+      return;
+    }
+    if (reason.length > 1500) {
+      this.cancelValidationError.set('El motivo de la cancelación no puede superar los 1500 caracteres.');
+      return;
+    }
+
+    this.submittingCancel.set(true);
+    this.cancelError.set(null);
+    try {
+      await this.cancelDoctorAppointment.execute({
+        appointmentId: target.id,
+        code: this.cancelReasonCode(),
+        reason,
+      });
+      this.cancellingTarget.set(null);
+      this.notice.set('Cita cancelada con éxito.');
+      await this.load();
+    } catch (error: any) {
+      if (error?.status === 409 || error?.kind === 'conflict') {
+        this.cancelError.set('Necesita la aprobación del administrador');
+        // Criterion: 409 reloads the agenda so the appointment is never in an uncertain state
+        await this.load();
+      } else if (error?.status === 422 || error?.kind === 'validation') {
+        this.cancelError.set('El motivo de la cancelación es inválido.');
+      } else {
+        this.cancelError.set(describeError(error).message);
+      }
+    } finally {
+      this.submittingCancel.set(false);
+    }
+  }
+
+  protected dateOf(utc: string): string {
+    return formatBranchDate(utc);
+  }
+
+  protected timeRangeOf(startUtc: string, endUtc: string): string {
+    return formatBranchTimeRange(startUtc, endUtc);
+  }
+
+  protected statusLabel(status: AppointmentStatus): string {
+    return APPOINTMENT_STATUS_LABELS[status] ?? status;
+  }
+
+  protected statusTone(status: AppointmentStatus) {
+    return APPOINTMENT_STATUS_TONES[status] ?? 'info';
+  }
+}

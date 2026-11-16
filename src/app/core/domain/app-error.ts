@@ -8,6 +8,7 @@ export type ErrorKind =
   | 'rate_limited'
   | 'network'
   | 'unavailable'
+  | 'read_only'
   | 'not_staff'
   | 'unknown';
 

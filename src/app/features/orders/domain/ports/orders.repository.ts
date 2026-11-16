@@ -37,6 +37,8 @@ export abstract class OrdersRepository {
   abstract uploadReport(orderId: string, file: File): Promise<UploadedReport>;
   /** The uploaded reports of an order; empty when there are none. */
   abstract listOrderDocuments(orderId: string): Promise<OrderDocument[]>;
+  /** Downloads one stored PDF report as a binary blob. */
+  abstract downloadDocument(documentId: string): Promise<Blob>;
   /** Closes a completed order: its results and reports can no longer change. */
   abstract confirmOrder(orderId: string): Promise<void>;
   abstract evaluate(orderId: string): Promise<Proposal>;

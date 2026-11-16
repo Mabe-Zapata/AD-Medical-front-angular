@@ -321,6 +321,9 @@ function donut(ready: number, total: number): string {
                     @case ('/conocimiento') {
                       <svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 002 3h10a2 2 0 002-3l-5-9V3" /></svg>
                     }
+                    @case ('/agenda') {
+                      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+                    }
                     @default {
                       <svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 9h6M9 13h6M9 17h3" /></svg>
                     }
@@ -806,7 +809,11 @@ export class HomePage {
   private readonly session = inject(SessionState);
 
   protected readonly noPermission = inject(ActivatedRoute).snapshot.queryParamMap.has('sinPermiso');
-  protected readonly modules = () => visibleModules((permission) => this.session.can(permission));
+  protected readonly modules = () =>
+    visibleModules(
+      (permission) => this.session.can(permission),
+      (role) => this.session.hasRole?.(role) ?? false,
+    );
   protected readonly roleNames = () =>
     (this.session.user()?.roles ?? []).map((role) => ROLE_LABELS[role] ?? role).join(' · ');
   protected readonly roleLabel = (role: string) => ROLE_LABELS[role] ?? role;

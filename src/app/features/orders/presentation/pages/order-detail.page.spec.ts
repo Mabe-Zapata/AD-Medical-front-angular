@@ -4,16 +4,19 @@ import { ActivatedRoute, provideRouter } from '@angular/router';
 import { AppError } from '../../../../core/domain/app-error';
 import { SessionState } from '../../../auth/presentation/session.state';
 import { ListAnalytes } from '../../../knowledge/domain/usecases/knowledge-usecases';
-import { LabOrder, Proposal } from '../../domain/entities/orders';
+import { LabOrder, OrderDocument, Proposal } from '../../domain/entities/orders';
 import {
+  ConfirmOrder,
   DecideProposal,
+  DownloadDocument,
   EvaluateOrder,
   GetOrder,
   GetProposal,
-  ConfirmOrder,
   ListOrderDocuments,
   ListOrderResults,
+  ListPatients,
   ListTestAnalytes,
+  ListTestTypes,
   ListWorklist,
   RecordResults,
   ReviewOrder,
@@ -73,6 +76,8 @@ interface Stubs {
   proposal: Proposal | null;
   evaluateFails: AppError | null;
   reviewFails: AppError | null;
+  downloadFails: AppError | null;
+  documents: OrderDocument[];
   calls: Record<string, unknown[][]>;
 }
 
@@ -90,6 +95,8 @@ function setup(stubs: Partial<Stubs>, ...granted: string[]) {
     proposal: null,
     evaluateFails: null,
     reviewFails: null,
+    downloadFails: null,
+    documents: [],
     calls: {},
     ...stubs,
   };
@@ -124,8 +131,25 @@ function setup(stubs: Partial<Stubs>, ...granted: string[]) {
       { provide: ListShadowEdits, useValue: { execute: async () => [] } },
       { provide: GetProposal, useValue: { execute: async () => state.proposal } },
       { provide: ListWorklist, useValue: { execute: async () => [] } },
-      { provide: ListOrderDocuments, useValue: { execute: async () => [] } },
+      { provide: ListOrderDocuments, useValue: { execute: async () => state.documents } },
+      {
+        provide: DownloadDocument,
+        useValue: {
+          execute: async (...args: unknown[]) => {
+            record('download', ...args);
+            if (state.downloadFails) throw state.downloadFails;
+            return new Blob(['dummy pdf'], { type: 'application/pdf' });
+          },
+        },
+      },
       { provide: ConfirmOrder, useValue: { execute: async () => undefined } },
+      { provide: ListPatients, useValue: { execute: async () => [{ id: 'p-1', name: 'Ana López' }] } },
+      {
+        provide: ListTestTypes,
+        useValue: {
+          execute: async () => [{ id: 't-1-aaaa-bbbb', code: 'HEM', name: 'Hemograma completo' }],
+        },
+      },
       { provide: ListTestAnalytes, useValue: { execute: async () => [] } },
       {
         provide: ListAnalytes,
@@ -209,6 +233,8 @@ describe('OrderDetailPage', () => {
     expect(el.querySelector('app-review-form')).toBeNull();
     expect(el.textContent).not.toContain('Registrar resultados');
     expect(el.textContent).not.toContain('Informe en PDF');
+    expect(el.textContent).toContain('Ana López');
+    expect(el.textContent).toContain('Hemograma completo (HEM)');
   });
 
   it('generates the proposal and shows its findings with the not-a-diagnosis warning', async () => {
@@ -240,6 +266,55 @@ describe('OrderDetailPage', () => {
 
     expect(el.textContent).toContain('todavía no tiene todos sus resultados');
     expect(el.textContent).not.toContain('c-1');
+  });
+
+  it('renders a download button for each document and triggers download on click', async () => {
+    const docId = 'doc-1111-2222';
+    const { fixture, el, state } = setup(
+      {
+        documents: [
+          { id: docId, name: 'informe_laboratorio.pdf', sizeBytes: 1024 * 50 },
+        ],
+      },
+      ...DOCTOR,
+    );
+    await settle(fixture);
+
+    expect(el.textContent).toContain('informe_laboratorio.pdf');
+    const downloadBtn = [...el.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
+      b.textContent?.includes('Descargar'),
+    )!;
+    expect(downloadBtn).not.toBeNull();
+
+    downloadBtn.click();
+    await settle(fixture);
+
+    expect(state.calls['download']).toEqual([[docId]]);
+  });
+
+  it('translates document download errors and never shows correlation_id', async () => {
+    const docId = 'doc-403-forbidden';
+    const { fixture, el } = setup(
+      {
+        documents: [
+          { id: docId, name: 'privado.pdf', sizeBytes: 1024 * 10 },
+        ],
+        downloadFails: new AppError('forbidden', 'Forbidden document', 'corr-secret-123', 403),
+      },
+      ...DOCTOR,
+    );
+    await settle(fixture);
+
+    const downloadBtn = [...el.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
+      b.textContent?.includes('Descargar'),
+    )!;
+    downloadBtn.click();
+    await settle(fixture);
+
+    expect(el.querySelector('.banner--danger')?.textContent).toContain(
+      'No tienes permiso para descargar este documento.',
+    );
+    expect(el.textContent).not.toContain('corr-secret-123');
   });
 
   it('refuses to reject a proposal without a reason and sends it with one', async () => {

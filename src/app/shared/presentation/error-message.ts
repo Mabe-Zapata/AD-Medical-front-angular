@@ -15,6 +15,8 @@ const MESSAGES: Readonly<Record<ErrorKind, string>> = {
   rate_limited: 'Hiciste varios intentos seguidos. Espera un minuto y vuelve a probar.',
   network: 'No pudimos conectarnos. Revisa tu internet y vuelve a intentarlo.',
   unavailable: 'El servicio está tardando más de lo normal. Inténtalo de nuevo en unos minutos.',
+  read_only:
+    'El sistema está en modo de solo lectura por ahora, así que no podemos completar esto. Inténtalo de nuevo más tarde.',
   not_staff: 'Esta cuenta es de paciente. Ingresa al portal del paciente.',
   unknown: 'Algo salió mal de nuestro lado. Inténtalo de nuevo; si sigue pasando, avisa al administrador.',
 };

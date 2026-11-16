@@ -8,11 +8,32 @@ export interface AppModule {
   readonly link: string | null;
   /** The module is visible to someone who holds at least one of these permissions. */
   readonly anyOf: readonly string[];
+  /** Optional role restrictions. When provided, caller must match at least one role. */
+  readonly roles?: readonly string[];
   /** Why a visible module cannot be opened yet. */
   readonly pendingNote: string | null;
 }
 
 export const APP_MODULES: readonly AppModule[] = [
+  {
+    title: 'Agenda del médico',
+    description: 'Consultar las citas programadas de los pacientes.',
+    link: '/agenda',
+    anyOf: [
+      PERMISSIONS.consultationsOpen,
+      PERMISSIONS.appointmentsDoctorCancel,
+      PERMISSIONS.ordersCreate,
+    ],
+    roles: ['MEDICO'],
+    pendingNote: null,
+  },
+  {
+    title: 'Aprobación de cancelaciones',
+    description: 'Autorizar cancelaciones de citas médicas fuera de cupo o plazo.',
+    link: '/agenda/aprobaciones',
+    anyOf: [PERMISSIONS.cancellationApprovalsReview],
+    pendingNote: null,
+  },
   {
     title: 'Conocimiento clínico',
     description: 'Analitos, rangos de referencia y reglas del motor de propuestas.',
@@ -46,6 +67,14 @@ export const APP_MODULES: readonly AppModule[] = [
  * "coming soon": the navigation must not hint at areas that belong to someone else.
  * The backend still decides every request; this only keeps the interface honest.
  */
-export function visibleModules(can: (permission: string) => boolean): AppModule[] {
-  return APP_MODULES.filter((module) => module.anyOf.some(can));
+export function visibleModules(
+  can: (permission: string) => boolean,
+  hasRole?: (role: string) => boolean,
+): AppModule[] {
+  return APP_MODULES.filter((module) => {
+    if (module.roles && module.roles.length > 0 && hasRole) {
+      return module.roles.some(hasRole);
+    }
+    return module.anyOf.some(can);
+  });
 }

@@ -13,6 +13,10 @@ describe('describeError', () => {
     expect(describeError(new AppError('unavailable', 'x')).message).toContain('está tardando más de lo normal');
   });
 
+  it('explains read-only mode instead of a slow service', () => {
+    expect(describeError(new AppError('read_only', 'x')).message).toContain('modo de solo lectura');
+  });
+
   it('lets a screen override the wording, and never carries a support code', () => {
     const view = describeError(new AppError('conflict', 'x', 'corr-1'), { conflict: 'Ya existe.' });
     expect(view).toEqual({ message: 'Ya existe.' });
@@ -43,6 +47,7 @@ describe('describeError', () => {
       'rate_limited',
       'network',
       'unavailable',
+      'read_only',
       'not_staff',
       'unknown',
     ] as const) {

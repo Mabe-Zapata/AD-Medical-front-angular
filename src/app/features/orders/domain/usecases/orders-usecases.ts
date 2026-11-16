@@ -131,6 +131,14 @@ export class ListOrderDocuments {
   }
 }
 
+export class DownloadDocument {
+  constructor(private readonly repository: OrdersRepository) {}
+
+  execute(documentId: string): Promise<Blob> {
+    return this.repository.downloadDocument(requireUuid(documentId, 'document id'));
+  }
+}
+
 export class UploadReport {
   constructor(private readonly repository: OrdersRepository) {}
 

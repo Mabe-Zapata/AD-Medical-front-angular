@@ -7,13 +7,13 @@ import {
   provideRouter,
 } from '@angular/router';
 
-import { authGuard, guestGuard, permissionGuard } from './guards';
+import { authGuard, guestGuard, permissionGuard, roleGuard } from './guards';
 import { SessionState } from './session.state';
 
 describe('route guards', () => {
   function run(
     guard: CanActivateFn,
-    state: { active: boolean; can?: boolean },
+    state: { active: boolean; can?: boolean; hasRole?: boolean },
     url = '/conocimiento',
   ) {
     TestBed.configureTestingModule({
@@ -21,7 +21,11 @@ describe('route guards', () => {
         provideRouter([]),
         {
           provide: SessionState,
-          useValue: { isActive: () => state.active, can: () => state.can ?? false },
+          useValue: {
+            isActive: () => state.active,
+            can: () => state.can ?? false,
+            hasRole: () => state.hasRole ?? false,
+          },
         },
       ],
     });
@@ -54,5 +58,13 @@ describe('route guards', () => {
     );
     TestBed.resetTestingModule();
     expect(run(permissionGuard('conocimiento.leer'), { active: true, can: true })).toBe(true);
+  });
+
+  it('redirects to the start page when the role is missing and allows when present', () => {
+    expect(run(roleGuard('MEDICO'), { active: true, hasRole: false })).toBe(
+      '/inicio?sinPermiso=1',
+    );
+    TestBed.resetTestingModule();
+    expect(run(roleGuard('MEDICO'), { active: true, hasRole: true })).toBe(true);
   });
 });
