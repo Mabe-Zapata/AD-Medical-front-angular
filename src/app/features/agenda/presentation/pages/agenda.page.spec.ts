@@ -256,10 +256,81 @@ describe('AgendaPage', () => {
       await fixture.whenStable();
       fixture.detectChanges();
 
-      expect(fakeOpenConsultation.calls).toEqual([{ appointmentId: 'apt-1' }]);
+      expect(fakeOpenConsultation.calls).toEqual([{
+        appointmentId: 'apt-1',
+        diagnosis: undefined,
+        treatment: undefined,
+      }]);
       expect(el.querySelector('app-modal')).toBeNull();
       expect(el.textContent).toContain('Consulta registrada correctamente');
       expect(fakeListAgenda.calls.length).toBeGreaterThan(initialLoadCalls);
+    });
+
+    it('submits consultation with sanitized diagnosis and treatment fields', async () => {
+      await createComponent();
+
+      const btn = el.querySelector('tbody tr button.btn--primary') as HTMLButtonElement;
+      btn.click();
+      fixture.detectChanges();
+
+      const diagArea = el.querySelector('#consultation-diagnosis') as HTMLTextAreaElement;
+      diagArea.value = 'Rinofaringitis aguda';
+      diagArea.dispatchEvent(new Event('input'));
+
+      const treatArea = el.querySelector('#consultation-treatment') as HTMLTextAreaElement;
+      treatArea.value = 'Paracetamol 500mg c/8h';
+      treatArea.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      const submitBtn = el.querySelector('app-modal button[type="submit"]') as HTMLButtonElement;
+      submitBtn.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(fakeOpenConsultation.calls).toEqual([{
+        appointmentId: 'apt-1',
+        diagnosis: 'Rinofaringitis aguda',
+        treatment: 'Paracetamol 500mg c/8h',
+      }]);
+    });
+
+    it('blocks submission and shows error if diagnosis contains emojis', async () => {
+      await createComponent();
+
+      const btn = el.querySelector('tbody tr button.btn--primary') as HTMLButtonElement;
+      btn.click();
+      fixture.detectChanges();
+
+      const diagArea = el.querySelector('#consultation-diagnosis') as HTMLTextAreaElement;
+      // Manually set signal directly to simulate emoji entry before input sanitizer
+      (fixture.componentInstance as any).consultationDiagnosis.set('Diagnóstico 😷');
+      fixture.detectChanges();
+
+      const submitBtn = el.querySelector('app-modal button[type="submit"]') as HTMLButtonElement;
+      submitBtn.click();
+      fixture.detectChanges();
+
+      expect(fakeOpenConsultation.calls).toHaveLength(0);
+      expect(el.querySelector('.field-error')?.textContent).toContain('El diagnóstico no puede contener emojis.');
+    });
+
+    it('blocks submission and shows error if treatment contains emojis', async () => {
+      await createComponent();
+
+      const btn = el.querySelector('tbody tr button.btn--primary') as HTMLButtonElement;
+      btn.click();
+      fixture.detectChanges();
+
+      (fixture.componentInstance as any).consultationTreatment.set('Antibiótico 💊');
+      fixture.detectChanges();
+
+      const submitBtn = el.querySelector('app-modal button[type="submit"]') as HTMLButtonElement;
+      submitBtn.click();
+      fixture.detectChanges();
+
+      expect(fakeOpenConsultation.calls).toHaveLength(0);
+      expect(el.querySelector('.field-error')?.textContent).toContain('El tratamiento no puede contener emojis.');
     });
 
     it('shows 409 error as "ya tiene una consulta registrada" message inside the modal', async () => {

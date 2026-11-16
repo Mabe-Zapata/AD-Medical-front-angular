@@ -11,6 +11,8 @@ import {
   sanitizePassword,
   sanitizeSearch,
   stripEmoji,
+  sanitizeClinicalText,
+  isValidClinicalText,
 } from './text';
 
 describe('text sanitization and validation', () => {
@@ -58,5 +60,16 @@ describe('text sanitization and validation', () => {
     expect(sanitizeFreeText('Motivo válido: paciente solicita alta médica. <script>')).toBe(
       'Motivo válido: paciente solicita alta médica. script',
     );
+  });
+
+  it('sanitizes and validates clinical text (diagnoses, treatments)', () => {
+    expect(sanitizeClinicalText('Faringitis aguda 💊: reposo por 3 días <script>')).toBe(
+      'Faringitis aguda : reposo por 3 días script',
+    );
+    expect(isValidClinicalText('Hipertensión arterial grado 1 (140/90 mmHg).')).toBe(true);
+    expect(isValidClinicalText('Amoxicilina 500mg c/8h - 7 días (50% dosis).')).toBe(true);
+    expect(isValidClinicalText('Gripe común 🤒')).toBe(false);
+    expect(isValidClinicalText('Diagnóstico <script>alert(1)</script>')).toBe(false);
+    expect(isValidClinicalText('a'.repeat(1001), 1000)).toBe(false);
   });
 });

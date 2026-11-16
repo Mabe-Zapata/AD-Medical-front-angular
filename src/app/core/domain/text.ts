@@ -97,3 +97,23 @@ export function isValidThreshold(text: string): boolean {
 export function parseThreshold(text: string): number {
   return Number(text.trim().replace(',', '.'));
 }
+
+/**
+ * Clinical text (diagnoses, treatments): allows Latin letters with Spanish accents,
+ * digits, whitespace, and clinical punctuation (.,:;()/-–%°'").
+ * Strips emojis and special/code-injection symbols.
+ */
+export function sanitizeClinicalText(text: string): string {
+  return stripEmoji(text).replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s.,:;()/\-–%°'"]/g, '');
+}
+
+/**
+ * Validates that clinical text has no emojis, respects the maximum length (default 1000),
+ * and contains only allowed clinical characters.
+ */
+export function isValidClinicalText(text: string, maxLength = 1000): boolean {
+  if (hasEmoji(text)) return false;
+  if (text.length > maxLength) return false;
+  return /^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s.,:;()/\-–%°'"]*$/.test(text);
+}
+

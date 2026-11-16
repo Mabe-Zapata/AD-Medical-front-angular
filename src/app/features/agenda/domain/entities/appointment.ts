@@ -69,6 +69,8 @@ export function isAppointmentElapsed(
 /** Command to open (register) the consultation for an appointment. */
 export interface OpenConsultationCommand {
   readonly appointmentId: string;
+  readonly diagnosis?: string;
+  readonly treatment?: string;
 }
 
 /** Returned by the backend after opening a consultation. */

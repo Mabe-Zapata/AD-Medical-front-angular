@@ -2,7 +2,12 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { FormsModule } from '@angular/forms';
 
 import { formatBranchDate, formatBranchTimeRange } from '../../../../core/time/branch-time';
-import { hasEmoji, sanitizeFreeText } from '../../../../core/domain/text';
+import {
+  hasEmoji,
+  isValidClinicalText,
+  sanitizeClinicalText,
+  sanitizeFreeText,
+} from '../../../../core/domain/text';
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
 import { ChipComponent } from '../../../../shared/presentation/atoms/chip';
 import { describeError } from '../../../../shared/presentation/error-message';
@@ -222,6 +227,43 @@ export const CONSULTATION_NOTES_MAX = 500;
               <strong>{{ dateOf(target.startUtc) }}</strong> a las
               <strong>{{ timeRangeOf(target.startUtc, target.endUtc) }}</strong>.
             </p>
+
+            <div class="field">
+              <label for="consultation-diagnosis">Diagnóstico u observaciones clínicas</label>
+              <textarea
+                id="consultation-diagnosis"
+                class="input"
+                name="consultationDiagnosis"
+                rows="3"
+                maxlength="1000"
+                placeholder="Indica el diagnóstico o hallazgos clínicos (máx. 1000 caracteres, sin emojis)..."
+                [value]="consultationDiagnosis()"
+                (input)="onDiagnosisChange($any($event.target).value)"
+              ></textarea>
+              <span class="char-hint">{{ consultationDiagnosis().length }} / 1000</span>
+              @if (diagnosisValidationError(); as dErr) {
+                <span class="field-error">{{ dErr }}</span>
+              }
+            </div>
+
+            <div class="field">
+              <label for="consultation-treatment">Plan de tratamiento</label>
+              <textarea
+                id="consultation-treatment"
+                class="input"
+                name="consultationTreatment"
+                rows="3"
+                maxlength="1000"
+                placeholder="Indica el tratamiento, medicamentos o indicaciones (máx. 1000 caracteres, sin emojis)..."
+                [value]="consultationTreatment()"
+                (input)="onTreatmentChange($any($event.target).value)"
+              ></textarea>
+              <span class="char-hint">{{ consultationTreatment().length }} / 1000</span>
+              @if (treatmentValidationError(); as tErr) {
+                <span class="field-error">{{ tErr }}</span>
+              }
+            </div>
+
             <p class="muted small">
               Esta acción marcará la cita como <strong>atendida</strong>. Es irreversible desde el portal.
             </p>
@@ -350,6 +392,10 @@ export class AgendaPage {
 
   // Consultation modal state
   protected readonly consultationTarget = signal<AgendaAppointment | null>(null);
+  protected readonly consultationDiagnosis = signal('');
+  protected readonly consultationTreatment = signal('');
+  protected readonly diagnosisValidationError = signal<string | null>(null);
+  protected readonly treatmentValidationError = signal<string | null>(null);
   protected readonly consultationError = signal<string | null>(null);
   protected readonly submittingConsultation = signal(false);
 
@@ -427,22 +473,82 @@ export class AgendaPage {
 
   // ── Consultation modal ────────────────────────────────────────────────────
 
+  protected onDiagnosisChange(text: string): void {
+    const cleaned = sanitizeClinicalText(text);
+    this.consultationDiagnosis.set(cleaned);
+    if (this.diagnosisValidationError()) {
+      this.diagnosisValidationError.set(null);
+    }
+  }
+
+  protected onTreatmentChange(text: string): void {
+    const cleaned = sanitizeClinicalText(text);
+    this.consultationTreatment.set(cleaned);
+    if (this.treatmentValidationError()) {
+      this.treatmentValidationError.set(null);
+    }
+  }
+
   protected openConsultationModal(appointment: AgendaAppointment): void {
     this.notice.set(null);
     this.consultationTarget.set(appointment);
+    this.consultationDiagnosis.set('');
+    this.consultationTreatment.set('');
+    this.diagnosisValidationError.set(null);
+    this.treatmentValidationError.set(null);
     this.consultationError.set(null);
   }
 
   protected closeConsultationModal(): void {
     this.consultationTarget.set(null);
+    this.consultationDiagnosis.set('');
+    this.consultationTreatment.set('');
+    this.diagnosisValidationError.set(null);
+    this.treatmentValidationError.set(null);
     this.consultationError.set(null);
   }
 
   protected async submitConsultation(target: AgendaAppointment): Promise<void> {
+    const diag = this.consultationDiagnosis().trim();
+    if (diag.length > 0) {
+      if (hasEmoji(diag)) {
+        this.diagnosisValidationError.set('El diagnóstico no puede contener emojis.');
+        return;
+      }
+      if (diag.length > 1000) {
+        this.diagnosisValidationError.set('El diagnóstico no puede superar los 1000 caracteres.');
+        return;
+      }
+      if (!isValidClinicalText(diag, 1000)) {
+        this.diagnosisValidationError.set('El diagnóstico contiene caracteres no permitidos.');
+        return;
+      }
+    }
+
+    const treat = this.consultationTreatment().trim();
+    if (treat.length > 0) {
+      if (hasEmoji(treat)) {
+        this.treatmentValidationError.set('El tratamiento no puede contener emojis.');
+        return;
+      }
+      if (treat.length > 1000) {
+        this.treatmentValidationError.set('El tratamiento no puede superar los 1000 caracteres.');
+        return;
+      }
+      if (!isValidClinicalText(treat, 1000)) {
+        this.treatmentValidationError.set('El tratamiento contiene caracteres no permitidos.');
+        return;
+      }
+    }
+
     this.submittingConsultation.set(true);
     this.consultationError.set(null);
     try {
-      await this.openConsultationUsecase.execute({ appointmentId: target.id });
+      await this.openConsultationUsecase.execute({
+        appointmentId: target.id,
+        diagnosis: diag || undefined,
+        treatment: treat || undefined,
+      });
       this.consultationTarget.set(null);
       this.notice.set(`Consulta registrada correctamente para ${target.patient?.name ?? 'el paciente'}.`);
       await this.load();

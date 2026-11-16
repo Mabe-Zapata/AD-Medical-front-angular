@@ -284,6 +284,35 @@ describe('HttpAgendaRepository', () => {
       });
     });
 
+    it('POSTs treatment to /citas/:id/tratamientos when treatment is provided', async () => {
+      const promise = repository.openConsultation({
+        appointmentId: 'apt-confirmed',
+        treatment: 'Amoxicilina 500mg c/8h',
+      });
+
+      const reqConsult = http.expectOne('/api/v1/appointments/apt-confirmed/consultation');
+      reqConsult.flush({
+        id: 'consult-uuid',
+        cita_id: 'apt-confirmed',
+        estado: 'ABIERTA',
+        inicio_atencion: '2026-11-16T13:00:00Z',
+        motivo_consulta: null,
+      });
+
+      await Promise.resolve();
+
+      const reqTreat = http.expectOne('/api/v1/citas/apt-confirmed/tratamientos');
+      expect(reqTreat.request.method).toBe('POST');
+      expect(reqTreat.request.body).toMatchObject({
+        descripcion: 'Amoxicilina 500mg c/8h',
+        estado: 'ACTIVO',
+      });
+      reqTreat.flush({ id: 'treat-1', cita_id: 'apt-confirmed' });
+
+      const result = await promise;
+      expect(result.appointmentId).toBe('apt-confirmed');
+    });
+
     it('translates 409 to AppError kind=conflict', async () => {
       const promise = repository.openConsultation({ appointmentId: 'apt-wrong-state' });
 

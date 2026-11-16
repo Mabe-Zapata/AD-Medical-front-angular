@@ -224,13 +224,85 @@ describe('OpenConsultation usecase', () => {
     const repo = new FakeAgendaRepository();
     const usecase = new OpenConsultation(repo);
 
-    const result = await usecase.execute({ appointmentId: 'apt-confirmed' });
+    const result = await usecase.execute({
+      appointmentId: 'apt-confirmed',
+      diagnosis: 'Faringitis aguda sin complicaciones',
+      treatment: 'Amoxicilina 500mg c/8h por 7 días',
+    });
 
-    expect(repo.lastOpenConsultationCommand).toEqual({ appointmentId: 'apt-confirmed' });
+    expect(repo.lastOpenConsultationCommand).toEqual({
+      appointmentId: 'apt-confirmed',
+      diagnosis: 'Faringitis aguda sin complicaciones',
+      treatment: 'Amoxicilina 500mg c/8h por 7 días',
+    });
     expect(result).toMatchObject({
       appointmentId: 'apt-confirmed',
       estado: 'ABIERTA',
     });
+  });
+
+  it('rejects diagnosis with emojis', async () => {
+    const repo = new FakeAgendaRepository();
+    const usecase = new OpenConsultation(repo);
+
+    await expect(
+      usecase.execute({
+        appointmentId: 'apt-1',
+        diagnosis: 'Gripe común 🤒',
+      }),
+    ).rejects.toMatchObject({
+      kind: 'validation',
+      message: 'El diagnóstico no puede contener emojis.',
+    });
+    expect(repo.lastOpenConsultationCommand).toBeUndefined();
+  });
+
+  it('rejects diagnosis exceeding 1000 characters', async () => {
+    const repo = new FakeAgendaRepository();
+    const usecase = new OpenConsultation(repo);
+
+    await expect(
+      usecase.execute({
+        appointmentId: 'apt-1',
+        diagnosis: 'a'.repeat(1001),
+      }),
+    ).rejects.toMatchObject({
+      kind: 'validation',
+      message: 'El diagnóstico no puede superar los 1000 caracteres.',
+    });
+    expect(repo.lastOpenConsultationCommand).toBeUndefined();
+  });
+
+  it('rejects treatment with emojis', async () => {
+    const repo = new FakeAgendaRepository();
+    const usecase = new OpenConsultation(repo);
+
+    await expect(
+      usecase.execute({
+        appointmentId: 'apt-1',
+        treatment: 'Tomar jarabe 💊 cada 8 horas',
+      }),
+    ).rejects.toMatchObject({
+      kind: 'validation',
+      message: 'El tratamiento no puede contener emojis.',
+    });
+    expect(repo.lastOpenConsultationCommand).toBeUndefined();
+  });
+
+  it('rejects treatment exceeding 1000 characters', async () => {
+    const repo = new FakeAgendaRepository();
+    const usecase = new OpenConsultation(repo);
+
+    await expect(
+      usecase.execute({
+        appointmentId: 'apt-1',
+        treatment: 'a'.repeat(1001),
+      }),
+    ).rejects.toMatchObject({
+      kind: 'validation',
+      message: 'El tratamiento no puede superar los 1000 caracteres.',
+    });
+    expect(repo.lastOpenConsultationCommand).toBeUndefined();
   });
 
   it('propagates repository errors without wrapping them', async () => {

@@ -141,6 +141,21 @@ export class HttpAgendaRepository extends AgendaRepository {
           {},
         ),
       );
+
+      if (command.treatment?.trim()) {
+        const today = new Date().toISOString().slice(0, 10);
+        await firstValueFrom(
+          this.http.post<unknown>(
+            `${this.base}/citas/${command.appointmentId}/tratamientos`,
+            {
+              descripcion: command.treatment.trim(),
+              fecha_inicio: today,
+              estado: 'ACTIVO',
+            },
+          ),
+        );
+      }
+
       return {
         id: response.id,
         appointmentId: response.cita_id,
