@@ -114,12 +114,45 @@ import { ListAgenda } from '../../domain/usecases/list-agenda';
       <div class="card stack">
         <div class="callout">
           <strong>Flujo administrativo:</strong>
-          Selecciona una cita programada o ingresa su identificador. Una vez registrada la aprobación,
-          el médico tratante podrá cancelar la cita directamente desde su agenda médica sin ser bloqueado.
+          Busca la cita por el número de registro médico, teléfono o nombre del profesional, o selecciona directamente de la lista.
+          Una vez registrada la aprobación, el médico podrá cancelar la cita desde su agenda médica sin ser bloqueado.
         </div>
 
         <form class="approval-form" (ngSubmit)="onSubmit()">
           @if (mode() === 'select') {
+            <div class="field-group">
+              <label for="doctor-search">
+                <strong>Buscar por número o nombre del médico:</strong>
+              </label>
+              <div class="input-row">
+                <input
+                  id="doctor-search"
+                  name="doctorSearch"
+                  class="input"
+                  type="text"
+                  placeholder="ej. TEST-MED-0001, 0991234567 o nombre del médico..."
+                  [ngModel]="searchTerm()"
+                  (ngModelChange)="onSearchTermChange($event)"
+                  [disabled]="submitting() || loadingAppointments()"
+                />
+                @if (searchTerm()) {
+                  <button
+                    type="button"
+                    class="btn btn--small"
+                    (click)="clearSearch()"
+                    title="Limpiar filtro de búsqueda"
+                  >
+                    Borrar
+                  </button>
+                }
+              </div>
+              @if (searchTerm().trim(); as term) {
+                <p class="muted small">
+                  Filtrando por médico / paciente: <strong>"{{ term }}"</strong> ({{ filteredAppointments().length }} cita(s) encontrada(s)).
+                </p>
+              }
+            </div>
+
             <div class="field-group">
               <label for="appointment-select">
                 <strong>Cita médica a autorizar</strong>
@@ -130,6 +163,10 @@ import { ListAgenda } from '../../domain/usecases/list-agenda';
               } @else if (appointments().length === 0) {
                 <p class="muted small">
                   No hay citas confirmadas pendientes de aprobación en el sistema.
+                </p>
+              } @else if (filteredAppointments().length === 0) {
+                <p class="field-error">
+                  No se encontraron citas activas para "{{ searchTerm() }}". Prueba con otro número o nombre.
                 </p>
               }
 
@@ -143,7 +180,7 @@ import { ListAgenda } from '../../domain/usecases/list-agenda';
                   [disabled]="submitting() || loadingAppointments()"
                 >
                   <option value="">-- Selecciona una cita --</option>
-                  @for (appt of appointments(); track appt.id) {
+                  @for (appt of filteredAppointments(); track appt.id) {
                     <option [value]="appt.id" [disabled]="appt.hasApproval" [selected]="selectedOption() === appt.id">
                       {{ formatAppointmentOption(appt) }}
                     </option>
@@ -179,14 +216,14 @@ import { ListAgenda } from '../../domain/usecases/list-agenda';
           } @else {
             <div class="field-group">
               <label for="appointment-id">
-                <strong>Identificador de la cita (UUID)</strong>
+                <strong>Identificador de la cita (UUID o Número de Médico)</strong>
               </label>
               <div class="input-row">
                 <input
                   id="appointment-id"
                   class="input"
                   type="text"
-                  placeholder="ej. 550e8400-e29b-41d4-a716-446655440000"
+                  placeholder="ej. TEST-MED-0001 o 550e8400-e29b-41d4-a716-446655440000"
                   [value]="appointmentId()"
                   (input)="onAppointmentIdInput($event)"
                   [disabled]="submitting()"
@@ -229,6 +266,12 @@ import { ListAgenda } from '../../domain/usecases/list-agenda';
                     @if (appt.doctor?.name) {
                       &bull; Médico: <strong>Dr(a). {{ appt.doctor?.name }}</strong>
                     }
+                    @if (appt.doctor?.professionalRegistration) {
+                      &bull; Nº Registro: <strong>{{ appt.doctor?.professionalRegistration }}</strong>
+                    }
+                    @if (appt.doctor?.phone) {
+                      &bull; Tel: <strong>{{ appt.doctor?.phone }}</strong>
+                    }
                   </p>
                 </div>
                 <div>
@@ -248,12 +291,13 @@ import { ListAgenda } from '../../domain/usecases/list-agenda';
             </label>
             <textarea
               id="approval-reason"
+              name="approvalReason"
               class="input"
               rows="4"
               maxlength="1500"
               placeholder="Detalla el motivo por el cual se autoriza esta cancelación..."
-              [value]="reason()"
-              (input)="onReasonInput($event)"
+              [ngModel]="reason()"
+              (ngModelChange)="onReasonChange($event)"
               [disabled]="submitting()"
             ></textarea>
             <div class="char-count">{{ reason().length }} / 1500 caracteres</div>
@@ -299,6 +343,7 @@ export class CancellationApprovalPage implements OnInit {
   protected readonly loadingAppointments = signal(false);
   protected readonly loadAppointmentsError = signal<string | null>(null);
 
+  protected readonly searchTerm = signal<string>('');
   protected readonly mode = signal<'select' | 'manual'>('select');
   protected readonly selectedOption = signal<string>('');
   protected readonly appointmentId = signal(
@@ -314,6 +359,28 @@ export class CancellationApprovalPage implements OnInit {
 
   protected readonly appointmentIdError = signal<string | null>(null);
   protected readonly reasonError = signal<string | null>(null);
+
+  protected readonly filteredAppointments = computed(() => {
+    const term = this.searchTerm().trim().toLowerCase();
+    const all = this.appointments();
+    if (!term) {
+      return all;
+    }
+    return all.filter((appt) => {
+      const docReg = (appt.doctor?.professionalRegistration ?? '').toLowerCase();
+      const docPhone = (appt.doctor?.phone ?? '').toLowerCase();
+      const docName = (appt.doctor?.name ?? '').toLowerCase();
+      const patientName = (appt.patient?.name ?? '').toLowerCase();
+      const id = appt.id.toLowerCase();
+      return (
+        docReg.includes(term) ||
+        docPhone.includes(term) ||
+        docName.includes(term) ||
+        patientName.includes(term) ||
+        id.includes(term)
+      );
+    });
+  });
 
   protected readonly selectedAppointment = computed(() => {
     const id = this.appointmentId().trim().toLowerCase();
@@ -341,8 +408,16 @@ export class CancellationApprovalPage implements OnInit {
           this.selectedOption.set(found.id);
           this.mode.set('select');
         } else {
-          this.selectedOption.set('__manual__');
-          this.mode.set('manual');
+          // If not UUID, maybe it's a doctor registration number
+          const matchDoc = this.findAppointmentByDoctorNumber(currentId);
+          if (matchDoc) {
+            this.selectedOption.set(matchDoc.id);
+            this.appointmentId.set(matchDoc.id);
+            this.mode.set('select');
+          } else {
+            this.selectedOption.set('__manual__');
+            this.mode.set('manual');
+          }
         }
       } else if (items.length > 0) {
         const firstAvailable = items.find((a) => !a.hasApproval) ?? items[0];
@@ -357,13 +432,37 @@ export class CancellationApprovalPage implements OnInit {
     }
   }
 
+  protected onSearchTermChange(term: string): void {
+    this.searchTerm.set(term);
+    const filtered = this.filteredAppointments();
+    if (filtered.length > 0) {
+      const current = this.appointmentId();
+      const match = filtered.find((a) => a.id === current);
+      if (match) {
+        this.selectedOption.set(match.id);
+      } else {
+        const first = filtered.find((a) => !a.hasApproval) ?? filtered[0];
+        this.selectedOption.set(first.id);
+        this.appointmentId.set(first.id);
+      }
+    } else {
+      this.selectedOption.set('');
+      this.appointmentId.set('');
+    }
+  }
+
+  protected clearSearch(): void {
+    this.onSearchTermChange('');
+  }
+
   protected formatAppointmentOption(appt: AgendaAppointment): string {
     const date = this.dateOf(appt.startUtc);
     const time = this.timeRangeOf(appt.startUtc, appt.endUtc);
     const patient = appt.patient?.name ?? 'Paciente sin nombre';
     const doctor = appt.doctor?.name ? ` | Dr. ${appt.doctor.name}` : '';
+    const reg = appt.doctor?.professionalRegistration ? ` [Nº ${appt.doctor.professionalRegistration}]` : '';
     const statusNote = appt.hasApproval ? ' (Ya cuenta con aprobación)' : '';
-    return `${date} ${time} - ${patient}${doctor}${statusNote}`;
+    return `${date} ${time} - ${patient}${doctor}${reg}${statusNote}`;
   }
 
   protected dateOf(utc: string): string {
@@ -401,7 +500,7 @@ export class CancellationApprovalPage implements OnInit {
 
   protected switchToSelect(): void {
     this.mode.set('select');
-    const items = this.appointments();
+    const items = this.filteredAppointments();
     const first = items.find((a) => !a.hasApproval) ?? items[0];
     if (first) {
       this.selectedOption.set(first.id);
@@ -435,15 +534,20 @@ export class CancellationApprovalPage implements OnInit {
     }
   }
 
-  protected onReasonInput(event: Event): void {
-    const value = (event.target as HTMLTextAreaElement).value;
+  protected onReasonChange(value: string): void {
     this.reason.set(value);
     if (this.reasonError()) {
       this.reasonError.set(null);
     }
   }
 
+  protected onReasonInput(event: Event): void {
+    const value = (event.target as HTMLTextAreaElement).value;
+    this.onReasonChange(value);
+  }
+
   protected onReset(): void {
+    this.searchTerm.set('');
     const items = this.appointments();
     if (this.mode() === 'select' && items.length > 0) {
       const first = items.find((a) => !a.hasApproval) ?? items[0];
@@ -460,16 +564,39 @@ export class CancellationApprovalPage implements OnInit {
     this.error.set(null);
   }
 
+  private findAppointmentByDoctorNumber(term: string): AgendaAppointment | null {
+    const t = term.trim().toLowerCase();
+    if (!t) return null;
+    return (
+      this.appointments().find((a) => {
+        const reg = (a.doctor?.professionalRegistration ?? '').toLowerCase();
+        const phone = (a.doctor?.phone ?? '').toLowerCase();
+        return reg === t || phone === t;
+      }) ?? null
+    );
+  }
+
   protected async onSubmit(): Promise<void> {
     this.notice.set(null);
     this.error.set(null);
 
-    const id = this.appointmentId().trim();
+    let id = this.appointmentId().trim();
     const motivo = this.reason().trim();
+
+    // Check if input is a doctor number instead of UUID
+    if (!isUuid(id)) {
+      const match = this.findAppointmentByDoctorNumber(id);
+      if (match) {
+        id = match.id;
+        this.appointmentId.set(id);
+      }
+    }
 
     let hasClientErrors = false;
     if (!id || !isUuid(id)) {
-      this.appointmentIdError.set('Ingresa un UUID válido para la cita.');
+      this.appointmentIdError.set(
+        'Ingresa un UUID válido o el número de registro del médico (ej. TEST-MED-0001).',
+      );
       hasClientErrors = true;
     } else {
       this.appointmentIdError.set(null);

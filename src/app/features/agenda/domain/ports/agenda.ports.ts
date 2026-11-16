@@ -8,6 +8,7 @@ import {
 
 export interface ListAgendaFilter {
   readonly status?: AppointmentStatus | null;
+  readonly doctorRegistration?: string | null;
   readonly limit?: number;
   readonly offset?: number;
 }

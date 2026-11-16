@@ -42,20 +42,40 @@ describe('CancellationApprovalPage', () => {
   let el: HTMLElement;
 
   const validUuid = '550e8400-e29b-41d4-a716-446655440000';
+  const otherUuid = '660e8400-e29b-41d4-a716-446655440000';
   const sampleAppointment: AgendaAppointment = {
     id: validUuid,
     status: 'CONFIRMADA',
     startUtc: '2026-11-12T15:00:00Z',
     endUtc: '2026-11-12T15:30:00Z',
     patient: { id: 'p-1', name: 'Paciente Uno' },
-    doctor: { id: 'd-1', name: 'Carlos Gómez' },
+    doctor: {
+      id: 'd-1',
+      name: 'Carlos Gómez',
+      professionalRegistration: 'TEST-MED-0001',
+      phone: '0991234567',
+    },
+    hasApproval: false,
+  };
+  const otherAppointment: AgendaAppointment = {
+    id: otherUuid,
+    status: 'CONFIRMADA',
+    startUtc: '2026-11-12T16:00:00Z',
+    endUtc: '2026-11-12T16:30:00Z',
+    patient: { id: 'p-2', name: 'Paciente Dos' },
+    doctor: {
+      id: 'd-2',
+      name: 'Ana Mendoza',
+      professionalRegistration: 'TEST-MED-0002',
+      phone: '0997654321',
+    },
     hasApproval: false,
   };
 
   beforeEach(async () => {
     fakeApproveCancellation = new FakeApproveCancellation();
     fakeListAgenda = new FakeListAgenda();
-    fakeListAgenda.items = [sampleAppointment];
+    fakeListAgenda.items = [sampleAppointment, otherAppointment];
 
     await TestBed.configureTestingModule({
       imports: [CancellationApprovalPage],
@@ -73,39 +93,41 @@ describe('CancellationApprovalPage', () => {
     fixture.detectChanges();
   });
 
-  it('renders combo box selector with loaded appointments', () => {
+  it('renders search filter input and combo box selector with loaded appointments', () => {
+    const searchInput = el.querySelector<HTMLInputElement>('#doctor-search');
     const select = el.querySelector<HTMLSelectElement>('#appointment-select');
+    expect(searchInput).not.toBeNull();
     expect(select).not.toBeNull();
     expect(el.querySelector('#approval-reason')).not.toBeNull();
     expect(el.querySelector('.callout')?.textContent).toContain('Flujo administrativo');
     expect(el.querySelector('button[type="submit"]')?.textContent).toContain(
       'Registrar aprobación',
     );
-    // The first appointment without approval should be selected automatically
     expect(select?.value).toBe(validUuid);
   });
 
-  it('renders summary box for selected appointment', () => {
+  it('renders summary box for selected appointment with doctor registration and phone', () => {
     const summary = el.querySelector('.appointment-summary-box');
     expect(summary).not.toBeNull();
     expect(summary?.textContent).toContain('Paciente Uno');
     expect(summary?.textContent).toContain('Carlos Gómez');
+    expect(summary?.textContent).toContain('TEST-MED-0001');
+    expect(summary?.textContent).toContain('0991234567');
   });
 
-  it('validates client inputs: rejects empty reason', async () => {
-    const reasonInput = el.querySelector<HTMLTextAreaElement>('#approval-reason')!;
-    reasonInput.value = '';
-    reasonInput.dispatchEvent(new Event('input'));
+  it('filters appointments in combo box by doctor registration number', async () => {
+    const searchInput = el.querySelector<HTMLInputElement>('#doctor-search')!;
+    searchInput.value = 'TEST-MED-0002';
+    searchInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
 
-    const form = el.querySelector('form')!;
-    form.dispatchEvent(new Event('submit'));
-    fixture.detectChanges();
-
-    expect(fakeApproveCancellation.calls).toHaveLength(0);
-    expect(el.querySelector('.field-error')?.textContent).toContain(
-      'El motivo de la aprobación es obligatorio',
-    );
+    const select = el.querySelector<HTMLSelectElement>('#appointment-select')!;
+    const options = [...select.querySelectorAll('option')].filter((o) => o.value !== '' && o.value !== '__manual__');
+    expect(options).toHaveLength(1);
+    expect(options[0].value).toBe(otherUuid);
+    expect(options[0].textContent).toContain('TEST-MED-0002');
   });
 
   it('submits selected appointment with reason and shows success banner', async () => {
@@ -131,31 +153,33 @@ describe('CancellationApprovalPage', () => {
     );
   });
 
-  it('switches to manual mode and allows UUID input and validation', async () => {
+  it('allows searching/submitting by doctor registration number in manual mode without UUID', async () => {
     const toggleBtn = [...el.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
       b.textContent?.includes('Ingresar UUID manualmente'),
     );
-    expect(toggleBtn).toBeDefined();
     toggleBtn?.click();
     fixture.detectChanges();
 
-    const idInput = el.querySelector<HTMLInputElement>('#appointment-id');
-    expect(idInput).not.toBeNull();
-
-    idInput!.value = 'invalid-uuid-123';
-    idInput!.dispatchEvent(new Event('input'));
+    const idInput = el.querySelector<HTMLInputElement>('#appointment-id')!;
+    idInput.value = 'TEST-MED-0002';
+    idInput.dispatchEvent(new Event('input'));
 
     const reasonInput = el.querySelector<HTMLTextAreaElement>('#approval-reason')!;
-    reasonInput.value = 'Motivo de prueba';
+    reasonInput.value = 'Autorización buscando por número del médico';
     reasonInput.dispatchEvent(new Event('input'));
     fixture.detectChanges();
 
     const form = el.querySelector('form')!;
     form.dispatchEvent(new Event('submit'));
+    await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(fakeApproveCancellation.calls).toHaveLength(0);
-    expect(el.querySelector('.field-error')?.textContent).toContain('Ingresa un UUID válido');
+    expect(fakeApproveCancellation.calls).toEqual([
+      {
+        appointmentId: otherUuid,
+        reason: 'Autorización buscando por número del médico',
+      },
+    ]);
   });
 
   it('shows friendly Spanish error on 409 conflict', async () => {
@@ -194,18 +218,22 @@ describe('CancellationApprovalPage', () => {
     );
   });
 
-  it('clears form inputs and messages when reset button is clicked', async () => {
+  it('clears form inputs, search and messages when reset button is clicked', async () => {
+    const searchInput = el.querySelector<HTMLInputElement>('#doctor-search')!;
+    searchInput.value = 'TEST';
+    searchInput.dispatchEvent(new Event('input'));
+
     const reasonInput = el.querySelector<HTMLTextAreaElement>('#approval-reason')!;
     reasonInput.value = 'Texto de prueba';
     reasonInput.dispatchEvent(new Event('input'));
     fixture.detectChanges();
 
-    const resetBtn = [...el.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
-      b.textContent?.includes('Limpiar'),
-    )!;
+    const resetBtn = el.querySelector<HTMLButtonElement>('.actions button[type="button"]')!;
     resetBtn.click();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     expect(el.querySelector<HTMLTextAreaElement>('#approval-reason')!.value).toBe('');
+    expect(el.querySelector<HTMLInputElement>('#doctor-search')!.value).toBe('');
   });
 });

@@ -15,6 +15,8 @@ export interface AppointmentPatient {
 export interface AppointmentDoctor {
   readonly id: string;
   readonly name: string;
+  readonly professionalRegistration?: string | null;
+  readonly phone?: string | null;
 }
 
 /** One appointment summary in the doctor's agenda or admin listing. */

@@ -25,6 +25,8 @@ interface AppointmentDto {
   medico?: {
     id: string;
     nombre: string;
+    registro_profesional?: string | null;
+    telefono?: string | null;
   } | null;
   tiene_aprobacion?: boolean;
 }
@@ -48,6 +50,9 @@ export class HttpAgendaRepository extends AgendaRepository {
       let params = new HttpParams();
       if (filter?.status) {
         params = params.set('estado', filter.status);
+      }
+      if (filter?.doctorRegistration) {
+        params = params.set('medico_registro', filter.doctorRegistration);
       }
       if (filter?.limit !== undefined) {
         params = params.set('limit', String(filter.limit));
@@ -75,6 +80,8 @@ export class HttpAgendaRepository extends AgendaRepository {
           ? {
               id: item.medico.id,
               name: item.medico.nombre,
+              professionalRegistration: item.medico.registro_profesional ?? null,
+              phone: item.medico.telefono ?? null,
             }
           : null,
         hasApproval: Boolean(item.tiene_aprobacion),

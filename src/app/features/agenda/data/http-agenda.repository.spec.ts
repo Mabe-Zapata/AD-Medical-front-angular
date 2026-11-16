@@ -94,10 +94,16 @@ describe('HttpAgendaRepository', () => {
   });
 
   it('maps doctor details and approval flag when present on response', async () => {
-    const promise = repository.listAppointments({ status: 'CONFIRMADA' });
+    const promise = repository.listAppointments({
+      status: 'CONFIRMADA',
+      doctorRegistration: 'TEST-MED-0001',
+    });
 
     const req = http.expectOne(
-      (r) => r.url === '/api/v1/appointments' && r.params.get('estado') === 'CONFIRMADA',
+      (r) =>
+        r.url === '/api/v1/appointments' &&
+        r.params.get('estado') === 'CONFIRMADA' &&
+        r.params.get('medico_registro') === 'TEST-MED-0001',
     );
 
     req.flush({
@@ -108,7 +114,12 @@ describe('HttpAgendaRepository', () => {
           inicio: '2026-11-02T16:00:00Z',
           fin: '2026-11-02T16:30:00Z',
           paciente: { id: 'p-3', nombre: 'Ana Torres' },
-          medico: { id: 'm-1', nombre: 'Dr. Roberto Mendoza' },
+          medico: {
+            id: 'm-1',
+            nombre: 'Dr. Roberto Mendoza',
+            registro_profesional: 'TEST-MED-0001',
+            telefono: '0991234567',
+          },
           tiene_aprobacion: true,
         },
       ],
@@ -122,7 +133,12 @@ describe('HttpAgendaRepository', () => {
         startUtc: '2026-11-02T16:00:00Z',
         endUtc: '2026-11-02T16:30:00Z',
         patient: { id: 'p-3', name: 'Ana Torres' },
-        doctor: { id: 'm-1', name: 'Dr. Roberto Mendoza' },
+        doctor: {
+          id: 'm-1',
+          name: 'Dr. Roberto Mendoza',
+          professionalRegistration: 'TEST-MED-0001',
+          phone: '0991234567',
+        },
         hasApproval: true,
       },
     ]);
