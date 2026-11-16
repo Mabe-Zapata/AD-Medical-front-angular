@@ -92,10 +92,12 @@ export function sanitizeCode(text: string): string {
 /**
  * Sanitizes free text (notes, reasons): whitelist of Latin letters (with Spanish accents), digits,
  * whitespace and common punctuation. Anything else (emojis, ©, box-drawing, code symbols) is removed
- * before it reaches the value, so it is never stored or counted.
+ * before it reaches the value, so it is never stored or counted. Leading spaces are dropped too.
  */
 export function sanitizeFreeText(text: string): string {
-  return stripEmoji(text).replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s.,;:!?¿¡()"'\-–_%/°+@#&*=]/g, '');
+  return stripEmoji(text)
+    .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s.,;:!?¿¡()"'\-–_%/°+@#&*=]/g, '')
+    .replace(/^\s+/, '');
 }
 
 /**

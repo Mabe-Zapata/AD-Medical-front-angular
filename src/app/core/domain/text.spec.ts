@@ -90,6 +90,11 @@ describe('text sanitization and validation', () => {
     expect(sanitizeCode('GLUC-SINT_01')).toBe('GLUC-SINT_01');
   });
 
+  it('drops leading spaces from free text', () => {
+    expect(sanitizeFreeText('   Regla de prueba')).toBe('Regla de prueba');
+    expect(sanitizeFreeText('💊  hola')).toBe('hola');
+  });
+
   it('sanitizes free text', () => {
     expect(sanitizeFreeText('Motivo válido: paciente solicita alta médica. <script>')).toBe(
       'Motivo válido: paciente solicita alta médica. script',
