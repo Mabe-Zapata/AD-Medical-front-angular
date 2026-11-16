@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   effect,
+  DestroyRef,
   inject,
   input,
   output,
@@ -11,6 +12,8 @@ import {
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { toIsoDate } from '../../../../core/domain/dates';
+import { sanitizeFreeText } from '../../../../core/domain/text';
+import { sanitizeOnType } from '../../../../shared/presentation/forms/sanitize-on-type';
 import { NewReference } from '../../domain/entities/knowledge';
 import { referenceProblems } from '../../domain/policies/knowledge-policies';
 import { REFERENCE_PROBLEM_LABELS, labelOf } from '../labels';
@@ -39,6 +42,7 @@ const UUID_PATTERN =
         <div class="field">
           <label for="ref-unit">Unidad</label>
           <input id="ref-unit" class="input" formControlName="unit" maxlength="40" />
+          <span class="hint counter">{{ form.controls.unit.value.length }} / 40</span>
           @if (form.controls.unit.touched && form.controls.unit.invalid) {
             <span class="field-error">La unidad es obligatoria.</span>
           }
@@ -65,6 +69,7 @@ const UUID_PATTERN =
         <div class="field">
           <label for="ref-sex">Sexo (opcional)</label>
           <input id="ref-sex" class="input" formControlName="sex" maxlength="30" />
+          <span class="hint counter">{{ form.controls.sex.value.length }} / 30</span>
           <span class="hint">Debe coincidir con el sexo registrado del paciente.</span>
         </div>
         <div class="field">
@@ -90,14 +95,17 @@ const UUID_PATTERN =
         <div class="field">
           <label for="ref-method">Método (opcional)</label>
           <input id="ref-method" class="input" formControlName="method" maxlength="150" />
+          <span class="hint counter">{{ form.controls.method.value.length }} / 150</span>
         </div>
         <div class="field">
           <label for="ref-sample">Tipo de muestra (opcional)</label>
           <input id="ref-sample" class="input" formControlName="sampleType" maxlength="80" />
+          <span class="hint counter">{{ form.controls.sampleType.value.length }} / 80</span>
         </div>
         <div class="field">
           <label for="ref-context">Contexto (opcional)</label>
           <input id="ref-context" class="input" formControlName="context" maxlength="100" />
+          <span class="hint counter">{{ form.controls.context.value.length }} / 100</span>
         </div>
       </div>
 
@@ -123,6 +131,7 @@ export class ReferenceFormComponent {
   protected readonly problemLabel = (code: string) => labelOf(REFERENCE_PROBLEM_LABELS, code);
 
   private readonly fb = inject(NonNullableFormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
   protected readonly form = this.fb.group({
     sourceId: ['', [Validators.required, Validators.pattern(UUID_PATTERN)]],
     unit: ['', [Validators.required, Validators.maxLength(40)]],
@@ -139,6 +148,16 @@ export class ReferenceFormComponent {
   });
 
   constructor() {
+    for (const control of [
+      this.form.controls.unit,
+      this.form.controls.sex,
+      this.form.controls.method,
+      this.form.controls.sampleType,
+      this.form.controls.context,
+    ]) {
+      sanitizeOnType(control, sanitizeFreeText, this.destroyRef);
+    }
+
     // Prefill from the analyte and the dev source once the parent provides them, without
     // overwriting something the user already typed.
     effect(() => {
