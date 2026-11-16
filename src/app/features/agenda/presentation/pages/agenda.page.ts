@@ -239,7 +239,7 @@ export const CONSULTATION_NOTES_MAX = 500;
                 maxlength="1000"
                 placeholder="Indica el diagnóstico o hallazgos clínicos (máx. 1000 caracteres, sin emojis)..."
                 [value]="consultationDiagnosis()"
-                (input)="onDiagnosisChange($any($event.target).value)"
+                (input)="onDiagnosisInput($event)"
               ></textarea>
               <span class="char-hint">{{ consultationDiagnosis().length }} / 1000</span>
               @if (diagnosisValidationError(); as dErr) {
@@ -257,7 +257,7 @@ export const CONSULTATION_NOTES_MAX = 500;
                 maxlength="1000"
                 placeholder="Indica el tratamiento, medicamentos o indicaciones (máx. 1000 caracteres, sin emojis)..."
                 [value]="consultationTreatment()"
-                (input)="onTreatmentChange($any($event.target).value)"
+                (input)="onTreatmentInput($event)"
               ></textarea>
               <span class="char-hint">{{ consultationTreatment().length }} / 1000</span>
               @if (treatmentValidationError(); as tErr) {
@@ -346,7 +346,7 @@ export const CONSULTATION_NOTES_MAX = 500;
                 maxlength="1500"
                 placeholder="Indica el motivo detallado (obligatorio, de 1 a 1500 caracteres)..."
                 [value]="cancelReasonText()"
-                (input)="onReasonTextChange($any($event.target).value)"
+                (input)="onReasonInput($event)"
               ></textarea>
               <span class="char-hint">{{ cancelReasonText().length }} / 1500</span>
               @if (cancelValidationError(); as vError) {
@@ -474,16 +474,54 @@ export class AgendaPage {
 
   // ── Consultation modal ────────────────────────────────────────────────────
 
-  protected onDiagnosisChange(text: string): void {
-    const cleaned = sanitizeClinicalText(text);
+  protected onDiagnosisInput(event: Event): void {
+    const target = event.target as HTMLTextAreaElement;
+    const raw = target?.value ?? '';
+    let cleaned = sanitizeClinicalText(raw);
+    if (raw.length > 0 && cleaned.trim().length === 0) {
+      cleaned = '';
+    }
+    if (target && target.value !== cleaned) {
+      target.value = cleaned;
+    }
     this.consultationDiagnosis.set(cleaned);
     if (this.diagnosisValidationError()) {
       this.diagnosisValidationError.set(null);
     }
   }
 
+  protected onDiagnosisChange(text: string): void {
+    let cleaned = sanitizeClinicalText(text);
+    if (text.length > 0 && cleaned.trim().length === 0) {
+      cleaned = '';
+    }
+    this.consultationDiagnosis.set(cleaned);
+    if (this.diagnosisValidationError()) {
+      this.diagnosisValidationError.set(null);
+    }
+  }
+
+  protected onTreatmentInput(event: Event): void {
+    const target = event.target as HTMLTextAreaElement;
+    const raw = target?.value ?? '';
+    let cleaned = sanitizeClinicalText(raw);
+    if (raw.length > 0 && cleaned.trim().length === 0) {
+      cleaned = '';
+    }
+    if (target && target.value !== cleaned) {
+      target.value = cleaned;
+    }
+    this.consultationTreatment.set(cleaned);
+    if (this.treatmentValidationError()) {
+      this.treatmentValidationError.set(null);
+    }
+  }
+
   protected onTreatmentChange(text: string): void {
-    const cleaned = sanitizeClinicalText(text);
+    let cleaned = sanitizeClinicalText(text);
+    if (text.length > 0 && cleaned.trim().length === 0) {
+      cleaned = '';
+    }
     this.consultationTreatment.set(cleaned);
     if (this.treatmentValidationError()) {
       this.treatmentValidationError.set(null);
@@ -583,12 +621,32 @@ export class AgendaPage {
     this.cancelError.set(null);
   }
 
+  protected onReasonInput(event: Event): void {
+    const target = event.target as HTMLTextAreaElement;
+    const raw = target?.value ?? '';
+    let cleaned = sanitizeFreeText(raw);
+    if (raw.length > 0 && cleaned.trim().length === 0) {
+      cleaned = '';
+    }
+    if (target && target.value !== cleaned) {
+      target.value = cleaned;
+    }
+    if (this.cancelValidationError()) {
+      this.cancelValidationError.set(null);
+    }
+    this.cancelReasonText.set(cleaned);
+  }
+
   protected onReasonTextChange(text: string): void {
     // Emojis and symbols are removed as they are typed, so they are never stored or counted.
     if (this.cancelValidationError()) {
       this.cancelValidationError.set(null);
     }
-    this.cancelReasonText.set(sanitizeFreeText(text));
+    let cleaned = sanitizeFreeText(text);
+    if (text.length > 0 && cleaned.trim().length === 0) {
+      cleaned = '';
+    }
+    this.cancelReasonText.set(cleaned);
   }
 
   protected async submitCancel(target: AgendaAppointment): Promise<void> {

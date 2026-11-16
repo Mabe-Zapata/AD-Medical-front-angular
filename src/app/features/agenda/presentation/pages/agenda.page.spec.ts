@@ -300,6 +300,38 @@ describe('AgendaPage', () => {
       }]);
     });
 
+    it('strips emojis from the diagnosis and treatment textareas on input so no emojis remain in the DOM', async () => {
+      await createComponent();
+
+      const btn = el.querySelector('tbody tr button.btn--primary') as HTMLButtonElement;
+      btn.click();
+      fixture.detectChanges();
+
+      const diagArea = el.querySelector('#consultation-diagnosis') as HTMLTextAreaElement;
+      diagArea.value = '😀😀😀Diagnóstico clínico';
+      diagArea.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      expect(diagArea.value).toBe('Diagnóstico clínico');
+      expect((fixture.componentInstance as any).consultationDiagnosis()).toBe('Diagnóstico clínico');
+
+      // When entering ONLY emojis and spaces, the DOM textarea is completely emptied:
+      diagArea.value = '😀 😀 😀 😀';
+      diagArea.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      expect(diagArea.value).toBe('');
+      expect((fixture.componentInstance as any).consultationDiagnosis()).toBe('');
+
+      const treatArea = el.querySelector('#consultation-treatment') as HTMLTextAreaElement;
+      treatArea.value = '💊Paracetamol 500mg';
+      treatArea.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      expect(treatArea.value).toBe('Paracetamol 500mg');
+      expect((fixture.componentInstance as any).consultationTreatment()).toBe('Paracetamol 500mg');
+    });
+
     it('blocks submission and shows error if diagnosis contains emojis', async () => {
       await createComponent();
 

@@ -7,7 +7,7 @@ import {
   Validators,
 } from '@angular/forms';
 
-import { hasEmoji } from '../../../../core/domain/text';
+import { hasEmoji, sanitizeFreeText } from '../../../../core/domain/text';
 
 export function noEmojiValidator(control: AbstractControl): ValidationErrors | null {
   if (control.value && hasEmoji(control.value)) {
@@ -43,6 +43,7 @@ export interface ReviewSubmission {
           rows="4"
           maxlength="4000"
           formControlName="conclusion"
+          (input)="onConclusionInput($event)"
         ></textarea>
         <div class="row spread" style="margin-top: 2px;">
           @if (form.controls.conclusion.touched && form.controls.conclusion.errors?.['emoji']) {
@@ -63,6 +64,7 @@ export interface ReviewSubmission {
           rows="3"
           maxlength="4000"
           formControlName="recommendations"
+          (input)="onRecommendationsInput($event)"
         ></textarea>
         <div class="row spread" style="margin-top: 2px;">
           @if (form.controls.recommendations.touched && form.controls.recommendations.errors?.['emoji']) {
@@ -95,6 +97,32 @@ export class ReviewFormComponent {
     conclusion: ['', [Validators.required, Validators.pattern(/\S/), noEmojiValidator]],
     recommendations: ['', [noEmojiValidator]],
   });
+
+  protected onConclusionInput(event: Event): void {
+    const target = event.target as HTMLTextAreaElement;
+    const raw = target?.value ?? '';
+    let cleaned = sanitizeFreeText(raw);
+    if (raw.length > 0 && cleaned.trim().length === 0) {
+      cleaned = '';
+    }
+    if (target && target.value !== cleaned) {
+      target.value = cleaned;
+      this.form.controls.conclusion.setValue(cleaned);
+    }
+  }
+
+  protected onRecommendationsInput(event: Event): void {
+    const target = event.target as HTMLTextAreaElement;
+    const raw = target?.value ?? '';
+    let cleaned = sanitizeFreeText(raw);
+    if (raw.length > 0 && cleaned.trim().length === 0) {
+      cleaned = '';
+    }
+    if (target && target.value !== cleaned) {
+      target.value = cleaned;
+      this.form.controls.recommendations.setValue(cleaned);
+    }
+  }
 
   protected submit(): void {
     if (this.form.invalid) {
