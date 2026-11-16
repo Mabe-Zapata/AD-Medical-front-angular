@@ -15,6 +15,7 @@ import {
   AgendaAppointment,
   AppointmentStatus,
   DoctorCancellationCode,
+  isAppointmentElapsed,
 } from '../../domain/entities/appointment';
 import { CancelDoctorAppointment } from '../../domain/usecases/cancel-appointment';
 import { ListAgenda } from '../../domain/usecases/list-agenda';
@@ -50,6 +51,26 @@ export type StatusFilterOption = AppointmentStatus | 'TODOS';
       color: var(--danger, #dc2626);
       font-size: 13px;
       font-weight: 500;
+    }
+    .status-cell {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+    .badge-elapsed {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #9a3412;
+      background: #ffedd5;
+      border: 1px solid #fed7aa;
+      border-radius: 4px;
+      padding: 2px 6px;
+      line-height: 1.2;
+      white-space: nowrap;
     }
   `,
   template: `
@@ -124,9 +145,19 @@ export type StatusFilterOption = AppointmentStatus | 'TODOS';
                     <td>{{ timeRangeOf(appointment.startUtc, appointment.endUtc) }}</td>
                     <td>{{ appointment.patient?.name ?? '—' }}</td>
                     <td>
-                      <app-chip [tone]="statusTone(appointment.status)">
-                        {{ statusLabel(appointment.status) }}
-                      </app-chip>
+                      <div class="status-cell">
+                        <app-chip [tone]="statusTone(appointment.status)">
+                          {{ statusLabel(appointment.status) }}
+                        </app-chip>
+                        @if (isElapsed(appointment)) {
+                          <span
+                            class="badge-elapsed"
+                            title="El horario asignado ya concluyó y está pendiente de registro de consulta"
+                          >
+                            Horario concluido
+                          </span>
+                        }
+                      </div>
                     </td>
                     <td>
                       @if (canCancel(appointment)) {
@@ -385,5 +416,9 @@ export class AgendaPage {
 
   protected statusTone(status: AppointmentStatus) {
     return APPOINTMENT_STATUS_TONES[status] ?? 'info';
+  }
+
+  protected isElapsed(appointment: AgendaAppointment): boolean {
+    return isAppointmentElapsed(appointment);
   }
 }

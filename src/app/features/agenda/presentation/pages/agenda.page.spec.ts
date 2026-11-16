@@ -293,4 +293,26 @@ describe('AgendaPage', () => {
       expect(fakeListAgenda.calls.length).toBeGreaterThan(initialLoadCalls);
     });
   });
+
+  it('displays "Horario concluido" badge when a confirmed appointment end time is in the past', async () => {
+    const pastApt: AgendaAppointment = {
+      id: 'apt-past',
+      status: 'CONFIRMADA',
+      startUtc: '2026-11-01T10:00:00Z',
+      endUtc: '2026-11-01T10:30:00Z',
+      patient: { id: 'p-1', name: 'Paciente Pasado' },
+    };
+    const futureApt: AgendaAppointment = {
+      id: 'apt-future',
+      status: 'CONFIRMADA',
+      startUtc: '2030-01-01T10:00:00Z',
+      endUtc: '2030-01-01T10:30:00Z',
+      patient: { id: 'p-2', name: 'Paciente Futuro' },
+    };
+    await createComponent([pastApt, futureApt]);
+
+    const rows = el.querySelectorAll('tbody tr');
+    expect(rows[0].textContent).toContain('Horario concluido');
+    expect(rows[1].textContent).not.toContain('Horario concluido');
+  });
 });

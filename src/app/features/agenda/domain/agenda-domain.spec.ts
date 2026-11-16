@@ -5,6 +5,7 @@ import {
   ApproveCancellationCommand,
   CancellationApprovalResult,
   CancelDoctorAppointmentCommand,
+  isAppointmentElapsed,
 } from './entities/appointment';
 import { AgendaRepository, ListAgendaFilter } from './ports/agenda.ports';
 import { ApproveCancellation } from './usecases/approve-cancellation';
@@ -200,5 +201,54 @@ describe('ApproveCancellation usecase', () => {
       message: 'El motivo de la aprobación no puede superar los 1500 caracteres.',
     });
     expect(repo.lastApproveCommand).toBeUndefined();
+  });
+});
+
+describe('isAppointmentElapsed policy', () => {
+  const refTime = new Date('2026-11-16T12:00:00Z').getTime();
+
+  it('returns true when a confirmed appointment ended before the reference time', () => {
+    expect(
+      isAppointmentElapsed(
+        { status: 'CONFIRMADA', endUtc: '2026-11-16T11:30:00Z' },
+        refTime,
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false when a confirmed appointment is in the future', () => {
+    expect(
+      isAppointmentElapsed(
+        { status: 'CONFIRMADA', endUtc: '2026-11-16T13:00:00Z' },
+        refTime,
+      ),
+    ).toBe(false);
+  });
+
+  it('returns false for terminal states even if endUtc is in the past', () => {
+    expect(
+      isAppointmentElapsed(
+        { status: 'COMPLETADA', endUtc: '2026-11-16T10:00:00Z' },
+        refTime,
+      ),
+    ).toBe(false);
+    expect(
+      isAppointmentElapsed(
+        { status: 'CANCELADA', endUtc: '2026-11-16T10:00:00Z' },
+        refTime,
+      ),
+    ).toBe(false);
+    expect(
+      isAppointmentElapsed(
+        { status: 'NO_ASISTIO', endUtc: '2026-11-16T10:00:00Z' },
+        refTime,
+      ),
+    ).toBe(false);
+    expect(
+      isAppointmentElapsed(
+        { status: 'EXPIRADA', endUtc: '2026-11-16T10:00:00Z' },
+        refTime,
+      ),
+    ).toBe(false);
   });
 });

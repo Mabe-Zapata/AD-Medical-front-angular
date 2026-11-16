@@ -4,6 +4,7 @@ import {
   formatBranchDate,
   formatBranchTime,
   formatBranchTimeRange,
+  isPastUtc,
   toBranchTime,
 } from './branch-time';
 
@@ -42,5 +43,11 @@ describe('branch-time', () => {
 
   it('formats branch time ranges', () => {
     expect(formatBranchTimeRange('2026-11-02T13:30:00Z', '2026-11-02T14:00:00Z')).toBe('08:30 – 09:00');
+  });
+
+  it('checks whether an instant is in the past relative to a reference time', () => {
+    const ref = new Date('2026-11-16T12:00:00Z').getTime();
+    expect(isPastUtc('2026-11-16T11:00:00Z', ref)).toBe(true);
+    expect(isPastUtc('2026-11-16T13:00:00Z', ref)).toBe(false);
   });
 });

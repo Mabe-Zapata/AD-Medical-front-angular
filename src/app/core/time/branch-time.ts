@@ -20,7 +20,7 @@ export interface BranchDateTime {
 const DAYS = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'] as const;
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'] as const;
 
-function parseUtcMillis(utc: string | Date | number): number {
+export function parseUtcMillis(utc: string | Date | number): number {
   if (typeof utc === 'number') {
     return utc;
   }
@@ -32,6 +32,11 @@ function parseUtcMillis(utc: string | Date | number): number {
   const isZoned = /([zZ]|[+-]\d{2}:?\d{2})$/.test(raw);
   const normalized = isZoned ? raw : `${raw}Z`;
   return new Date(normalized).getTime();
+}
+
+/** Returns true if the given UTC instant has already passed. */
+export function isPastUtc(utc: string | Date | number, nowMillis = Date.now()): boolean {
+  return parseUtcMillis(utc) < nowMillis;
 }
 
 /** Convert a UTC instant to branch wall-clock components (UTC-5). */

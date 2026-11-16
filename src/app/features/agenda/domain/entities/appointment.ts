@@ -1,3 +1,5 @@
+import { isPastUtc } from '../../../../core/time/branch-time';
+
 /** Backend citas.estado enum. */
 export type AppointmentStatus =
   | 'CANCELADA'
@@ -51,4 +53,15 @@ export interface ApproveCancellationCommand {
 export interface CancellationApprovalResult {
   readonly appointmentId: string;
   readonly approved: boolean;
+}
+
+/**
+ * Returns true if a confirmed appointment's scheduled slot has concluded
+ * but has not yet been registered as attended/completed.
+ */
+export function isAppointmentElapsed(
+  appointment: Pick<AgendaAppointment, 'status' | 'endUtc'>,
+  nowMillis = Date.now(),
+): boolean {
+  return appointment.status === 'CONFIRMADA' && isPastUtc(appointment.endUtc, nowMillis);
 }
