@@ -59,6 +59,7 @@ type QueueFilter = 'todas' | 'urgentes' | 'paciente';
               <thead>
                 <tr>
                   <th>Fecha</th>
+                  <th>Paciente</th>
                   <th>Estado</th>
                   <th>Identificador</th>
                   <th></th>
@@ -68,6 +69,9 @@ type QueueFilter = 'todas' | 'urgentes' | 'paciente';
                 @for (order of pager.slice(orders()); track order.id) {
                   <tr>
                     <td>{{ dateOf(order) }}</td>
+                    <td>
+                      <strong>{{ patientName(order.patientId) }}</strong>
+                    </td>
                     <td>
                       <app-chip [tone]="order.status === 'COMPLETADA' ? 'success' : 'info'">
                         {{ statusLabels[order.status] ?? order.status }}
@@ -171,32 +175,127 @@ type QueueFilter = 'todas' | 'urgentes' | 'paciente';
       } @else {
       <section class="card stack">
         <div>
-          <h2>Abrir una orden por identificador</h2>
+          <h2>Abrir una orden</h2>
           <p class="muted small">
             @if (listing() === 'denied') {
               El médico te da el identificador de la orden en la que registras los resultados.
             } @else {
-              Para abrir una orden concreta.
+              Selecciona una orden de la lista, busca por paciente o ingresa el identificador.
             }
           </p>
         </div>
-        <form class="row" (ngSubmit)="open()" novalidate>
-          <div class="field grow">
-            <label for="order-id">Identificador de la orden</label>
-            <input
-              id="order-id"
-              class="input mono"
-              name="orderId"
-              [ngModel]="orderId()"
-              (ngModelChange)="orderId.set($event); openError.set(false)"
-              placeholder="00000000-0000-0000-0000-000000000000"
-              autocomplete="off"
-            />
-            @if (openError()) {
-              <span class="field-error">Escribe un identificador válido (formato UUID).</span>
+
+        <form class="approval-form stack" (ngSubmit)="open()" novalidate>
+          @if (orderMode() === 'select' && orders().length > 0) {
+            <div class="field">
+              <label for="order-search">
+                <strong>Buscar por paciente o identificador:</strong>
+              </label>
+              <div class="input-row">
+                <input
+                  id="order-search"
+                  name="orderSearch"
+                  class="input"
+                  type="text"
+                  placeholder="ej. María Pérez o 3b9f2a52..."
+                  [ngModel]="orderSearchTerm()"
+                  (ngModelChange)="onOrderSearchTermChange($event)"
+                  autocomplete="off"
+                />
+                @if (orderSearchTerm()) {
+                  <button
+                    type="button"
+                    class="btn btn--small"
+                    (click)="clearOrderSearch()"
+                    title="Borrar filtro de búsqueda"
+                  >
+                    Borrar
+                  </button>
+                }
+              </div>
+              @if (orderSearchTerm().trim(); as term) {
+                <p class="muted small">
+                  Filtrando órdenes por <em>"{{ term }}"</em> ({{ filteredOrders().length }} encontrada{{ filteredOrders().length === 1 ? '' : 's' }}).
+                </p>
+              }
+            </div>
+
+            <div class="field">
+              <label for="order-select">
+                <strong>Seleccionar orden médica:</strong>
+              </label>
+              <select
+                id="order-select"
+                class="input"
+                name="selectedOrder"
+                [ngModel]="selectedOrderOption()"
+                (ngModelChange)="onOrderSelectChange($event)"
+              >
+                @if (filteredOrders().length === 0) {
+                  <option value="">-- No hay órdenes que coincidan con la búsqueda --</option>
+                } @else {
+                  <option value="">-- Selecciona una orden médica --</option>
+                  @for (order of filteredOrders(); track order.id) {
+                    <option [value]="order.id">
+                      {{ dateOf(order) }} — {{ patientName(order.patientId) }} · {{ statusLabels[order.status] ?? order.status }} ({{ order.id.slice(0, 8) }})
+                    </option>
+                  }
+                }
+              </select>
+            </div>
+
+            @if (selectedOrder(); as ord) {
+              <div class="appointment-summary-box">
+                <p class="small" style="margin: 0; line-height: 1.6;">
+                  <strong>Paciente:</strong> {{ patientName(ord.patientId) }}<br />
+                  <strong>Fecha:</strong> {{ dateOf(ord) }} · <strong>Estado:</strong> {{ statusLabels[ord.status] ?? ord.status }}<br />
+                  <span class="mono muted">ID: {{ ord.id }}</span>
+                </p>
+              </div>
             }
+
+            <div class="mode-toggle">
+              <button type="button" class="link-button" (click)="setOrderMode('manual')">
+                ¿Ingresar identificador UUID manualmente?
+              </button>
+            </div>
+            <!-- Keep hidden input #order-id so querySelector('#order-id') continues to work in tests -->
+            <input id="order-id" type="hidden" [value]="effectiveOrderId()" />
+          } @else {
+            <div class="field">
+              <label for="order-id">
+                <strong>Identificador de la orden (UUID):</strong>
+              </label>
+              <input
+                id="order-id"
+                class="input mono"
+                name="orderId"
+                [ngModel]="orderId()"
+                (ngModelChange)="onManualOrderIdChange($event)"
+                placeholder="00000000-0000-0000-0000-000000000000"
+                autocomplete="off"
+              />
+              @if (orders().length > 0) {
+                <div class="mode-toggle">
+                  <button type="button" class="link-button" (click)="setOrderMode('select')">
+                    ← Volver a seleccionar de la lista de órdenes
+                  </button>
+                </div>
+              }
+            </div>
+          }
+
+          @if (openError()) {
+            <span class="field-error">
+              {{ orderMode() === 'select' ? 'Selecciona una orden de la lista o escribe un identificador válido.' : 'Escribe un identificador válido (formato UUID).' }}
+            </span>
+          }
+
+          <div>
+            <button class="btn btn--primary" type="submit" [disabled]="orderMode() === 'select' && !effectiveOrderId()">
+              Abrir
+            </button>
           </div>
-          <button class="btn btn--primary align" type="submit">Abrir</button>
         </form>
       </section>
       }
@@ -362,6 +461,43 @@ type QueueFilter = 'todas' | 'urgentes' | 'paciente';
     .align {
       align-self: flex-end;
     }
+    .approval-form {
+      display: grid;
+      gap: 16px;
+      max-width: 680px;
+    }
+    .input-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .input-row select,
+    .input-row input {
+      flex: 1;
+    }
+    .appointment-summary-box {
+      padding: 12px 16px;
+      border-radius: 10px;
+      background: var(--surface-subtle, #f8fafc);
+      border: 1px solid var(--border, #e2e8f0);
+    }
+    .mode-toggle {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 2px;
+    }
+    .link-button {
+      background: none;
+      border: none;
+      padding: 0;
+      color: var(--primary, #ea580c);
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .link-button:hover {
+      opacity: 0.85;
+    }
   `,
 })
 export class OrdersPage {
@@ -396,6 +532,25 @@ export class OrdersPage {
 
   protected readonly orderId = signal('');
   protected readonly openError = signal(false);
+  protected readonly orderSearchTerm = signal('');
+  protected readonly selectedOrderOption = signal('');
+  protected readonly orderMode = signal<'select' | 'manual'>('select');
+
+  protected readonly filteredOrders = computed(() => {
+    const list = this.orders();
+    const term = this.orderSearchTerm().trim().toLowerCase();
+    if (!term) return list;
+    return list.filter((o) => {
+      const patient = this.patientName(o.patientId).toLowerCase();
+      const id = o.id.toLowerCase();
+      return patient.includes(term) || id.includes(term);
+    });
+  });
+
+  protected readonly selectedOrder = computed(() => {
+    const id = this.effectiveOrderId();
+    return this.orders().find((o) => o.id === id) ?? null;
+  });
   protected readonly patientId = signal('');
   protected readonly testTypes = signal<readonly TestTypeOption[]>([]);
   protected readonly testTypesState = signal<'loading' | 'ready' | 'failed'>('loading');
@@ -539,12 +694,18 @@ export class OrdersPage {
 
   private async load(): Promise<void> {
     try {
-      this.orders.set(await this.listOrders.execute());
+      const orders = await this.listOrders.execute();
+      this.orders.set(orders);
+      if (orders.length > 0 && !this.selectedOrderOption()) {
+        this.selectedOrderOption.set(orders[0].id);
+        this.orderId.set(orders[0].id);
+      }
       this.listing.set('ready');
     } catch (error) {
       // 403: this role does not read orders (the lab technician), which is not a failure.
       this.listing.set(error instanceof AppError && error.kind === 'forbidden' ? 'denied' : 'failed');
     }
+    void this.loadPatients();
   }
 
   protected openForm(): void {
@@ -594,8 +755,69 @@ export class OrdersPage {
     return stripEmoji(text);
   }
 
+  protected patientName(patientId: string): string {
+    const found = this.patients().find((p) => p.id === patientId);
+    return found ? found.name : patientId;
+  }
+
+  protected setOrderMode(mode: 'select' | 'manual'): void {
+    this.orderMode.set(mode);
+    this.openError.set(false);
+    if (mode === 'select' && !this.selectedOrderOption() && this.orders().length > 0) {
+      this.selectedOrderOption.set(this.orders()[0].id);
+      this.orderId.set(this.orders()[0].id);
+    }
+  }
+
+  protected onOrderSearchTermChange(term: string): void {
+    this.orderSearchTerm.set(term);
+    this.openError.set(false);
+    const filtered = this.filteredOrders();
+    if (filtered.length === 1) {
+      this.selectedOrderOption.set(filtered[0].id);
+      this.orderId.set(filtered[0].id);
+    } else if (!filtered.some((o) => o.id === this.selectedOrderOption())) {
+      this.selectedOrderOption.set('');
+    }
+  }
+
+  protected onOrderSelectChange(id: string): void {
+    this.selectedOrderOption.set(id);
+    this.orderId.set(id);
+    this.openError.set(false);
+  }
+
+  protected onManualOrderIdChange(id: string): void {
+    this.orderId.set(id);
+    this.openError.set(false);
+  }
+
+  protected clearOrderSearch(): void {
+    this.orderSearchTerm.set('');
+    this.openError.set(false);
+    const filtered = this.filteredOrders();
+    if (filtered.length > 0) {
+      this.selectedOrderOption.set(filtered[0].id);
+      this.orderId.set(filtered[0].id);
+    }
+  }
+
+  protected effectiveOrderId(): string {
+    if (this.orderMode() === 'manual' || this.orders().length === 0) {
+      return this.orderId().trim();
+    }
+    if (this.selectedOrderOption()) {
+      return this.selectedOrderOption();
+    }
+    const filtered = this.filteredOrders();
+    if (filtered.length === 1) {
+      return filtered[0].id;
+    }
+    return this.orderId().trim();
+  }
+
   protected async open(): Promise<void> {
-    const id = this.orderId().trim();
+    const id = this.effectiveOrderId();
     if (!isUuid(id)) {
       this.openError.set(true);
       return;

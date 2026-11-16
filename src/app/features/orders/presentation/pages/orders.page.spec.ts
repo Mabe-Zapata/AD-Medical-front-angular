@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
+import { describe, expect, it } from 'vitest';
 
 import { AppError } from '../../../../core/domain/app-error';
 import { SessionState } from '../../../auth/presentation/session.state';
@@ -11,8 +12,8 @@ const ORDER_ID = '3b9f2a52-1c61-4f0e-9d0a-6a1c1c2f7e11';
 const OTHER_ID = 'aaaaaaaa-0000-4000-8000-000000000002';
 
 const orders: OrderSummary[] = [
-  { id: ORDER_ID, patientId: 'p1', status: 'COMPLETADA', orderedAt: '2026-11-10T16:30:59Z' },
-  { id: OTHER_ID, patientId: 'p1', status: 'SOLICITADA', orderedAt: '2026-11-09T10:00:00Z' },
+  { id: ORDER_ID, patientId: 'aaaaaaaa-0000-4000-8000-000000000010', status: 'COMPLETADA', orderedAt: '2026-11-10T16:30:59Z' },
+  { id: OTHER_ID, patientId: 'aaaaaaaa-0000-4000-8000-000000000011', status: 'SOLICITADA', orderedAt: '2026-11-09T10:00:00Z' },
 ];
 
 /** Plain stub (not vi.fn): vitest flags the rejected promises of mocks as unhandled. */
@@ -54,6 +55,7 @@ function setup(
 
 async function settle(fixture: { whenStable(): Promise<unknown>; detectChanges(): void }) {
   await fixture.whenStable();
+  await new Promise((resolve) => setTimeout(resolve, 0));
   fixture.detectChanges();
 }
 
@@ -67,6 +69,66 @@ describe('OrdersPage', () => {
     expect(el.textContent).toContain('Solicitada');
     const links = [...el.querySelectorAll<HTMLAnchorElement>('tbody a')].map((a) => a.getAttribute('href'));
     expect(links).toEqual([`/ordenes/${ORDER_ID}`, `/ordenes/${OTHER_ID}`]);
+  });
+
+  it('shows the patient name in the orders table', async () => {
+    const { fixture, el } = setup(async () => orders);
+    await settle(fixture);
+
+    expect(el.textContent).toContain('Paciente');
+    expect(el.textContent).toContain('María Pérez');
+    expect(el.textContent).toContain('Juan Gómez');
+  });
+
+  it('renders order combo box and allows searching by patient name', async () => {
+    const { fixture, el } = setup(async () => orders);
+    await settle(fixture);
+
+    const select = el.querySelector<HTMLSelectElement>('#order-select');
+    const searchInput = el.querySelector<HTMLInputElement>('#order-search');
+    expect(select).not.toBeNull();
+    expect(searchInput).not.toBeNull();
+    expect(select?.value).toBe(ORDER_ID);
+
+    // Summary box reflects the selected order
+    expect(el.querySelector('.appointment-summary-box')?.textContent).toContain('María Pérez');
+    expect(el.querySelector('.appointment-summary-box')?.textContent).toContain('Completada');
+
+    // Filter by patient Juan
+    searchInput!.value = 'Juan';
+    searchInput!.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const options = [...select!.querySelectorAll('option')].filter((o) => o.value !== '');
+    expect(options).toHaveLength(1);
+    expect(options[0].value).toBe(OTHER_ID);
+    expect(options[0].textContent).toContain('Juan Gómez');
+  });
+
+  it('allows switching between select and manual UUID entry mode', async () => {
+    const { fixture, el } = setup(async () => orders);
+    await settle(fixture);
+
+    const toggleBtn = [...el.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
+      b.textContent?.includes('Ingresar identificador UUID manualmente'),
+    );
+    expect(toggleBtn).not.toBeNull();
+    toggleBtn!.click();
+    fixture.detectChanges();
+
+    const manualInput = el.querySelector<HTMLInputElement>('input#order-id:not([type="hidden"])');
+    expect(manualInput).not.toBeNull();
+
+    const returnBtn = [...el.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
+      b.textContent?.includes('Volver a seleccionar de la lista'),
+    );
+    expect(returnBtn).not.toBeNull();
+    returnBtn!.click();
+    fixture.detectChanges();
+
+    expect(el.querySelector('#order-select')).not.toBeNull();
   });
 
   it('says there are none when the listing is empty', async () => {
