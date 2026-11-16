@@ -20,6 +20,7 @@ import {
   AgendaAppointment,
   AppointmentStatus,
   canCancelAppointment,
+  canOpenConsultation,
   DoctorCancellationCode,
   isAppointmentElapsed,
 } from '../../domain/entities/appointment';
@@ -465,7 +466,7 @@ export class AgendaPage {
   }
 
   protected canOpenConsultation(appointment: AgendaAppointment): boolean {
-    return appointment.status === 'CONFIRMADA' || appointment.status === 'COMPLETADA';
+    return canOpenConsultation(appointment);
   }
 
   protected canCancel(appointment: AgendaAppointment): boolean {
@@ -548,6 +549,11 @@ export class AgendaPage {
   }
 
   protected async submitConsultation(target: AgendaAppointment): Promise<void> {
+    if (!canOpenConsultation(target)) {
+      this.consultationError.set('No se puede registrar la consulta: el plazo máximo de 8 horas tras la cita ha vencido.');
+      return;
+    }
+
     const diag = this.consultationDiagnosis().trim();
     if (diag.length > 0) {
       if (hasEmoji(diag)) {

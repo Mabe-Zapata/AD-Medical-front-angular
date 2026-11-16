@@ -232,6 +232,21 @@ describe('AgendaPage', () => {
       expect(rows[3].querySelector('button.btn--primary')).toBeNull();
     });
 
+    it('hides "Registrar consulta" button when an appointment has concluded more than 8 hours ago', async () => {
+      const expiredApt: AgendaAppointment = {
+        id: 'apt-expired-consultation',
+        status: 'CONFIRMADA',
+        startUtc: '2026-10-31T11:30:00Z',
+        endUtc: '2026-10-31T12:00:00Z',
+        patient: { id: 'p-exp', name: 'Paciente Antiguo' },
+      };
+      await createComponent([expiredApt]);
+
+      const rows = el.querySelectorAll('tbody tr');
+      expect(rows[0].querySelector('button.btn--primary')).toBeNull();
+      expect(rows[0].textContent).toContain('—');
+    });
+
     it('opens consultation modal with patient name and appointment time on button click', async () => {
       await createComponent();
 

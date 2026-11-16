@@ -6,8 +6,10 @@ import {
   CancellationApprovalResult,
   CancelDoctorAppointmentCommand,
   canCancelAppointment,
+  canOpenConsultation,
   ConsultationResult,
   isAppointmentElapsed,
+  isConsultationExpired,
   OpenConsultationCommand,
 } from './entities/appointment';
 import { AgendaRepository, ListAgendaFilter } from './ports/agenda.ports';
@@ -422,6 +424,70 @@ describe('canCancelAppointment policy', () => {
     expect(
       canCancelAppointment(
         { status: 'CANCELADA', endUtc: '2026-11-16T15:00:00Z' },
+        refTime,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('canOpenConsultation policy (8-hour window)', () => {
+  const refTime = new Date('2026-11-16T12:00:00Z').getTime();
+
+  it('allows consultation when appointment is in the future or within 8 hours past its end', () => {
+    // 2 hours in the future
+    expect(
+      canOpenConsultation(
+        { status: 'CONFIRMADA', endUtc: '2026-11-16T14:00:00Z' },
+        refTime,
+      ),
+    ).toBe(true);
+
+    // Ended 4 hours ago (<= 8 hours)
+    expect(
+      canOpenConsultation(
+        { status: 'CONFIRMADA', endUtc: '2026-11-16T08:00:00Z' },
+        refTime,
+      ),
+    ).toBe(true);
+
+    // Ended exactly 8 hours ago
+    expect(
+      canOpenConsultation(
+        { status: 'CONFIRMADA', endUtc: '2026-11-16T04:00:00Z' },
+        refTime,
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects consultation when more than 8 hours have passed since the appointment end', () => {
+    // Ended 8 hours and 1 minute ago
+    expect(
+      canOpenConsultation(
+        { status: 'CONFIRMADA', endUtc: '2026-11-16T03:59:00Z' },
+        refTime,
+      ),
+    ).toBe(false);
+
+    // Ended yesterday (28 hours ago)
+    expect(
+      canOpenConsultation(
+        { status: 'CONFIRMADA', endUtc: '2026-11-15T08:00:00Z' },
+        refTime,
+      ),
+    ).toBe(false);
+    expect(isConsultationExpired('2026-11-15T08:00:00Z', refTime)).toBe(true);
+  });
+
+  it('rejects consultation for non-confirmed statuses like CANCELADA or NO_ASISTIO', () => {
+    expect(
+      canOpenConsultation(
+        { status: 'CANCELADA', endUtc: '2026-11-16T14:00:00Z' },
+        refTime,
+      ),
+    ).toBe(false);
+    expect(
+      canOpenConsultation(
+        { status: 'NO_ASISTIO', endUtc: '2026-11-16T14:00:00Z' },
         refTime,
       ),
     ).toBe(false);

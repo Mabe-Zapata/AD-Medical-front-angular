@@ -80,6 +80,37 @@ export function canCancelAppointment(
   return !isPastUtc(appointment.endUtc, nowMillis);
 }
 
+export const MAX_CONSULTATION_HOURS = 8;
+export const MAX_CONSULTATION_WINDOW_MS = MAX_CONSULTATION_HOURS * 60 * 60 * 1000;
+
+/**
+ * Returns true if an appointment's consultation window has expired
+ * (more than 8 hours after the slot's scheduled end time).
+ */
+export function isConsultationExpired(
+  endUtc: string,
+  nowMillis = Date.now(),
+): boolean {
+  const end = new Date(endUtc).getTime();
+  if (Number.isNaN(end)) return false;
+  return nowMillis - end > MAX_CONSULTATION_WINDOW_MS;
+}
+
+/**
+ * Returns true if a doctor can register attendance/consultation for an appointment:
+ * - Must be in CONFIRMADA or COMPLETADA status.
+ * - Allowed only up to 8 hours after the appointment's scheduled end time.
+ */
+export function canOpenConsultation(
+  appointment: Pick<AgendaAppointment, 'status' | 'endUtc'>,
+  nowMillis = Date.now(),
+): boolean {
+  if (appointment.status !== 'CONFIRMADA' && appointment.status !== 'COMPLETADA') {
+    return false;
+  }
+  return !isConsultationExpired(appointment.endUtc, nowMillis);
+}
+
 /** Command to open (register) the consultation for an appointment. */
 export interface OpenConsultationCommand {
   readonly appointmentId: string;
