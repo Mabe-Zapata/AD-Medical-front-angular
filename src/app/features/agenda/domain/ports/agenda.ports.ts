@@ -4,6 +4,8 @@ import {
   ApproveCancellationCommand,
   CancellationApprovalResult,
   CancelDoctorAppointmentCommand,
+  ConsultationResult,
+  OpenConsultationCommand,
 } from '../entities/appointment';
 
 export interface ListAgendaFilter {
@@ -19,4 +21,5 @@ export abstract class AgendaRepository {
   abstract approveCancellation(
     command: ApproveCancellationCommand,
   ): Promise<CancellationApprovalResult>;
+  abstract openConsultation(command: OpenConsultationCommand): Promise<ConsultationResult>;
 }

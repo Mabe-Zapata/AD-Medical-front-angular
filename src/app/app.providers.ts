@@ -44,6 +44,7 @@ import { AgendaRepository } from './features/agenda/domain/ports/agenda.ports';
 import { ApproveCancellation } from './features/agenda/domain/usecases/approve-cancellation';
 import { CancelDoctorAppointment } from './features/agenda/domain/usecases/cancel-appointment';
 import { ListAgenda } from './features/agenda/domain/usecases/list-agenda';
+import { OpenConsultation } from './features/agenda/domain/usecases/open-consultation';
 import { HttpKnowledgeRepository } from './features/knowledge/data/http-knowledge.repository';
 import { KnowledgeRepository } from './features/knowledge/domain/ports/knowledge.repository';
 import {
@@ -143,5 +144,9 @@ export const appProviders: Provider[] = [
   {
     provide: ApproveCancellation,
     useFactory: () => new ApproveCancellation(inject(AgendaRepository)),
+  },
+  {
+    provide: OpenConsultation,
+    useFactory: () => new OpenConsultation(inject(AgendaRepository)),
   },
 ];

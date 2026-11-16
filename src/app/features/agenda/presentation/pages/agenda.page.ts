@@ -19,9 +19,13 @@ import {
 } from '../../domain/entities/appointment';
 import { CancelDoctorAppointment } from '../../domain/usecases/cancel-appointment';
 import { ListAgenda } from '../../domain/usecases/list-agenda';
+import { OpenConsultation } from '../../domain/usecases/open-consultation';
 import { APPOINTMENT_STATUS_LABELS, APPOINTMENT_STATUS_TONES } from '../labels';
 
 export type StatusFilterOption = AppointmentStatus | 'TODOS';
+
+/** Max chars for the consultation notes field (informational only — backend has no note body). */
+export const CONSULTATION_NOTES_MAX = 500;
 
 @Component({
   selector: 'app-agenda-page',
@@ -71,6 +75,11 @@ export type StatusFilterOption = AppointmentStatus | 'TODOS';
       padding: 2px 6px;
       line-height: 1.2;
       white-space: nowrap;
+    }
+    .char-hint {
+      font-size: 12px;
+      color: var(--muted, #6b7280);
+      text-align: right;
     }
   `,
   template: `
@@ -160,17 +169,29 @@ export type StatusFilterOption = AppointmentStatus | 'TODOS';
                       </div>
                     </td>
                     <td>
-                      @if (canCancel(appointment)) {
-                        <button
-                          class="btn btn--small btn--danger"
-                          type="button"
-                          (click)="openCancelModal(appointment)"
-                        >
-                          Cancelar
-                        </button>
-                      } @else {
-                        <span class="muted small">—</span>
-                      }
+                      <div class="row" style="gap: 8px;">
+                        @if (canOpenConsultation(appointment)) {
+                          <button
+                            class="btn btn--small btn--primary"
+                            type="button"
+                            (click)="openConsultationModal(appointment)"
+                          >
+                            Registrar consulta
+                          </button>
+                        }
+                        @if (canCancel(appointment)) {
+                          <button
+                            class="btn btn--small btn--danger"
+                            type="button"
+                            (click)="openCancelModal(appointment)"
+                          >
+                            Cancelar
+                          </button>
+                        }
+                        @if (!canOpenConsultation(appointment) && !canCancel(appointment)) {
+                          <span class="muted small">—</span>
+                        }
+                      </div>
                     </td>
                   </tr>
                 }
@@ -181,6 +202,54 @@ export type StatusFilterOption = AppointmentStatus | 'TODOS';
         }
       </section>
 
+      <!-- Consultation modal -->
+      @if (consultationTarget(); as target) {
+        <app-modal
+          tag="Registrar consulta"
+          headline="Confirmar atención de la cita"
+          [bullets]="consultationBullets"
+          (closed)="closeConsultationModal()"
+        >
+          @if (consultationError(); as err) {
+            <app-banner tone="danger">{{ err }}</app-banner>
+          }
+
+          <form class="stack" (ngSubmit)="submitConsultation(target)" novalidate>
+            <p class="muted">
+              Vas a registrar la consulta de
+              <strong>{{ target.patient?.name ?? 'Paciente' }}</strong> del
+              <strong>{{ dateOf(target.startUtc) }}</strong> a las
+              <strong>{{ timeRangeOf(target.startUtc, target.endUtc) }}</strong>.
+            </p>
+            <p class="muted small">
+              Esta acción marcará la cita como <strong>atendida</strong>. Es irreversible desde el portal.
+            </p>
+
+            <div class="row" style="margin-top: 8px;">
+              <button
+                class="btn btn--primary"
+                type="submit"
+                [disabled]="submittingConsultation()"
+              >
+                @if (submittingConsultation()) {
+                  <span class="spinner" aria-hidden="true"></span> Registrando…
+                } @else {
+                  Confirmar atención
+                }
+              </button>
+              <button
+                class="btn btn--ghost"
+                type="button"
+                (click)="closeConsultationModal()"
+              >
+                Volver
+              </button>
+            </div>
+          </form>
+        </app-modal>
+      }
+
+      <!-- Cancel modal -->
       @if (cancellingTarget(); as target) {
         <app-modal
           tag="Cancelar cita"
@@ -235,6 +304,7 @@ export type StatusFilterOption = AppointmentStatus | 'TODOS';
                 [value]="cancelReasonText()"
                 (input)="onReasonTextChange($any($event.target).value)"
               ></textarea>
+              <span class="char-hint">{{ cancelReasonText().length }} / 1500</span>
               @if (cancelValidationError(); as vError) {
                 <span class="field-error">{{ vError }}</span>
               }
@@ -269,6 +339,7 @@ export type StatusFilterOption = AppointmentStatus | 'TODOS';
 export class AgendaPage {
   private readonly listAgenda = inject(ListAgenda);
   private readonly cancelDoctorAppointment = inject(CancelDoctorAppointment);
+  private readonly openConsultationUsecase = inject(OpenConsultation);
 
   protected readonly pager = new PageState();
   protected readonly listing = signal<'loading' | 'ready' | 'failed'>('loading');
@@ -276,6 +347,12 @@ export class AgendaPage {
   protected readonly statusFilter = signal<StatusFilterOption>('TODOS');
   protected readonly notice = signal<string | null>(null);
 
+  // Consultation modal state
+  protected readonly consultationTarget = signal<AgendaAppointment | null>(null);
+  protected readonly consultationError = signal<string | null>(null);
+  protected readonly submittingConsultation = signal(false);
+
+  // Cancel modal state
   protected readonly cancellingTarget = signal<AgendaAppointment | null>(null);
   protected readonly cancelReasonCode = signal<DoctorCancellationCode>('IMPREVISTO_MEDICO');
   protected readonly cancelReasonText = signal('');
@@ -295,6 +372,11 @@ export class AgendaPage {
       // Clipboard access blocked
     }
   }
+
+  protected readonly consultationBullets = [
+    'Registrar la consulta confirma que el médico atendió al paciente.',
+    'Esta acción no puede deshacerse desde el portal.',
+  ];
 
   protected readonly cancelBullets = [
     'Al cancelar la cita, se liberará el horario de atención.',
@@ -334,9 +416,49 @@ export class AgendaPage {
     void this.load();
   }
 
+  protected canOpenConsultation(appointment: AgendaAppointment): boolean {
+    return appointment.status === 'CONFIRMADA' || appointment.status === 'COMPLETADA';
+  }
+
   protected canCancel(appointment: AgendaAppointment): boolean {
     return appointment.status === 'CONFIRMADA' || appointment.status === 'PENDIENTE_PAGO';
   }
+
+  // ── Consultation modal ────────────────────────────────────────────────────
+
+  protected openConsultationModal(appointment: AgendaAppointment): void {
+    this.notice.set(null);
+    this.consultationTarget.set(appointment);
+    this.consultationError.set(null);
+  }
+
+  protected closeConsultationModal(): void {
+    this.consultationTarget.set(null);
+    this.consultationError.set(null);
+  }
+
+  protected async submitConsultation(target: AgendaAppointment): Promise<void> {
+    this.submittingConsultation.set(true);
+    this.consultationError.set(null);
+    try {
+      await this.openConsultationUsecase.execute({ appointmentId: target.id });
+      this.consultationTarget.set(null);
+      this.notice.set(`Consulta registrada correctamente para ${target.patient?.name ?? 'el paciente'}.`);
+      await this.load();
+    } catch (error: any) {
+      if (error?.status === 409 || error?.kind === 'conflict') {
+        this.consultationError.set('La cita ya tiene una consulta registrada o no está en un estado válido para registrarla.');
+      } else if (error?.status === 403 || error?.kind === 'forbidden') {
+        this.consultationError.set('No tenés permiso para registrar esta consulta.');
+      } else {
+        this.consultationError.set(describeError(error).message);
+      }
+    } finally {
+      this.submittingConsultation.set(false);
+    }
+  }
+
+  // ── Cancel modal ──────────────────────────────────────────────────────────
 
   protected openCancelModal(appointment: AgendaAppointment): void {
     this.notice.set(null);
@@ -401,6 +523,8 @@ export class AgendaPage {
       this.submittingCancel.set(false);
     }
   }
+
+  // ── Formatters ────────────────────────────────────────────────────────────
 
   protected dateOf(utc: string): string {
     return formatBranchDate(utc);

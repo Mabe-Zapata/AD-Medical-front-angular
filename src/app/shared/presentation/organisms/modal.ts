@@ -35,7 +35,7 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
           </div>
           <p class="foot"><strong>Personal autorizado</strong><span>Red Medilo Lab</span></p>
         </aside>
-        <div class="task">
+        <div class="task" [class.task--centered]="centered()">
           <button class="close" type="button" aria-label="Cerrar" (click)="closed.emit()">
             <span aria-hidden="true">×</span>
           </button>
@@ -188,6 +188,15 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
     .body {
       padding: 32px 36px 28px;
     }
+    .task--centered {
+      display: flex;
+      flex-direction: column;
+    }
+    .task--centered .body {
+      width: 100%;
+      box-sizing: border-box;
+      margin: auto 0;
+    }
     .close {
       position: absolute;
       top: 12px;
@@ -259,6 +268,8 @@ export class ModalComponent {
   readonly tag = input.required<string>();
   readonly headline = input.required<string>();
   readonly bullets = input<readonly string[]>([]);
+  /** Vertically centres the task form in the panel (used when the form is short). */
+  readonly centered = input(false);
   readonly closed = output<void>();
 
   protected onBackdrop(event: MouseEvent): void {

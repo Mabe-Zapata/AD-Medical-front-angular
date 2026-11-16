@@ -299,6 +299,7 @@ import { ListAgenda } from '../../domain/usecases/list-agenda';
               placeholder="Detalla el motivo por el cual se autoriza esta cancelación..."
               [ngModel]="reason()"
               (ngModelChange)="onReasonChange($event)"
+              (input)="onReasonInput($event)"
               [disabled]="submitting()"
             ></textarea>
             <div class="char-count">{{ reason().length }} / 1500 caracteres</div>

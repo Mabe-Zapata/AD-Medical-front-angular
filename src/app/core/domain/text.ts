@@ -78,3 +78,22 @@ export function sanitizeFreeText(text: string): string {
 export function sanitizeIdentifier(text: string): string {
   return stripEmoji(text).replace(/[^a-zA-Z0-9-]/g, '').trim();
 }
+
+/** Measurement units: letters and "/" only (e.g. "mg/dL"). Mirrors the unit rule of the analyte form. */
+export function sanitizeUnit(text: string): string {
+  return text.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ/]/g, '');
+}
+
+/** Thresholds: digits with an optional "." or "," separator. Mirrors the decimal(18, 6) column. */
+export function sanitizeThreshold(text: string): string {
+  return text.replace(/[^0-9.,]/g, '');
+}
+
+/** Up to 12 integer digits and 6 decimals, the precision of the threshold column in the database. */
+export function isValidThreshold(text: string): boolean {
+  return /^\d{1,12}([.,]\d{1,6})?$/.test(text.trim());
+}
+
+export function parseThreshold(text: string): number {
+  return Number(text.trim().replace(',', '.'));
+}

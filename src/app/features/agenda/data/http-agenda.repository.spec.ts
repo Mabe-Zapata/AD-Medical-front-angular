@@ -257,4 +257,55 @@ describe('HttpAgendaRepository', () => {
       correlationId: 'corr-app-409',
     });
   });
+
+  describe('openConsultation', () => {
+    it('POSTs to /appointments/:id/consultation and maps the response', async () => {
+      const promise = repository.openConsultation({ appointmentId: 'apt-confirmed' });
+
+      const req = http.expectOne('/api/v1/appointments/apt-confirmed/consultation');
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({});
+
+      req.flush({
+        id: 'consult-uuid',
+        cita_id: 'apt-confirmed',
+        estado: 'ABIERTA',
+        inicio_atencion: '2026-11-16T13:00:00Z',
+        motivo_consulta: null,
+      });
+
+      const result = await promise;
+      expect(result).toEqual({
+        id: 'consult-uuid',
+        appointmentId: 'apt-confirmed',
+        estado: 'ABIERTA',
+        inicioAtencion: '2026-11-16T13:00:00Z',
+        motivoConsulta: null,
+      });
+    });
+
+    it('translates 409 to AppError kind=conflict', async () => {
+      const promise = repository.openConsultation({ appointmentId: 'apt-wrong-state' });
+
+      const req = http.expectOne('/api/v1/appointments/apt-wrong-state/consultation');
+      req.flush(
+        { type: 'about:blank', title: 'Conflict', status: 409, detail: 'Not CONFIRMADA' },
+        { status: 409, statusText: 'Conflict' },
+      );
+
+      await expect(promise).rejects.toMatchObject({ kind: 'conflict', status: 409 });
+    });
+
+    it('translates 403 to AppError kind=forbidden', async () => {
+      const promise = repository.openConsultation({ appointmentId: 'apt-other-doctor' });
+
+      const req = http.expectOne('/api/v1/appointments/apt-other-doctor/consultation');
+      req.flush(
+        { type: 'about:blank', title: 'Forbidden', status: 403, detail: 'Not in agenda' },
+        { status: 403, statusText: 'Forbidden' },
+      );
+
+      await expect(promise).rejects.toMatchObject({ kind: 'forbidden', status: 403 });
+    });
+  });
 });

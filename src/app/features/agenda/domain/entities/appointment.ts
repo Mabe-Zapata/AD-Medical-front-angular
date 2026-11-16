@@ -65,3 +65,17 @@ export function isAppointmentElapsed(
 ): boolean {
   return appointment.status === 'CONFIRMADA' && isPastUtc(appointment.endUtc, nowMillis);
 }
+
+/** Command to open (register) the consultation for an appointment. */
+export interface OpenConsultationCommand {
+  readonly appointmentId: string;
+}
+
+/** Returned by the backend after opening a consultation. */
+export interface ConsultationResult {
+  readonly id: string;
+  readonly appointmentId: string;
+  readonly estado: 'ABIERTA' | 'CERRADA';
+  readonly inicioAtencion: string | null;
+  readonly motivoConsulta: string | null;
+}

@@ -5,17 +5,21 @@ import {
   ApproveCancellationCommand,
   CancellationApprovalResult,
   CancelDoctorAppointmentCommand,
+  ConsultationResult,
   isAppointmentElapsed,
+  OpenConsultationCommand,
 } from './entities/appointment';
 import { AgendaRepository, ListAgendaFilter } from './ports/agenda.ports';
 import { ApproveCancellation } from './usecases/approve-cancellation';
 import { CancelDoctorAppointment } from './usecases/cancel-appointment';
 import { ListAgenda } from './usecases/list-agenda';
+import { OpenConsultation } from './usecases/open-consultation';
 
 class FakeAgendaRepository extends AgendaRepository {
   lastFilter?: ListAgendaFilter;
   lastCancelCommand?: CancelDoctorAppointmentCommand;
   lastApproveCommand?: ApproveCancellationCommand;
+  lastOpenConsultationCommand?: OpenConsultationCommand;
   items: readonly AgendaAppointment[] = [];
 
   async listAppointments(filter?: ListAgendaFilter): Promise<readonly AgendaAppointment[]> {
@@ -34,6 +38,17 @@ class FakeAgendaRepository extends AgendaRepository {
     return {
       appointmentId: command.appointmentId,
       approved: true,
+    };
+  }
+
+  async openConsultation(command: OpenConsultationCommand): Promise<ConsultationResult> {
+    this.lastOpenConsultationCommand = command;
+    return {
+      id: 'consult-1',
+      appointmentId: command.appointmentId,
+      estado: 'ABIERTA',
+      inicioAtencion: null,
+      motivoConsulta: null,
     };
   }
 }
@@ -201,6 +216,30 @@ describe('ApproveCancellation usecase', () => {
       message: 'El motivo de la aprobación no puede superar los 1500 caracteres.',
     });
     expect(repo.lastApproveCommand).toBeUndefined();
+  });
+});
+
+describe('OpenConsultation usecase', () => {
+  it('delegates to repository and returns consultation result', async () => {
+    const repo = new FakeAgendaRepository();
+    const usecase = new OpenConsultation(repo);
+
+    const result = await usecase.execute({ appointmentId: 'apt-confirmed' });
+
+    expect(repo.lastOpenConsultationCommand).toEqual({ appointmentId: 'apt-confirmed' });
+    expect(result).toMatchObject({
+      appointmentId: 'apt-confirmed',
+      estado: 'ABIERTA',
+    });
+  });
+
+  it('propagates repository errors without wrapping them', async () => {
+    const repo = new FakeAgendaRepository();
+    const error = new Error('409 conflict');
+    repo.openConsultation = async () => { throw error; };
+    const usecase = new OpenConsultation(repo);
+
+    await expect(usecase.execute({ appointmentId: 'apt-1' })).rejects.toBe(error);
   });
 });
 

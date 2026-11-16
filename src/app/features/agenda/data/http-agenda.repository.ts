@@ -10,6 +10,8 @@ import {
   ApproveCancellationCommand,
   CancellationApprovalResult,
   CancelDoctorAppointmentCommand,
+  ConsultationResult,
+  OpenConsultationCommand,
 } from '../domain/entities/appointment';
 import { AgendaRepository, ListAgendaFilter } from '../domain/ports/agenda.ports';
 
@@ -38,6 +40,14 @@ interface AppointmentListDto {
 interface CancellationApprovalDto {
   cita_id: string;
   aprobada: boolean;
+}
+
+interface ConsultationDto {
+  id: string;
+  cita_id: string;
+  estado: 'ABIERTA' | 'CERRADA';
+  inicio_atencion: string | null;
+  motivo_consulta: string | null;
 }
 
 @Injectable()
@@ -122,4 +132,25 @@ export class HttpAgendaRepository extends AgendaRepository {
       throw toAppError(error);
     }
   }
+
+  async openConsultation(command: OpenConsultationCommand): Promise<ConsultationResult> {
+    try {
+      const response = await firstValueFrom(
+        this.http.post<ConsultationDto>(
+          `${this.base}/appointments/${command.appointmentId}/consultation`,
+          {},
+        ),
+      );
+      return {
+        id: response.id,
+        appointmentId: response.cita_id,
+        estado: response.estado,
+        inicioAtencion: response.inicio_atencion,
+        motivoConsulta: response.motivo_consulta,
+      };
+    } catch (error) {
+      throw toAppError(error);
+    }
+  }
 }
+

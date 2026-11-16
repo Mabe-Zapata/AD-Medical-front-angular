@@ -3,10 +3,16 @@ import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { AppError } from '../../../../core/domain/app-error';
-import { AgendaAppointment, CancelDoctorAppointmentCommand } from '../../domain/entities/appointment';
+import {
+  AgendaAppointment,
+  CancelDoctorAppointmentCommand,
+  ConsultationResult,
+  OpenConsultationCommand,
+} from '../../domain/entities/appointment';
 import { ListAgendaFilter } from '../../domain/ports/agenda.ports';
 import { CancelDoctorAppointment } from '../../domain/usecases/cancel-appointment';
 import { ListAgenda } from '../../domain/usecases/list-agenda';
+import { OpenConsultation } from '../../domain/usecases/open-consultation';
 import { AgendaPage } from './agenda.page';
 
 class FakeListAgenda {
@@ -35,9 +41,30 @@ class FakeCancelDoctorAppointment {
   }
 }
 
+class FakeOpenConsultation {
+  calls: OpenConsultationCommand[] = [];
+  errorToThrow: unknown = null;
+  result: ConsultationResult = {
+    id: 'consult-1',
+    appointmentId: 'apt-1',
+    estado: 'ABIERTA',
+    inicioAtencion: null,
+    motivoConsulta: null,
+  };
+
+  async execute(command: OpenConsultationCommand): Promise<ConsultationResult> {
+    this.calls.push(command);
+    if (this.errorToThrow) {
+      throw this.errorToThrow;
+    }
+    return this.result;
+  }
+}
+
 describe('AgendaPage', () => {
   let fakeListAgenda: FakeListAgenda;
   let fakeCancelAppointment: FakeCancelDoctorAppointment;
+  let fakeOpenConsultation: FakeOpenConsultation;
   let fixture: ComponentFixture<AgendaPage>;
   let el: HTMLElement;
 
@@ -89,6 +116,7 @@ describe('AgendaPage', () => {
   beforeEach(() => {
     fakeListAgenda = new FakeListAgenda();
     fakeCancelAppointment = new FakeCancelDoctorAppointment();
+    fakeOpenConsultation = new FakeOpenConsultation();
 
     TestBed.configureTestingModule({
       imports: [AgendaPage],
@@ -96,6 +124,7 @@ describe('AgendaPage', () => {
         provideRouter([]),
         { provide: ListAgenda, useValue: fakeListAgenda },
         { provide: CancelDoctorAppointment, useValue: fakeCancelAppointment },
+        { provide: OpenConsultation, useValue: fakeOpenConsultation },
       ],
     });
   });
@@ -181,6 +210,96 @@ describe('AgendaPage', () => {
     expect(el.querySelectorAll('tbody tr').length).toBe(0);
     expect(el.textContent).toContain('No tienes citas registradas en tu agenda.');
     expect(el.textContent).toContain('Las citas aparecerán aquí cuando los pacientes las reserven');
+  });
+
+  describe('Open consultation (register attendance)', () => {
+    it('shows "Registrar consulta" button for CONFIRMADA and COMPLETADA appointments', async () => {
+      await createComponent();
+
+      const rows = el.querySelectorAll('tbody tr');
+      // apt-1 (CONFIRMADA) — should have btn--primary
+      expect(rows[0].querySelector('button.btn--primary')).not.toBeNull();
+      // apt-2 (PENDIENTE_PAGO) — no consultation button
+      expect(rows[1].querySelector('button.btn--primary')).toBeNull();
+      // apt-3 (COMPLETADA) — idempotent, should also show it
+      expect(rows[2].querySelector('button.btn--primary')).not.toBeNull();
+      // apt-4 (CANCELADA) — no button
+      expect(rows[3].querySelector('button.btn--primary')).toBeNull();
+    });
+
+    it('opens consultation modal with patient name and appointment time on button click', async () => {
+      await createComponent();
+
+      const btn = el.querySelector('tbody tr button.btn--primary') as HTMLButtonElement;
+      btn.click();
+      fixture.detectChanges();
+
+      const modal = el.querySelector('app-modal');
+      expect(modal).not.toBeNull();
+      expect(modal!.textContent).toContain('Confirmar atención de la cita');
+      expect(modal!.textContent).toContain('Carlos Ruiz');
+      expect(modal!.textContent).toContain('08:30 – 09:00');
+    });
+
+    it('submits consultation, closes modal, shows success notice, and reloads agenda', async () => {
+      await createComponent();
+
+      const btn = el.querySelector('tbody tr button.btn--primary') as HTMLButtonElement;
+      btn.click();
+      fixture.detectChanges();
+
+      const initialLoadCalls = fakeListAgenda.calls.length;
+
+      const submitBtn = el.querySelector('app-modal button[type="submit"]') as HTMLButtonElement;
+      submitBtn.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(fakeOpenConsultation.calls).toEqual([{ appointmentId: 'apt-1' }]);
+      expect(el.querySelector('app-modal')).toBeNull();
+      expect(el.textContent).toContain('Consulta registrada correctamente');
+      expect(fakeListAgenda.calls.length).toBeGreaterThan(initialLoadCalls);
+    });
+
+    it('shows 409 error as "ya tiene una consulta registrada" message inside the modal', async () => {
+      await createComponent();
+
+      fakeOpenConsultation.errorToThrow = new AppError('conflict', 'CONSULTATION_EXISTS', undefined, 409);
+
+      const btn = el.querySelector('tbody tr button.btn--primary') as HTMLButtonElement;
+      btn.click();
+      fixture.detectChanges();
+
+      const submitBtn = el.querySelector('app-modal button[type="submit"]') as HTMLButtonElement;
+      submitBtn.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const modal = el.querySelector('app-modal');
+      expect(modal).not.toBeNull();
+      expect(modal!.textContent).toContain('ya tiene una consulta registrada');
+    });
+
+    it('shows 403 error as "No tenés permiso" message inside the modal', async () => {
+      await createComponent();
+
+      fakeOpenConsultation.errorToThrow = new AppError('forbidden', 'FORBIDDEN', undefined, 403);
+
+      const btn = el.querySelector('tbody tr button.btn--primary') as HTMLButtonElement;
+      btn.click();
+      fixture.detectChanges();
+
+      const submitBtn = el.querySelector('app-modal button[type="submit"]') as HTMLButtonElement;
+      submitBtn.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const modal = el.querySelector('app-modal');
+      expect(modal!.textContent).toContain('No tenés permiso');
+    });
   });
 
   describe('Appointment cancellation (A2)', () => {
