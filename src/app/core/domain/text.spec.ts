@@ -16,6 +16,7 @@ import {
   sanitizeClinicalText,
   sanitizeLabel,
   sanitizeCode,
+  sanitizeResultValue,
   isValidClinicalText,
 } from './text';
 
@@ -83,6 +84,12 @@ describe('text sanitization and validation', () => {
     expect(isValidEmail('ana@lab')).toBe(false);
     expect(sanitizeEmail('ana 😀 @lab.com')).toBe('ana@lab.com');
     expect(sanitizeEmail('ana👨🏽‍⚕️​⁠🇪🇨 @lab.com')).toBe('ana@lab.com');
+  });
+
+  it('keeps result values free of spaces, emojis and symbols', () => {
+    expect(sanitizeResultValue('12,5 💊 ©')).toBe('12,5');
+    expect(sanitizeResultValue('<5 %')).toBe('<5%');
+    expect(sanitizeResultValue('Positivo')).toBe('Positivo');
   });
 
   it('keeps rule codes free of spaces and symbols', () => {

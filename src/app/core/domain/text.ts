@@ -107,6 +107,11 @@ export function sanitizeIdentifier(text: string): string {
   return stripEmoji(text).replace(/[^a-zA-Z0-9-]/g, '').trim();
 }
 
+/** Result values: no spaces, no emojis or symbols; digits, letters and . , < > % + - / only. */
+export function sanitizeResultValue(text: string): string {
+  return text.replace(/[^A-Za-z0-9áéíóúÁÉÍÓÚñÑüÜ.,<>%+\-/]/g, '');
+}
+
 /** Measurement units: letters and "/" only (e.g. "mg/dL"). Mirrors the unit rule of the analyte form. */
 export function sanitizeUnit(text: string): string {
   return text.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ/]/g, '');
