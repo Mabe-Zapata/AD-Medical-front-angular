@@ -150,7 +150,14 @@ function setup(stubs: Partial<Stubs>, ...granted: string[]) {
           execute: async () => [{ id: 't-1-aaaa-bbbb', code: 'HEM', name: 'Hemograma completo' }],
         },
       },
-      { provide: ListTestAnalytes, useValue: { execute: async () => [] } },
+      {
+        provide: ListTestAnalytes,
+        useValue: {
+          execute: async () => [
+            { id: ANALYTE_ID, name: 'Hemoglobina', unit: 'g/dL', valueType: 'NUMERICO', mandatory: false },
+          ],
+        },
+      },
       {
         provide: ListAnalytes,
         useValue: {
@@ -417,7 +424,7 @@ describe('OrderDetailPage', () => {
     expect(el.textContent).toContain('registra los resultados desde la cola de trabajo');
     expect(el.textContent).not.toContain('No encontramos esa orden');
     await openModal(fixture, el, 'Registrar resultados');
-    expect(el.querySelector('#result-test')?.tagName).toBe('INPUT');
+    expect(el.querySelector('#result-test')?.tagName).toBe('SPAN');
     expect(el.textContent).toContain('Registrar resultados');
   });
 
@@ -479,13 +486,13 @@ describe('OrderDetailPage', () => {
   it('discarding drops what was typed and keeps the draft that was already saved', async () => {
     sessionStorage.setItem(
       `medilo.results-draft.${ORDER_ID}`,
-      JSON.stringify({ orderId: ORDER_ID, detailId: DETAIL_ID, rows: [{ analyteId: '', value: '12', unit: '' }] }),
+      JSON.stringify({ orderId: ORDER_ID, detailId: DETAIL_ID, rows: [{ analyteId: ANALYTE_ID, value: '12', unit: '' }] }),
     );
     const { fixture, el } = setup({}, ...LAB);
     await settle(fixture);
     await openModal(fixture, el, 'Registrar resultados');
     expect(el.textContent).toContain('Recuperamos tu borrador guardado en este navegador.');
-    expect((el.querySelector('#result-test') as HTMLInputElement).value).toBe(DETAIL_ID);
+    expect((el.querySelector('#result-test') as HTMLSelectElement).value).toBe(DETAIL_ID);
 
     type(el, '#value-0', '14');
     await settle(fixture);

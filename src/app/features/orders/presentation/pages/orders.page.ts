@@ -97,7 +97,7 @@ type QueueFilter = 'todas' | 'urgentes' | 'paciente';
           @if (confirmTarget(); as target) {
             <app-dialog
               title="Confirmar la orden"
-              message="Al confirmar, la orden queda cerrada: no podrás cambiar resultados ni subir informes. Si hay un informe, se envía al paciente con sus resultados."
+              message="Puedes subir el informe antes de confirmar, o confirmar sin informe. Al confirmar, la orden queda cerrada: no podrás cambiar resultados ni subir informes."
               [actions]="confirmActions"
               dismissValue="cancel"
               (chosen)="onConfirmChoice($event, target)"
@@ -514,7 +514,8 @@ export class OrdersPage {
   protected readonly confirmTarget = signal<WorklistOrder | null>(null);
   protected readonly queueBanner = signal<{ text: string; tone: 'success' | 'danger' } | null>(null);
   protected readonly confirmActions: readonly DialogAction[] = [
-    { label: 'Confirmar orden', value: 'confirm', tone: 'primary' },
+    { label: 'Subir informe', value: 'upload', tone: 'ghost' },
+    { label: 'Confirmar sin informe', value: 'confirm', tone: 'primary' },
     { label: 'Volver', value: 'cancel', tone: 'ghost' },
   ];
   private readonly listTestTypes = inject(ListTestTypes);
@@ -618,6 +619,10 @@ export class OrdersPage {
 
   protected async onConfirmChoice(value: string, target: WorklistOrder): Promise<void> {
     this.confirmTarget.set(null);
+    if (value === 'upload') {
+      void this.router.navigate(['/ordenes', target.id]);
+      return;
+    }
     if (value !== 'confirm') return;
     try {
       await this.confirmOrder.execute(target.id);
