@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { FormsModule } from '@angular/forms';
 
 import { normalizeSearch, sanitizeSearch } from '../../../../core/domain/text';
+import { sanitizeInputEvent } from '../../../../shared/presentation/forms/sanitize-on-type';
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
 import { ChipComponent } from '../../../../shared/presentation/atoms/chip';
 import { ErrorView, describeError } from '../../../../shared/presentation/error-message';
@@ -81,6 +82,7 @@ const CONFLICT_MESSAGES: Readonly<Record<Kind, string>> = {
                 placeholder="Filtrar por analito o regla..."
                 [ngModel]="searchQuery()"
                 (ngModelChange)="onSearchQueryChange($event)"
+                (input)="cleanSearchInput($event)"
               />
             </div>
           </div>
@@ -265,6 +267,10 @@ export class DraftsPage {
   protected onTypeFilterChange(type: 'ALL' | Kind): void {
     this.typeFilter.set(type);
     this.pager.page.set(0);
+  }
+
+  protected cleanSearchInput(event: Event): void {
+    sanitizeInputEvent(event, sanitizeSearch);
   }
 
   protected onSearchQueryChange(query: string): void {

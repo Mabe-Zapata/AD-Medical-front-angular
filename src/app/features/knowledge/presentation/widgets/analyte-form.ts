@@ -8,14 +8,14 @@ import {
 } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
-import { sanitizeUnit } from '../../../../core/domain/text';
+import { sanitizeLabel, sanitizeUnit } from '../../../../core/domain/text';
 import { sanitizeOnType } from '../../../../shared/presentation/forms/sanitize-on-type';
 import { NewAnalyte, VALUE_TYPES, ValueType } from '../../domain/entities/knowledge';
 import { VALUE_TYPE_LABELS, labelOf } from '../labels';
 
-/** Letters and "/" only, at most 10 characters (well under the 40 the database allows). */
+/** Letters and "/" only, at most the 40 characters of conocimiento_analitos.unidad_canonica. */
 const UNIT_PATTERN = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ/]*$/;
-const UNIT_MAX_LENGTH = 10;
+const UNIT_MAX_LENGTH = 40;
 
 @Component({
   selector: 'app-analyte-form',
@@ -23,14 +23,15 @@ const UNIT_MAX_LENGTH = 10;
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <form [formGroup]="form" (ngSubmit)="submit()" class="stack" novalidate>
+      <div class="field">
+        <label for="analyte-name">Nombre</label>
+        <input id="analyte-name" class="input" formControlName="name" maxlength="150" />
+        <span class="hint counter">{{ form.controls.name.value.length }} / 150</span>
+        @if (form.controls.name.touched && form.controls.name.invalid) {
+          <span class="field-error">El nombre es obligatorio.</span>
+        }
+      </div>
       <div class="grid-2">
-        <div class="field">
-          <label for="analyte-name">Nombre</label>
-          <input id="analyte-name" class="input" formControlName="name" maxlength="150" />
-          @if (form.controls.name.touched && form.controls.name.invalid) {
-            <span class="field-error">El nombre es obligatorio.</span>
-          }
-        </div>
         <div class="field">
           <label for="analyte-unit">Unidad (opcional)</label>
           <input
@@ -40,8 +41,9 @@ const UNIT_MAX_LENGTH = 10;
             [maxlength]="unitMaxLength"
             placeholder="mg/dL"
           />
+          <span class="hint counter">{{ form.controls.unit.value.length }} / {{ unitMaxLength }}</span>
           @if (form.controls.unit.touched && form.controls.unit.invalid) {
-            <span class="field-error">La unidad admite solo letras y "/", hasta 10 caracteres.</span>
+            <span class="field-error">La unidad admite solo letras y "/", hasta {{ unitMaxLength }} caracteres.</span>
           }
         </div>
         <div class="field">
@@ -79,6 +81,7 @@ export class AnalyteFormComponent {
   });
 
   constructor() {
+    sanitizeOnType(this.form.controls.name, sanitizeLabel, this.destroyRef);
     sanitizeOnType(this.form.controls.unit, sanitizeUnit, this.destroyRef);
   }
 
@@ -92,6 +95,6 @@ export class AnalyteFormComponent {
       return;
     }
     const { name, unit, valueType } = this.form.getRawValue();
-    this.submitted.emit({ name, unit: unit || null, valueType });
+    this.submitted.emit({ name: name.trim(), unit: unit || null, valueType });
   }
 }

@@ -11,7 +11,11 @@ import {
   sanitizePassword,
   sanitizeSearch,
   stripEmoji,
+  isValidPersonName,
+  sanitizePersonName,
   sanitizeClinicalText,
+  sanitizeLabel,
+  sanitizeCode,
   isValidClinicalText,
 } from './text';
 
@@ -54,6 +58,41 @@ describe('text sanitization and validation', () => {
     expect(sanitizeSearch('Juan <perez> & $foo')).toBe('Juan perez & foo');
     expect(sanitizeIdentifier('550e8400-e29b-41d4-a716-446655440000 😃')).toBe('550e8400-e29b-41d4-a716-446655440000');
     expect(sanitizeIdentifier('TEST-MED-0001!#')).toBe('TEST-MED-0001');
+    expect(sanitizeSearch('Ana© 💊 ok')).toBe('Ana  ok');
+    expect(sanitizeSearch('TEST-MED-0001 ✅')).toBe('TEST-MED-0001 ');
+  });
+
+  it('keeps account names to letters with single spaces', () => {
+    expect(sanitizePersonName('  María   José 2 ©')).toBe('María José ');
+    expect(sanitizePersonName("O'Connor-🙂")).toBe('OConnor');
+    expect(isValidPersonName('María José')).toBe(true);
+    expect(isValidPersonName('María  José')).toBe(false);
+    expect(isValidPersonName("José-Luis")).toBe(false);
+    expect(isValidPersonName('   ')).toBe(false);
+  });
+
+  it('keeps catalog labels free of leading and repeated spaces', () => {
+    expect(sanitizeLabel('😀 😀 😀')).toBe('');
+    expect(sanitizeLabel('  Glucosa   en ayunas')).toBe('Glucosa en ayunas');
+    expect(sanitizeLabel('Hemoglobina 💊 glicosilada')).toBe('Hemoglobina glicosilada');
+  });
+
+  it('validates the email format and rejects inner spaces', () => {
+    expect(isValidEmail('ana.perez@lab.com.ec')).toBe(true);
+    expect(isValidEmail('ana perez@lab.com')).toBe(false);
+    expect(isValidEmail('ana@lab')).toBe(false);
+    expect(sanitizeEmail('ana 😀 @lab.com')).toBe('ana@lab.com');
+    expect(sanitizeEmail('ana👨🏽‍⚕️​⁠🇪🇨 @lab.com')).toBe('ana@lab.com');
+  });
+
+  it('keeps rule codes free of spaces and symbols', () => {
+    expect(sanitizeCode('HEMO SINT ©')).toBe('HEMOSINT');
+    expect(sanitizeCode('GLUC-SINT_01')).toBe('GLUC-SINT_01');
+  });
+
+  it('drops leading spaces from free text', () => {
+    expect(sanitizeFreeText('   Regla de prueba')).toBe('Regla de prueba');
+    expect(sanitizeFreeText('💊  hola')).toBe('hola');
   });
 
   it('sanitizes free text', () => {

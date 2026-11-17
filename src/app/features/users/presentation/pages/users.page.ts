@@ -2,7 +2,14 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 
-import { hasEmoji, isValidEmail, isValidName, sanitizeEmail, sanitizeName, sanitizePassword } from '../../../../core/domain/text';
+import {
+  hasEmoji,
+  isValidEmail,
+  isValidPersonName,
+  sanitizeEmail,
+  sanitizePassword,
+  sanitizePersonName,
+} from '../../../../core/domain/text';
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
 import { ChipComponent } from '../../../../shared/presentation/atoms/chip';
 import { ErrorView, describeError } from '../../../../shared/presentation/error-message';
@@ -186,6 +193,7 @@ import { PageState } from '../../../../shared/presentation/pagination';
                   [value]="firstName()"
                   (input)="onFirstNameInput($event)"
                 />
+                <span class="hint counter">{{ firstName().length }} / 100</span>
                 @if (firstNameError(); as err) {
                   <span class="field-error">{{ err }}</span>
                 }
@@ -204,59 +212,66 @@ import { PageState } from '../../../../shared/presentation/pagination';
                   [value]="lastName()"
                   (input)="onLastNameInput($event)"
                 />
+                <span class="hint counter">{{ lastName().length }} / 100</span>
                 @if (lastNameError(); as err) {
                   <span class="field-error">{{ err }}</span>
                 }
               </div>
             </div>
-            <div class="grid-2">
-              <div class="field">
-                <label for="email">
-                  <strong>Correo electrónico</strong> <span class="required" aria-hidden="true">*</span>
-                </label>
+            <div class="field">
+              <label for="email">
+                <strong>Correo electrónico</strong> <span class="required" aria-hidden="true">*</span>
+              </label>
+              <input
+                id="email"
+                class="input"
+                name="email"
+                type="email"
+                maxlength="255"
+                placeholder="ej. usuario@medilo.lab"
+                autocomplete="email"
+                [value]="email()"
+                (input)="onEmailInput($event)"
+              />
+              <span class="hint counter">{{ email().length }} / 255</span>
+              @if (emailError(); as err) {
+                <span class="field-error">{{ err }}</span>
+              }
+            </div>
+            <div class="field">
+              <label for="password">
+                <strong>Contraseña inicial</strong> <span class="required" aria-hidden="true">*</span>
+              </label>
+              <div class="password-wrapper">
                 <input
-                  id="email"
+                  id="password"
                   class="input"
-                  name="email"
-                  type="email"
-                  maxlength="255"
-                  placeholder="ej. usuario@medilo.lab"
-                  autocomplete="email"
-                  [value]="email()"
-                  (input)="onEmailInput($event)"
+                  [type]="showPassword() ? 'text' : 'password'"
+                  maxlength="256"
+                  autocomplete="new-password"
+                  placeholder="Mínimo 12 caracteres..."
+                  [value]="password()"
+                  (input)="onPasswordInput($event)"
                 />
-                @if (emailError(); as err) {
-                  <span class="field-error">{{ err }}</span>
-                }
+                <button
+                  type="button"
+                  class="btn btn--ghost btn--small password-toggle"
+                  (click)="togglePasswordVisibility()"
+                  [attr.aria-label]="showPassword() ? 'Ocultar contraseña' : 'Ver contraseña'"
+                  [title]="showPassword() ? 'Ocultar contraseña' : 'Ver contraseña'"
+                >
+                  @if (showPassword()) {
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  } @else {
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  }
+                </button>
               </div>
-              <div class="field">
-                <label for="password">
-                  <strong>Contraseña inicial</strong> <span class="required" aria-hidden="true">*</span>
-                </label>
-                <div class="password-wrapper">
-                  <input
-                    id="password"
-                    class="input"
-                    [type]="showPassword() ? 'text' : 'password'"
-                    autocomplete="new-password"
-                    placeholder="Mínimo 12 caracteres..."
-                    [value]="password()"
-                    (input)="onPasswordInput($event)"
-                  />
-                  <button
-                    type="button"
-                    class="btn btn--ghost btn--small password-toggle"
-                    (click)="togglePasswordVisibility()"
-                    [title]="showPassword() ? 'Ocultar contraseña' : 'Ver contraseña'"
-                  >
-                    {{ showPassword() ? 'Ocultar' : 'Mostrar' }}
-                  </button>
-                </div>
-                <p class="muted small" style="margin-top: 4px;">Mínimo 12 caracteres (sin emojis).</p>
-                @if (passwordError(); as err) {
-                  <span class="field-error">{{ err }}</span>
-                }
-              </div>
+              <span class="hint counter">{{ password().length }} / 256</span>
+              <p class="muted small" style="margin-top: 4px;">Mínimo 12 caracteres (sin emojis).</p>
+              @if (passwordError(); as err) {
+                <span class="field-error">{{ err }}</span>
+              }
             </div>
 
             <div class="field roles-section">
@@ -344,13 +359,13 @@ export class UsersPage {
   }
 
   protected onFirstNameChange(val: string): void {
-    const sanitized = sanitizeName(val);
+    const sanitized = sanitizePersonName(val);
     this.firstName.set(sanitized);
   }
 
   protected onFirstNameInput(event: Event): void {
     const input = event.target as HTMLInputElement;
-    const sanitized = sanitizeName(input.value);
+    const sanitized = sanitizePersonName(input.value);
     if (sanitized !== input.value) {
       input.value = sanitized;
     }
@@ -358,13 +373,13 @@ export class UsersPage {
   }
 
   protected onLastNameChange(val: string): void {
-    const sanitized = sanitizeName(val);
+    const sanitized = sanitizePersonName(val);
     this.lastName.set(sanitized);
   }
 
   protected onLastNameInput(event: Event): void {
     const input = event.target as HTMLInputElement;
-    const sanitized = sanitizeName(input.value);
+    const sanitized = sanitizePersonName(input.value);
     if (sanitized !== input.value) {
       input.value = sanitized;
     }
@@ -398,7 +413,7 @@ export class UsersPage {
     if (!this.submitted()) return null;
     const val = this.firstName().trim();
     if (val.length === 0) return 'Escribe los nombres.';
-    if (!isValidName(val)) return 'Escribe los nombres (solo letras y espacios, sin números ni emojis).';
+    if (!isValidPersonName(val)) return 'Escribe los nombres (solo letras, sin números, símbolos ni emojis).';
     return null;
   }
 
@@ -406,15 +421,15 @@ export class UsersPage {
     if (!this.submitted()) return null;
     const val = this.lastName().trim();
     if (val.length === 0) return 'Escribe los apellidos.';
-    if (!isValidName(val)) return 'Escribe los apellidos (solo letras y espacios, sin números ni emojis).';
+    if (!isValidPersonName(val)) return 'Escribe los apellidos (solo letras, sin números, símbolos ni emojis).';
     return null;
   }
 
   protected emailError(): string | null {
-    if (!this.submitted()) return null;
     const val = this.email().trim();
-    if (val.length === 0) return 'Escribe un correo válido.';
-    if (!isValidEmail(val)) return 'Escribe un correo válido (ej. usuario@dominio.com, sin emojis).';
+    // Format feedback appears as soon as the person types, not only after submitting.
+    if (val.length === 0) return this.submitted() ? 'Escribe un correo válido.' : null;
+    if (!isValidEmail(val)) return 'Escribe un correo válido (ej. usuario@dominio.com, sin espacios ni emojis).';
     return null;
   }
 
@@ -422,6 +437,7 @@ export class UsersPage {
     if (!this.submitted()) return null;
     const val = this.password();
     if (hasEmoji(val)) return 'La contraseña no puede contener emojis.';
+    if (/\s/.test(val)) return 'La contraseña no puede contener espacios.';
     if (val.length < this.minPassword) return `Usa al menos ${this.minPassword} caracteres.`;
     return null;
   }
@@ -489,10 +505,10 @@ export class UsersPage {
 
   private draft() {
     return {
-      email: this.email(),
+      email: this.email().trim(),
       password: this.password(),
-      firstName: this.firstName(),
-      lastName: this.lastName(),
+      firstName: this.firstName().trim(),
+      lastName: this.lastName().trim(),
       roles: this.selectedRole() ? [this.selectedRole()] : [],
     };
   }

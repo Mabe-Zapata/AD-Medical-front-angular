@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { sanitizeFreeText, sanitizeIdentifier, sanitizeSearch, stripEmoji } from '../../../../core/domain/text';
+import { sanitizeInputEvent } from '../../../../shared/presentation/forms/sanitize-on-type';
 import { AppError } from '../../../../core/domain/app-error';
 import { isUuid } from '../../../../core/domain/dates';
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
@@ -200,6 +201,7 @@ type QueueFilter = 'todas' | 'urgentes' | 'paciente';
                   placeholder="ej. María Pérez o 3b9f2a52..."
                   [ngModel]="orderSearchTerm()"
                   (ngModelChange)="onOrderSearchTermChange($event)"
+                  (input)="cleanSearchInput($event)"
                   autocomplete="off"
                 />
                 @if (orderSearchTerm()) {
@@ -767,6 +769,10 @@ export class OrdersPage {
       this.selectedOrderOption.set(this.orders()[0].id);
       this.orderId.set(this.orders()[0].id);
     }
+  }
+
+  protected cleanSearchInput(event: Event): void {
+    sanitizeInputEvent(event, sanitizeSearch);
   }
 
   protected onOrderSearchTermChange(term: string): void {

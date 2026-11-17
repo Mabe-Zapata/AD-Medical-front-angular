@@ -1,4 +1,4 @@
-const EMOJI = /[\p{Extended_Pictographic}\p{Regional_Indicator}‍️⃣]/gu;
+const EMOJI = /[\p{Extended_Pictographic}\p{Regional_Indicator}\p{Emoji_Modifier}\u200B-\u200D\u2060\uFEFF\uFE0E\uFE0F\u20E3\u{E0020}-\u{E007F}]/gu;
 
 /** Removes emoji (and the joiners that glue them) from free text. */
 export function stripEmoji(text: string): string {
@@ -24,6 +24,23 @@ export function sanitizeName(text: string): string {
 }
 
 /**
+ * Account names (first/last): letters only, single spaces between words, no leading or double spaces.
+ */
+export function sanitizePersonName(text: string): string {
+  return stripEmoji(text)
+    .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ ]/g, '')
+    .replace(/ {2,}/g, ' ')
+    .replace(/^ +/, '');
+}
+
+/** One or more words of letters, separated by single spaces, 1 to 100 characters. */
+export function isValidPersonName(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length < 1 || trimmed.length > 100) return false;
+  return /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]+( [a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]+)*$/.test(trimmed);
+}
+
+/**
  * Validates whether a person name contains only letters, spaces, hyphens, and apostrophes,
  * and no emojis or digits.
  */
@@ -35,10 +52,11 @@ export function isValidName(text: string): boolean {
 }
 
 /**
- * Sanitizes emails: removes emojis, whitespace, and illegal characters.
+ * Sanitizes emails: keeps only characters an address can use (letters, digits, . _ % + - @).
+ * Emojis, modifiers, zero-width characters and spaces never survive.
  */
 export function sanitizeEmail(text: string): string {
-  return stripEmoji(text).replace(/[\s<>{}()[\]\\\/^~|;:"',]/g, '');
+  return text.replace(/[^A-Za-z0-9._%+\-@]/g, '');
 }
 
 /**
@@ -47,8 +65,8 @@ export function sanitizeEmail(text: string): string {
 export function isValidEmail(text: string): boolean {
   const trimmed = text.trim();
   if (trimmed.length < 3 || trimmed.length > 255) return false;
-  if (hasEmoji(text)) return false;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+  if (hasEmoji(text) || /\s/.test(trimmed)) return false;
+  return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/.test(trimmed);
 }
 
 /**
@@ -59,19 +77,27 @@ export function sanitizePassword(text: string): string {
 }
 
 /**
- * Sanitizes search terms: removes emojis and dangerous injection characters.
+ * Sanitizes search terms (names, phones, registration codes, ids): whitelist of Latin letters
+ * (with Spanish accents), digits, whitespace and the few separators those lookups use.
  */
 export function sanitizeSearch(text: string): string {
-  return stripEmoji(text).replace(/[<>{}[\]\\^~|;:"`$]/g, '');
+  return stripEmoji(text).replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s.,\-_@'/&]/g, '');
+}
+
+/** Rule and catalog codes (e.g. HEMO-SINT, GLUC_01): letters, digits, "-" and "_", no spaces. */
+export function sanitizeCode(text: string): string {
+  return text.replace(/[^A-Za-z0-9_-]/g, '');
 }
 
 /**
  * Sanitizes free text (notes, reasons): whitelist of Latin letters (with Spanish accents), digits,
  * whitespace and common punctuation. Anything else (emojis, ©, box-drawing, code symbols) is removed
- * before it reaches the value, so it is never stored or counted.
+ * before it reaches the value, so it is never stored or counted. Leading spaces are dropped too.
  */
 export function sanitizeFreeText(text: string): string {
-  return stripEmoji(text).replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s.,;:!?¿¡()"'\-–_%/°+@#&*=]/g, '');
+  return stripEmoji(text)
+    .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s.,;:!?¿¡()"'\-–_%/°+@#&*=]/g, '')
+    .replace(/^\s+/, '');
 }
 
 /**
@@ -84,6 +110,14 @@ export function sanitizeIdentifier(text: string): string {
 /** Measurement units: letters and "/" only (e.g. "mg/dL"). Mirrors the unit rule of the analyte form. */
 export function sanitizeUnit(text: string): string {
   return text.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ/]/g, '');
+}
+
+/**
+ * Catalog labels (e.g. analyte names): clinical characters only, single spaces between words and
+ * no leading spaces, so emojis removed while typing never leave visible gaps.
+ */
+export function sanitizeLabel(text: string): string {
+  return sanitizeClinicalText(text).replace(/\s{2,}/g, ' ').replace(/^\s+/, '');
 }
 
 /** Thresholds: digits with an optional "." or "," separator. Mirrors the decimal(18, 6) column. */

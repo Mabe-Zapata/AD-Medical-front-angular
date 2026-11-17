@@ -12,10 +12,10 @@ import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angula
 import {
   isValidThreshold,
   parseThreshold,
+  sanitizeCode,
   sanitizeFreeText,
   sanitizeThreshold,
   sanitizeUnit,
-  stripEmoji,
 } from '../../../../core/domain/text';
 import { sanitizeOnType } from '../../../../shared/presentation/forms/sanitize-on-type';
 
@@ -47,19 +47,21 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <form [formGroup]="form" (ngSubmit)="submit()" class="stack" novalidate>
+      <div class="field">
+        <label for="rule-name">Nombre</label>
+        <input id="rule-name" class="input" formControlName="name" maxlength="200" />
+        <span class="hint counter">{{ form.controls.name.value.length }} / 200</span>
+        @if (form.controls.name.touched && form.controls.name.invalid) {
+          <span class="field-error">El nombre es obligatorio.</span>
+        }
+      </div>
       <div class="grid-2">
         <div class="field">
           <label for="rule-code">Código</label>
           <input id="rule-code" class="input mono" formControlName="code" maxlength="80" />
+          <span class="hint counter">{{ form.controls.code.value.length }} / 80</span>
           @if (form.controls.code.touched && form.controls.code.invalid) {
             <span class="field-error">Escribe un código de al menos 2 caracteres.</span>
-          }
-        </div>
-        <div class="field">
-          <label for="rule-name">Nombre</label>
-          <input id="rule-name" class="input" formControlName="name" maxlength="200" />
-          @if (form.controls.name.touched && form.controls.name.invalid) {
-            <span class="field-error">El nombre es obligatorio.</span>
           }
         </div>
         <div class="field">
@@ -90,6 +92,7 @@ import {
       <div class="field">
         <label for="rule-description">Descripción (opcional)</label>
         <input id="rule-description" class="input" formControlName="description" maxlength="1500" />
+        <span class="hint counter">{{ form.controls.description.value.length }} / 1500</span>
       </div>
       <div class="field">
         <label for="rule-message">Mensaje de la propuesta</label>
@@ -100,6 +103,7 @@ import {
           formControlName="message"
           maxlength="2000"
         ></textarea>
+        <span class="hint counter">{{ form.controls.message.value.length }} / 2000</span>
         @if (form.controls.message.touched && form.controls.message.invalid) {
           <span class="field-error">El mensaje es obligatorio.</span>
         }
@@ -142,6 +146,7 @@ import {
               <div class="field">
                 <label [for]="'c-unit-' + i">Unidad</label>
                 <input [id]="'c-unit-' + i" class="input" formControlName="unit" maxlength="40" />
+                <span class="hint counter">{{ criterion.controls.unit.value.length }} / 40</span>
               </div>
             }
             <button
@@ -222,8 +227,8 @@ export class RuleFormComponent {
 
   constructor() {
     // No emojis anywhere in the rule form; the message and names keep the database limits (2000 and 200).
-    sanitizeOnType(this.form.controls.code, stripEmoji, this.destroyRef);
-    sanitizeOnType(this.form.controls.name, stripEmoji, this.destroyRef);
+    sanitizeOnType(this.form.controls.code, sanitizeCode, this.destroyRef);
+    sanitizeOnType(this.form.controls.name, sanitizeFreeText, this.destroyRef);
     sanitizeOnType(this.form.controls.description, sanitizeFreeText, this.destroyRef);
     sanitizeOnType(this.form.controls.message, sanitizeFreeText, this.destroyRef);
   }
