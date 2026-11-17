@@ -44,6 +44,7 @@ import { AgendaRepository } from './features/agenda/domain/ports/agenda.ports';
 import { ApproveCancellation } from './features/agenda/domain/usecases/approve-cancellation';
 import { CancelDoctorAppointment } from './features/agenda/domain/usecases/cancel-appointment';
 import { ListAgenda } from './features/agenda/domain/usecases/list-agenda';
+import { ListCancellationCandidates } from './features/agenda/domain/usecases/list-cancellation-candidates';
 import { OpenConsultation } from './features/agenda/domain/usecases/open-consultation';
 import { HttpKnowledgeRepository } from './features/knowledge/data/http-knowledge.repository';
 import { KnowledgeRepository } from './features/knowledge/domain/ports/knowledge.repository';
@@ -137,6 +138,10 @@ export const appProviders: Provider[] = [
   // agenda
   { provide: AgendaRepository, useClass: HttpAgendaRepository },
   { provide: ListAgenda, useFactory: () => new ListAgenda(inject(AgendaRepository)) },
+  {
+    provide: ListCancellationCandidates,
+    useFactory: () => new ListCancellationCandidates(inject(AgendaRepository)),
+  },
   {
     provide: CancelDoctorAppointment,
     useFactory: () => new CancelDoctorAppointment(inject(AgendaRepository)),
