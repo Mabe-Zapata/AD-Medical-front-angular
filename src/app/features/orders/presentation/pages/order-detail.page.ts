@@ -659,17 +659,15 @@ export class OrderDetailPage {
       [],
   );
 
-  /** The analytes of the chosen test first, then the rest of the clinical knowledge. */
-  protected readonly analyteOptions = computed<readonly AnalyteOption[]>(() => {
-    const fromTest = this.testAnalytes().map((a) => ({
+  /** Only the analytes of the chosen test: the backend rejects any other one in its results. */
+  protected readonly analyteOptions = computed<readonly AnalyteOption[]>(() =>
+    this.testAnalytes().map((a) => ({
       id: a.id,
       name: a.name,
       unit: a.unit,
       valueType: a.valueType,
-    }));
-    const known = new Set(fromTest.map((a) => a.id));
-    return [...fromTest, ...this.analytes().filter((a) => !known.has(a.id))];
-  });
+    })),
+  );
 
   protected readonly orderStatus = (code: string) => label(ORDER_STATUS_LABELS, code);
   protected readonly testStatus = (code: string) => label(TEST_STATUS_LABELS, code);
@@ -691,20 +689,35 @@ export class OrderDetailPage {
 
   /** Opens the results form, with the draft saved in this browser for this order if there is one. */
   protected askConfirm(): void {
+    const withoutReport = this.documents().length === 0;
     this.dialog.set({
       kind: 'confirm',
       title: 'Confirmar la orden',
-      message: 'Al confirmar, la orden queda cerrada: no podrás cambiar resultados ni subir informes. Si hay un informe, se envía al paciente con sus resultados.',
-      actions: [
-        { label: 'Confirmar orden', value: 'confirm', tone: 'primary' },
-        { label: 'Volver', value: 'cancel', tone: 'ghost' },
-      ],
+      message: withoutReport
+        ? 'Aún no hay informe. Puedes subirlo antes de confirmar, o confirmar sin informe. Al confirmar, la orden queda cerrada: no podrás cambiar resultados ni subir informes.'
+        : 'Al confirmar, la orden queda cerrada: no podrás cambiar resultados ni subir informes. El informe se envía al paciente con sus resultados.',
+      actions: withoutReport
+        ? [
+            { label: 'Subir informe', value: 'upload', tone: 'ghost' },
+            { label: 'Confirmar sin informe', value: 'confirm', tone: 'primary' },
+            { label: 'Volver', value: 'cancel', tone: 'ghost' },
+          ]
+        : [
+            { label: 'Confirmar orden', value: 'confirm', tone: 'primary' },
+            { label: 'Volver', value: 'cancel', tone: 'ghost' },
+          ],
       dismiss: 'cancel',
     });
   }
 
   protected openResults(): void {
     this.draft.set(readResultsDraft(this.orderId));
+    // Opened from the queue the test is already chosen, so the form never emits testChanged:
+    // load its analytes here, or the rows stay empty.
+    const test = [...(this.order()?.tests ?? []), ...(this.queueItem()?.tests ?? [])].find(
+      (t) => t.detailId === this.initialDetail,
+    );
+    if (test) void this.loadTestAnalytes(test.testTypeId);
     this.openModal('results');
   }
 
@@ -740,6 +753,7 @@ export class OrderDetailPage {
     }
     if (kind === 'sent') void this.leaveAfterSent();
     if (kind === 'confirm' && value === 'confirm') void this.confirm();
+    if (kind === 'confirm' && value === 'upload') document.getElementById('report-file')?.focus();
   }
 
   private saveDraft(): void {

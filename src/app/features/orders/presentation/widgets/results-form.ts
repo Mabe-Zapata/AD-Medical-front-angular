@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   OnInit,
   effect,
@@ -14,6 +15,8 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
+import { sanitizeResultValue, sanitizeUnit } from '../../../../core/domain/text';
+import { sanitizeOnType } from '../../../../shared/presentation/forms/sanitize-on-type';
 import { NewResult, OrderTest, TestAnalyte } from '../../domain/entities/orders';
 import { MAX_RESULTS_PER_TEST } from '../../domain/policies/orders-policies';
 import { TEST_STATUS_LABELS, label } from '../labels';
@@ -75,17 +78,10 @@ export interface ResultsFormDraft {
             <span class="field-error">Elige la prueba a la que pertenecen los resultados.</span>
           }
         } @else {
-          <label for="result-test">Identificador de la prueba</label>
-          <input
-            id="result-test"
-            class="input mono"
-            formControlName="detailId"
-            placeholder="00000000-0000-0000-0000-000000000000"
-            autocomplete="off"
-          />
-          <span class="hint">Lo da el médico que creó la orden (columna «Identificador de la prueba»).</span>
-          @if (form.controls.detailId.touched && form.controls.detailId.invalid) {
-            <span class="field-error">Escribe un identificador válido (formato UUID).</span>
+          <span class="field-label">Identificador de la prueba</span>
+          <span id="result-test" class="mono">{{ form.controls.detailId.value }}</span>
+          @if (form.controls.detailId.invalid) {
+            <span class="field-error">No hay una prueba seleccionada.</span>
           }
         }
       </div>
@@ -255,6 +251,7 @@ export class ResultsFormComponent implements OnInit {
 
   protected readonly max = MAX_RESULTS_PER_TEST;
   private readonly fb = inject(NonNullableFormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly form = this.fb.group({
     detailId: ['', [Validators.required, Validators.pattern(UUID)]],
@@ -437,6 +434,8 @@ export class ResultsFormComponent implements OnInit {
       value: ['', [Validators.required, this.valueMatchesType()]],
       unit: [''],
     });
+    sanitizeOnType(group.controls.value, sanitizeResultValue, this.destroyRef);
+    sanitizeOnType(group.controls.unit, sanitizeUnit, this.destroyRef);
     return group;
   }
 

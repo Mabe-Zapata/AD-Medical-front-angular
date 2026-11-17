@@ -15,8 +15,8 @@ describe('ResultsFormComponent', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const input = fixture.nativeElement.querySelector('#result-test') as HTMLInputElement;
-    expect(input.value).toBe(DETAIL);
+    const id = fixture.nativeElement.querySelector('#result-test') as HTMLElement;
+    expect(id.textContent?.trim()).toBe(DETAIL);
   });
 
   it('leaves the identifier empty when there is nothing to pre-fill', async () => {
@@ -25,8 +25,8 @@ describe('ResultsFormComponent', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const input = fixture.nativeElement.querySelector('#result-test') as HTMLInputElement;
-    expect(input.value).toBe('');
+    const id = fixture.nativeElement.querySelector('#result-test') as HTMLElement;
+    expect(id.textContent?.trim()).toBe('');
   });
 
   it('prefills the mandatory analytes of the chosen test, with their usual unit', async () => {
