@@ -339,7 +339,10 @@ interface OrderDialog {
         <section class="card stack results-flow">
           <header class="flow-head">
             <h2>Resultados</h2>
-            <p class="muted small">Registrar resultados es obligatorio. El informe PDF es opcional.</p>
+            <p class="muted small">
+              Registrar resultados es obligatorio. Al confirmar, Medilo genera el informe PDF; subir uno propio es
+              opcional.
+            </p>
           </header>
 
           <div class="step">
@@ -360,8 +363,8 @@ interface OrderDialog {
             <div class="step-body stack">
               <h3>Informe en PDF <span class="tag">Opcional</span></h3>
               <p class="muted small">
-                Si lo hay, se envía al paciente junto con los resultados. PDF de hasta 10 MB; se guarda en
-                privado.
+                Medilo genera el informe de resultados al confirmar la orden. Si quieres, sube además uno propio:
+                PDF de hasta 10 MB, se guarda en privado y lo ven el paciente y su médico.
               </p>
               @if (documents().length > 0) {
                 <ul class="docs">
@@ -383,7 +386,9 @@ interface OrderDialog {
                   }
                 </ul>
               } @else {
-                <p class="muted small">Todavía no hay informe registrado para esta orden.</p>
+                <p class="muted small">
+                  Todavía no subiste un informe propio. Al confirmar, Medilo genera el de resultados.
+                </p>
               }
               <div class="row">
                 <input
@@ -415,7 +420,8 @@ interface OrderDialog {
               <div class="step-body">
                 <h3>Confirmar la orden</h3>
                 <p class="muted small">
-                  Cierra la orden, con o sin informe. Después no podrás cambiar resultados ni subir informes.
+                  Cierra la orden y genera el informe de resultados, con o sin informe propio. Después no podrás
+                  cambiar resultados ni subir informes.
                 </p>
               </div>
               <button class="btn btn--primary" type="button" (click)="askConfirm()">Confirmar orden</button>
@@ -694,8 +700,8 @@ export class OrderDetailPage {
       kind: 'confirm',
       title: 'Confirmar la orden',
       message: withoutReport
-        ? 'Aún no hay informe. Puedes subirlo antes de confirmar, o confirmar sin informe. Al confirmar, la orden queda cerrada: no podrás cambiar resultados ni subir informes.'
-        : 'Al confirmar, la orden queda cerrada: no podrás cambiar resultados ni subir informes. El informe se envía al paciente con sus resultados.',
+        ? 'Medilo generará el informe de resultados al confirmar. Puedes subir antes un informe propio, o confirmar sin él. Al confirmar, la orden queda cerrada: no podrás cambiar resultados ni subir informes.'
+        : 'Al confirmar, la orden queda cerrada y Medilo genera el informe de resultados junto al que subiste. Después no podrás cambiar resultados ni subir informes.',
       actions: withoutReport
         ? [
             { label: 'Subir informe', value: 'upload', tone: 'ghost' },

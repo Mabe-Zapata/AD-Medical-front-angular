@@ -385,6 +385,15 @@ describe('OrderDetailPage', () => {
     expect(el.textContent).not.toContain('c-3');
   });
 
+  it('tells the laboratory that the report is generated on confirmation and uploading is optional', async () => {
+    const { fixture, el } = setup({}, ...LAB);
+    await settle(fixture);
+
+    expect(el.textContent).toContain('Medilo genera el informe');
+    expect(el.textContent).toContain('Opcional');
+    expect(el.textContent).toContain('Subir informe');
+  });
+
   it('lets the laboratory enter results and hides the proposal', async () => {
     const { fixture, el, state } = setup({}, ...LAB);
     await settle(fixture);
