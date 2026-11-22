@@ -33,9 +33,16 @@ import {
   ListOrderDocuments,
   ConfirmOrder,
   RecordResults,
+  ReviewResults,
   ReviewOrder,
   UploadReport,
 } from './features/orders/domain/usecases/orders-usecases';
+import { HttpReportsRepository } from './features/reports/data/http-reports.repository';
+import { ReportsRepository } from './features/reports/domain/ports/reports.repository';
+import {
+  GetMonitoringStatus,
+  GetReportSummary,
+} from './features/reports/domain/usecases/reports-usecases';
 import { HttpUsersRepository } from './features/users/data/http-users.repository';
 import { UsersRepository } from './features/users/domain/ports/users.repository';
 import { CreateUser, ListUsers } from './features/users/domain/usecases/users-usecases';
@@ -44,6 +51,7 @@ import { AgendaRepository } from './features/agenda/domain/ports/agenda.ports';
 import { ApproveCancellation } from './features/agenda/domain/usecases/approve-cancellation';
 import { CancelDoctorAppointment } from './features/agenda/domain/usecases/cancel-appointment';
 import { ListAgenda } from './features/agenda/domain/usecases/list-agenda';
+import { ListCancellationCandidates } from './features/agenda/domain/usecases/list-cancellation-candidates';
 import { OpenConsultation } from './features/agenda/domain/usecases/open-consultation';
 import { HttpKnowledgeRepository } from './features/knowledge/data/http-knowledge.repository';
 import { KnowledgeRepository } from './features/knowledge/domain/ports/knowledge.repository';
@@ -109,6 +117,7 @@ export const appProviders: Provider[] = [
   { provide: ListTestTypes, useFactory: () => new ListTestTypes(inject(OrdersRepository)) },
   { provide: ListWorklist, useFactory: () => new ListWorklist(inject(OrdersRepository)) },
   { provide: ConfirmOrder, useFactory: () => new ConfirmOrder(inject(OrdersRepository)) },
+  { provide: ReviewResults, useFactory: () => new ReviewResults(inject(OrdersRepository)) },
   { provide: ListOrderDocuments, useFactory: () => new ListOrderDocuments(inject(OrdersRepository)) },
   { provide: DownloadDocument, useFactory: () => new DownloadDocument(inject(OrdersRepository)) },
   { provide: ListTestAnalytes, useFactory: () => new ListTestAnalytes(inject(OrdersRepository)) },
@@ -129,6 +138,14 @@ export const appProviders: Provider[] = [
   { provide: EditShadowFinding, useFactory: () => new EditShadowFinding(inject(ShadowRepository)) },
   { provide: ListShadowEdits, useFactory: () => new ListShadowEdits(inject(ShadowRepository)) },
 
+  // reports and monitoring
+  { provide: ReportsRepository, useClass: HttpReportsRepository },
+  { provide: GetReportSummary, useFactory: () => new GetReportSummary(inject(ReportsRepository)) },
+  {
+    provide: GetMonitoringStatus,
+    useFactory: () => new GetMonitoringStatus(inject(ReportsRepository)),
+  },
+
   // users
   { provide: UsersRepository, useClass: HttpUsersRepository },
   { provide: ListUsers, useFactory: () => new ListUsers(inject(UsersRepository)) },
@@ -137,6 +154,10 @@ export const appProviders: Provider[] = [
   // agenda
   { provide: AgendaRepository, useClass: HttpAgendaRepository },
   { provide: ListAgenda, useFactory: () => new ListAgenda(inject(AgendaRepository)) },
+  {
+    provide: ListCancellationCandidates,
+    useFactory: () => new ListCancellationCandidates(inject(AgendaRepository)),
+  },
   {
     provide: CancelDoctorAppointment,
     useFactory: () => new CancelDoctorAppointment(inject(AgendaRepository)),

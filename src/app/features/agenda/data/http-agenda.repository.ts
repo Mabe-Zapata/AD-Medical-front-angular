@@ -9,11 +9,16 @@ import {
   AppointmentStatus,
   ApproveCancellationCommand,
   CancellationApprovalResult,
+  CancellationCandidate,
   CancelDoctorAppointmentCommand,
   ConsultationResult,
   OpenConsultationCommand,
 } from '../domain/entities/appointment';
-import { AgendaRepository, ListAgendaFilter } from '../domain/ports/agenda.ports';
+import {
+  AgendaRepository,
+  ListAgendaFilter,
+  ListCancellationCandidatesFilter,
+} from '../domain/ports/agenda.ports';
 
 interface AppointmentDto {
   id: string;
@@ -24,17 +29,27 @@ interface AppointmentDto {
     id: string;
     nombre: string;
   } | null;
-  medico?: {
-    id: string;
-    nombre: string;
-    registro_profesional?: string | null;
-    telefono?: string | null;
-  } | null;
-  tiene_aprobacion?: boolean;
 }
 
 interface AppointmentListDto {
   items: AppointmentDto[];
+}
+
+interface CancellationCandidateDto {
+  id: string;
+  estado: string;
+  inicio: string;
+  fin: string;
+  tiene_aprobacion: boolean;
+  medico: {
+    id: string;
+    nombre: string;
+    registro_profesional: string | null;
+  };
+}
+
+interface CancellationCandidateListDto {
+  items: CancellationCandidateDto[];
 }
 
 interface CancellationApprovalDto {
@@ -61,9 +76,6 @@ export class HttpAgendaRepository extends AgendaRepository {
       if (filter?.status) {
         params = params.set('estado', filter.status);
       }
-      if (filter?.doctorRegistration) {
-        params = params.set('medico_registro', filter.doctorRegistration);
-      }
       if (filter?.limit !== undefined) {
         params = params.set('limit', String(filter.limit));
       }
@@ -86,14 +98,48 @@ export class HttpAgendaRepository extends AgendaRepository {
               name: item.paciente.nombre,
             }
           : null,
-        doctor: item.medico
-          ? {
-              id: item.medico.id,
-              name: item.medico.nombre,
-              professionalRegistration: item.medico.registro_profesional ?? null,
-              phone: item.medico.telefono ?? null,
-            }
-          : null,
+      }));
+    } catch (error) {
+      throw toAppError(error);
+    }
+  }
+
+  async listCancellationCandidates(
+    filter?: ListCancellationCandidatesFilter,
+  ): Promise<readonly CancellationCandidate[]> {
+    try {
+      let params = new HttpParams();
+      if (filter?.status) {
+        params = params.set('estado', filter.status);
+      }
+      const registration = filter?.doctorRegistration?.trim();
+      if (registration) {
+        params = params.set('medico_registro', registration);
+      }
+      if (filter?.limit !== undefined) {
+        params = params.set('limit', String(filter.limit));
+      }
+      if (filter?.offset !== undefined) {
+        params = params.set('offset', String(filter.offset));
+      }
+
+      const response = await firstValueFrom(
+        this.http.get<CancellationCandidateListDto>(
+          `${this.base}/appointments/cancellation-approvals`,
+          { params },
+        ),
+      );
+
+      return (response.items ?? []).map((item) => ({
+        id: item.id,
+        status: item.estado as AppointmentStatus,
+        startUtc: item.inicio,
+        endUtc: item.fin,
+        doctor: {
+          id: item.medico.id,
+          name: item.medico.nombre,
+          professionalRegistration: item.medico.registro_profesional ?? null,
+        },
         hasApproval: Boolean(item.tiene_aprobacion),
       }));
     } catch (error) {

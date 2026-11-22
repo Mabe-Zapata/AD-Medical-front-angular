@@ -18,9 +18,15 @@ import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
 import { describeError } from '../../../../shared/presentation/error-message';
 import { Crumb } from '../../../../shared/presentation/molecules/breadcrumbs';
 import { PageHeaderComponent } from '../../../../shared/presentation/organisms/page-header';
-import { AgendaAppointment, CancellationApprovalResult } from '../../domain/entities/appointment';
+import {
+  CancellationApprovalResult,
+  CancellationCandidate,
+} from '../../domain/entities/appointment';
 import { ApproveCancellation } from '../../domain/usecases/approve-cancellation';
-import { ListAgenda } from '../../domain/usecases/list-agenda';
+import { ListCancellationCandidates } from '../../domain/usecases/list-cancellation-candidates';
+
+/** Rows requested per search. A full page means there may be more: the user must narrow it. */
+const LIST_LIMIT = 100;
 
 @Component({
   selector: 'app-cancellation-approval-page',
@@ -116,7 +122,7 @@ import { ListAgenda } from '../../domain/usecases/list-agenda';
       <div class="card stack">
         <div class="callout">
           <strong>Flujo administrativo:</strong>
-          Busca la cita por el número de registro médico, teléfono o nombre del profesional, o selecciona directamente de la lista.
+          Busca la cita por el número de registro del médico, o selecciónala directamente de la lista.
           Una vez registrada la aprobación, el médico podrá cancelar la cita desde su agenda médica sin ser bloqueado.
         </div>
 
@@ -124,7 +130,7 @@ import { ListAgenda } from '../../domain/usecases/list-agenda';
           @if (mode() === 'select') {
             <div class="field-group">
               <label for="doctor-search">
-                <strong>Buscar por número o nombre del médico:</strong>
+                <strong>Buscar por número de registro del médico:</strong>
               </label>
               <div class="input-row">
                 <input
@@ -132,18 +138,26 @@ import { ListAgenda } from '../../domain/usecases/list-agenda';
                   name="doctorSearch"
                   class="input"
                   type="text"
-                  placeholder="ej. TEST-MED-0001, 0991234567 o nombre del médico..."
+                  placeholder="ej. TEST-MED-0001"
                   [ngModel]="searchTerm()"
                   (ngModelChange)="onSearchTermChange($event)"
                   (input)="cleanSearchInput($event)"
                   [disabled]="submitting() || loadingAppointments()"
                 />
+                <button
+                  type="button"
+                  class="btn btn--small"
+                  (click)="applySearch()"
+                  [disabled]="submitting() || loadingAppointments()"
+                >
+                  Buscar
+                </button>
                 @if (searchTerm()) {
                   <button
                     type="button"
                     class="btn btn--small"
                     (click)="clearSearch()"
-                    title="Limpiar filtro de búsqueda"
+                    title="Limpiar búsqueda"
                   >
                     Borrar
                   </button>
@@ -151,7 +165,7 @@ import { ListAgenda } from '../../domain/usecases/list-agenda';
               </div>
               @if (searchTerm().trim(); as term) {
                 <p class="muted small">
-                  Filtrando por médico / paciente: <strong>"{{ term }}"</strong> ({{ filteredAppointments().length }} cita(s) encontrada(s)).
+                  Registro buscado: <strong>"{{ term }}"</strong> ({{ appointments().length }} cita(s)).
                 </p>
               }
             </div>
@@ -161,15 +175,22 @@ import { ListAgenda } from '../../domain/usecases/list-agenda';
                 <strong>Cita médica a autorizar</strong>
               </label>
 
-              @if (loadingAppointments()) {
-                <p class="muted small">Cargando citas activas...</p>
+              @if (loadAppointmentsError(); as loadErr) {
+                <span class="field-error">{{ loadErr }}</span>
+                <div class="input-row">
+                  <button type="button" class="btn btn--small" (click)="loadAppointments()">
+                    Reintentar
+                  </button>
+                </div>
+              } @else if (loadingAppointments()) {
+                <p class="muted small">Cargando citas confirmadas...</p>
               } @else if (appointments().length === 0) {
                 <p class="muted small">
-                  No hay citas confirmadas pendientes de aprobación en el sistema.
-                </p>
-              } @else if (filteredAppointments().length === 0) {
-                <p class="field-error">
-                  No se encontraron citas activas para "{{ searchTerm() }}". Prueba con otro número o nombre.
+                  @if (searchTerm().trim()) {
+                    No hay citas confirmadas para el registro "{{ searchTerm().trim() }}". Revisa el número.
+                  } @else {
+                    No hay citas confirmadas en el sistema.
+                  }
                 </p>
               }
 
@@ -183,7 +204,7 @@ import { ListAgenda } from '../../domain/usecases/list-agenda';
                   [disabled]="submitting() || loadingAppointments()"
                 >
                   <option value="">-- Selecciona una cita --</option>
-                  @for (appt of filteredAppointments(); track appt.id) {
+                  @for (appt of appointments(); track appt.id) {
                     <option [value]="appt.id" [disabled]="appt.hasApproval" [selected]="selectedOption() === appt.id">
                       {{ formatAppointmentOption(appt) }}
                     </option>
@@ -200,6 +221,12 @@ import { ListAgenda } from '../../domain/usecases/list-agenda';
                   Actualizar
                 </button>
               </div>
+
+              @if (appointments().length >= listLimit && !loadingAppointments()) {
+                <p class="muted small">
+                  Se muestran las primeras {{ listLimit }} citas. Escribe el número de registro del médico para acotar la lista.
+                </p>
+              }
 
               <div class="mode-toggle">
                 <button
@@ -219,7 +246,7 @@ import { ListAgenda } from '../../domain/usecases/list-agenda';
           } @else {
             <div class="field-group">
               <label for="appointment-id">
-                <strong>Identificador de la cita (UUID o Número de Médico)</strong>
+                <strong>Identificador de la cita (UUID o número de registro del médico)</strong>
               </label>
               <div class="input-row">
                 <input
@@ -265,15 +292,9 @@ import { ListAgenda } from '../../domain/usecases/list-agenda';
                 <div>
                   <strong>{{ dateOf(appt.startUtc) }} &bull; {{ timeRangeOf(appt.startUtc, appt.endUtc) }}</strong>
                   <p class="muted small">
-                    Paciente: <strong>{{ appt.patient?.name ?? 'Paciente sin nombre' }}</strong>
-                    @if (appt.doctor?.name) {
-                      &bull; Médico: <strong>Dr(a). {{ appt.doctor?.name }}</strong>
-                    }
-                    @if (appt.doctor?.professionalRegistration) {
-                      &bull; Nº Registro: <strong>{{ appt.doctor?.professionalRegistration }}</strong>
-                    }
-                    @if (appt.doctor?.phone) {
-                      &bull; Tel: <strong>{{ appt.doctor?.phone }}</strong>
+                    Médico: <strong>Dr(a). {{ appt.doctor.name }}</strong>
+                    @if (appt.doctor.professionalRegistration) {
+                      &bull; Nº Registro: <strong>{{ appt.doctor.professionalRegistration }}</strong>
                     }
                   </p>
                 </div>
@@ -335,7 +356,7 @@ import { ListAgenda } from '../../domain/usecases/list-agenda';
 })
 export class CancellationApprovalPage implements OnInit {
   private readonly approveCancellation = inject(ApproveCancellation);
-  private readonly listAgenda = inject(ListAgenda);
+  private readonly listCancellationCandidates = inject(ListCancellationCandidates);
   private readonly route = inject(ActivatedRoute);
 
   protected readonly crumbs: readonly Crumb[] = [
@@ -343,10 +364,13 @@ export class CancellationApprovalPage implements OnInit {
     { label: 'Aprobación de cancelación' },
   ];
 
-  protected readonly appointments = signal<readonly AgendaAppointment[]>([]);
+  protected readonly listLimit = LIST_LIMIT;
+
+  protected readonly appointments = signal<readonly CancellationCandidate[]>([]);
   protected readonly loadingAppointments = signal(false);
   protected readonly loadAppointmentsError = signal<string | null>(null);
 
+  /** The registration number the list is filtered by on the server. Blank means no filter. */
   protected readonly searchTerm = signal<string>('');
   protected readonly mode = signal<'select' | 'manual'>('select');
   protected readonly selectedOption = signal<string>('');
@@ -364,28 +388,6 @@ export class CancellationApprovalPage implements OnInit {
   protected readonly appointmentIdError = signal<string | null>(null);
   protected readonly reasonError = signal<string | null>(null);
 
-  protected readonly filteredAppointments = computed(() => {
-    const term = this.searchTerm().trim().toLowerCase();
-    const all = this.appointments();
-    if (!term) {
-      return all;
-    }
-    return all.filter((appt) => {
-      const docReg = (appt.doctor?.professionalRegistration ?? '').toLowerCase();
-      const docPhone = (appt.doctor?.phone ?? '').toLowerCase();
-      const docName = (appt.doctor?.name ?? '').toLowerCase();
-      const patientName = (appt.patient?.name ?? '').toLowerCase();
-      const id = appt.id.toLowerCase();
-      return (
-        docReg.includes(term) ||
-        docPhone.includes(term) ||
-        docName.includes(term) ||
-        patientName.includes(term) ||
-        id.includes(term)
-      );
-    });
-  });
-
   protected readonly selectedAppointment = computed(() => {
     const id = this.appointmentId().trim().toLowerCase();
     if (!id) {
@@ -395,45 +397,82 @@ export class CancellationApprovalPage implements OnInit {
   });
 
   async ngOnInit(): Promise<void> {
-    await this.loadAppointments();
+    await this.loadAppointments(true);
   }
 
-  async loadAppointments(): Promise<void> {
+  /**
+   * Loads the confirmed appointments for the current search. The first load honours an
+   * appointment id given in the URL; later loads only keep the selector consistent.
+   */
+  protected async loadAppointments(initial = false): Promise<void> {
     this.loadingAppointments.set(true);
     this.loadAppointmentsError.set(null);
     try {
-      const items = await this.listAgenda.execute({ limit: 100, status: 'CONFIRMADA' });
+      const registration = this.searchTerm().trim();
+      const items = await this.listCancellationCandidates.execute({
+        status: 'CONFIRMADA',
+        doctorRegistration: registration || null,
+        limit: LIST_LIMIT,
+      });
       this.appointments.set(items);
-
-      const currentId = this.appointmentId().trim();
-      if (currentId) {
-        const found = items.find((a) => a.id.toLowerCase() === currentId.toLowerCase());
-        if (found) {
-          this.selectedOption.set(found.id);
-          this.mode.set('select');
-        } else {
-          // If not UUID, maybe it's a doctor registration number
-          const matchDoc = this.findAppointmentByDoctorNumber(currentId);
-          if (matchDoc) {
-            this.selectedOption.set(matchDoc.id);
-            this.appointmentId.set(matchDoc.id);
-            this.mode.set('select');
-          } else {
-            this.selectedOption.set('__manual__');
-            this.mode.set('manual');
-          }
-        }
-      } else if (items.length > 0) {
-        const firstAvailable = items.find((a) => !a.hasApproval) ?? items[0];
-        this.selectedOption.set(firstAvailable.id);
-        this.appointmentId.set(firstAvailable.id);
+      if (initial) {
+        this.selectInitialAppointment(items);
+      } else {
+        this.keepSelectionConsistent(items);
       }
     } catch (err) {
       this.loadAppointmentsError.set(describeError(err).message);
-      this.mode.set('manual');
+      if (initial) {
+        this.mode.set('manual');
+      }
     } finally {
       this.loadingAppointments.set(false);
     }
+  }
+
+  /** The first load: keeps a URL appointment selected when it is listed, else switches to manual. */
+  private selectInitialAppointment(items: readonly CancellationCandidate[]): void {
+    const currentId = this.appointmentId().trim();
+    if (currentId) {
+      const found = items.find((a) => a.id.toLowerCase() === currentId.toLowerCase());
+      if (found) {
+        this.selectedOption.set(found.id);
+        this.mode.set('select');
+        return;
+      }
+      const matchDoc = this.findAppointmentByDoctorNumber(currentId);
+      if (matchDoc) {
+        this.selectedOption.set(matchDoc.id);
+        this.appointmentId.set(matchDoc.id);
+        this.mode.set('select');
+        return;
+      }
+      this.selectedOption.set('__manual__');
+      this.mode.set('manual');
+      return;
+    }
+    if (items.length > 0) {
+      const firstAvailable = items.find((a) => !a.hasApproval) ?? items[0];
+      this.selectedOption.set(firstAvailable.id);
+      this.appointmentId.set(firstAvailable.id);
+    }
+  }
+
+  /** Later loads: in selector mode keep the current choice if it is still listed, else pick
+   * the first listed appointment. Manual mode is never changed by a reload. */
+  private keepSelectionConsistent(items: readonly CancellationCandidate[]): void {
+    if (this.mode() !== 'select') {
+      return;
+    }
+    const current = this.appointmentId().trim().toLowerCase();
+    const kept = current ? items.find((a) => a.id.toLowerCase() === current) : undefined;
+    if (kept) {
+      this.selectedOption.set(kept.id);
+      return;
+    }
+    const first = items.find((a) => !a.hasApproval) ?? items[0];
+    this.selectedOption.set(first?.id ?? '');
+    this.appointmentId.set(first?.id ?? '');
   }
 
   protected cleanSearchInput(event: Event): void {
@@ -441,37 +480,28 @@ export class CancellationApprovalPage implements OnInit {
   }
 
   protected onSearchTermChange(term: string): void {
-    const cleaned = sanitizeSearch(term);
-    this.searchTerm.set(cleaned);
-    const filtered = this.filteredAppointments();
-    if (filtered.length > 0) {
-      const current = this.appointmentId();
-      const match = filtered.find((a) => a.id === current);
-      if (match) {
-        this.selectedOption.set(match.id);
-      } else {
-        const first = filtered.find((a) => !a.hasApproval) ?? filtered[0];
-        this.selectedOption.set(first.id);
-        this.appointmentId.set(first.id);
-      }
-    } else {
-      this.selectedOption.set('');
-      this.appointmentId.set('');
-    }
+    this.searchTerm.set(sanitizeSearch(term));
   }
 
-  protected clearSearch(): void {
-    this.onSearchTermChange('');
+  /** Searches on the server for the typed registration number. */
+  protected async applySearch(): Promise<void> {
+    await this.loadAppointments();
   }
 
-  protected formatAppointmentOption(appt: AgendaAppointment): string {
+  protected async clearSearch(): Promise<void> {
+    this.searchTerm.set('');
+    await this.loadAppointments();
+  }
+
+  protected formatAppointmentOption(appt: CancellationCandidate): string {
     const date = this.dateOf(appt.startUtc);
     const time = this.timeRangeOf(appt.startUtc, appt.endUtc);
-    const patient = appt.patient?.name ?? 'Paciente sin nombre';
-    const doctor = appt.doctor?.name ? ` | Dr. ${appt.doctor.name}` : '';
-    const reg = appt.doctor?.professionalRegistration ? ` [Nº ${appt.doctor.professionalRegistration}]` : '';
+    const doctor = `Dr(a). ${appt.doctor.name}`;
+    const reg = appt.doctor.professionalRegistration
+      ? ` [Nº ${appt.doctor.professionalRegistration}]`
+      : '';
     const statusNote = appt.hasApproval ? ' (Ya cuenta con aprobación)' : '';
-    return `${date} ${time} - ${patient}${doctor}${reg}${statusNote}`;
+    return `${date} ${time} - ${doctor}${reg}${statusNote}`;
   }
 
   protected dateOf(utc: string): string {
@@ -509,7 +539,7 @@ export class CancellationApprovalPage implements OnInit {
 
   protected switchToSelect(): void {
     this.mode.set('select');
-    const items = this.filteredAppointments();
+    const items = this.appointments();
     const first = items.find((a) => !a.hasApproval) ?? items[0];
     if (first) {
       this.selectedOption.set(first.id);
@@ -565,8 +595,18 @@ export class CancellationApprovalPage implements OnInit {
     this.onReasonChange(cleaned);
   }
 
-  protected onReset(): void {
+  protected async onReset(): Promise<void> {
+    const hadSearch = this.searchTerm() !== '';
     this.searchTerm.set('');
+    this.reason.set('');
+    this.appointmentIdError.set(null);
+    this.reasonError.set(null);
+    this.notice.set(null);
+    this.error.set(null);
+    if (hadSearch) {
+      await this.loadAppointments();
+      return;
+    }
     const items = this.appointments();
     if (this.mode() === 'select' && items.length > 0) {
       const first = items.find((a) => !a.hasApproval) ?? items[0];
@@ -576,22 +616,15 @@ export class CancellationApprovalPage implements OnInit {
       this.selectedOption.set('');
       this.appointmentId.set('');
     }
-    this.reason.set('');
-    this.appointmentIdError.set(null);
-    this.reasonError.set(null);
-    this.notice.set(null);
-    this.error.set(null);
   }
 
-  private findAppointmentByDoctorNumber(term: string): AgendaAppointment | null {
+  private findAppointmentByDoctorNumber(term: string): CancellationCandidate | null {
     const t = term.trim().toLowerCase();
     if (!t) return null;
     return (
-      this.appointments().find((a) => {
-        const reg = (a.doctor?.professionalRegistration ?? '').toLowerCase();
-        const phone = (a.doctor?.phone ?? '').toLowerCase();
-        return reg === t || phone === t;
-      }) ?? null
+      this.appointments().find(
+        (a) => (a.doctor.professionalRegistration ?? '').toLowerCase() === t,
+      ) ?? null
     );
   }
 

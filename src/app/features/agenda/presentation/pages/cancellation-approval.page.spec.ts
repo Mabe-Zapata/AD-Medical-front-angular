@@ -4,12 +4,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { AppError } from '../../../../core/domain/app-error';
 import {
-  AgendaAppointment,
   ApproveCancellationCommand,
   CancellationApprovalResult,
+  CancellationCandidate,
 } from '../../domain/entities/appointment';
 import { ApproveCancellation } from '../../domain/usecases/approve-cancellation';
-import { ListAgenda } from '../../domain/usecases/list-agenda';
+import { ListCancellationCandidates } from '../../domain/usecases/list-cancellation-candidates';
+import { ListCancellationCandidatesFilter } from '../../domain/ports/agenda.ports';
 import { CancellationApprovalPage } from './cancellation-approval.page';
 
 class FakeApproveCancellation {
@@ -28,72 +29,88 @@ class FakeApproveCancellation {
   }
 }
 
-class FakeListAgenda {
-  items: AgendaAppointment[] = [];
-  async execute(): Promise<readonly AgendaAppointment[]> {
-    return this.items;
+/** Mirrors the server: the registration filter is exact, and the page is capped by limit. */
+class FakeListCancellationCandidates {
+  items: CancellationCandidate[] = [];
+  calls: ListCancellationCandidatesFilter[] = [];
+  shouldFail = false;
+
+  async execute(filter?: ListCancellationCandidatesFilter): Promise<readonly CancellationCandidate[]> {
+    this.calls.push(filter ?? {});
+    if (this.shouldFail) {
+      throw new AppError('network', 'Network down', undefined, 0);
+    }
+    const registration = filter?.doctorRegistration;
+    const matching = registration
+      ? this.items.filter((item) => item.doctor.professionalRegistration === registration)
+      : this.items;
+    return matching.slice(0, filter?.limit ?? 50);
   }
 }
 
 describe('CancellationApprovalPage', () => {
   let fakeApproveCancellation: FakeApproveCancellation;
-  let fakeListAgenda: FakeListAgenda;
+  let fakeList: FakeListCancellationCandidates;
   let fixture: ComponentFixture<CancellationApprovalPage>;
   let el: HTMLElement;
 
   const validUuid = '550e8400-e29b-41d4-a716-446655440000';
   const otherUuid = '660e8400-e29b-41d4-a716-446655440000';
-  const sampleAppointment: AgendaAppointment = {
+  const sampleAppointment: CancellationCandidate = {
     id: validUuid,
     status: 'CONFIRMADA',
     startUtc: '2026-11-12T15:00:00Z',
     endUtc: '2026-11-12T15:30:00Z',
-    patient: { id: 'p-1', name: 'Paciente Uno' },
     doctor: {
       id: 'd-1',
       name: 'Carlos Gómez',
       professionalRegistration: 'TEST-MED-0001',
-      phone: '0991234567',
     },
     hasApproval: false,
   };
-  const otherAppointment: AgendaAppointment = {
+  const otherAppointment: CancellationCandidate = {
     id: otherUuid,
     status: 'CONFIRMADA',
     startUtc: '2026-11-12T16:00:00Z',
     endUtc: '2026-11-12T16:30:00Z',
-    patient: { id: 'p-2', name: 'Paciente Dos' },
     doctor: {
       id: 'd-2',
       name: 'Ana Mendoza',
       professionalRegistration: 'TEST-MED-0002',
-      phone: '0997654321',
     },
     hasApproval: false,
   };
 
+  /** Zoneless: let awaited use case calls finish, then render their results. */
+  async function settle(): Promise<void> {
+    await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
   beforeEach(async () => {
     fakeApproveCancellation = new FakeApproveCancellation();
-    fakeListAgenda = new FakeListAgenda();
-    fakeListAgenda.items = [sampleAppointment, otherAppointment];
+    fakeList = new FakeListCancellationCandidates();
+    fakeList.items = [sampleAppointment, otherAppointment];
 
     await TestBed.configureTestingModule({
       imports: [CancellationApprovalPage],
       providers: [
         provideRouter([]),
         { provide: ApproveCancellation, useValue: fakeApproveCancellation },
-        { provide: ListAgenda, useValue: fakeListAgenda },
+        { provide: ListCancellationCandidates, useValue: fakeList },
       ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(CancellationApprovalPage);
     el = fixture.nativeElement as HTMLElement;
     fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await settle();
   });
 
-  it('renders search filter input and combo box selector with loaded appointments', () => {
+  it('renders search input and combo box selector with loaded appointments', () => {
     const searchInput = el.querySelector<HTMLInputElement>('#doctor-search');
     const select = el.querySelector<HTMLSelectElement>('#appointment-select');
     expect(searchInput).not.toBeNull();
@@ -106,28 +123,97 @@ describe('CancellationApprovalPage', () => {
     expect(select?.value).toBe(validUuid);
   });
 
-  it('renders summary box for selected appointment with doctor registration and phone', () => {
-    const summary = el.querySelector('.appointment-summary-box');
-    expect(summary).not.toBeNull();
-    expect(summary?.textContent).toContain('Paciente Uno');
-    expect(summary?.textContent).toContain('Carlos Gómez');
-    expect(summary?.textContent).toContain('TEST-MED-0001');
-    expect(summary?.textContent).toContain('0991234567');
+  it('loads confirmed appointments with the page limit and no registration filter', () => {
+    expect(fakeList.calls[0]).toEqual({ status: 'CONFIRMADA', doctorRegistration: null, limit: 100 });
   });
 
-  it('filters appointments in combo box by doctor registration number', async () => {
+  it('summary box shows the doctor registration and never the patient or a phone', () => {
+    const summary = el.querySelector('.appointment-summary-box');
+    expect(summary).not.toBeNull();
+    expect(summary?.textContent).toContain('Carlos Gómez');
+    expect(summary?.textContent).toContain('TEST-MED-0001');
+    expect(summary?.textContent).not.toContain('Paciente');
+    expect(summary?.textContent).not.toContain('Tel');
+  });
+
+  it('option labels name the doctor and never the patient', () => {
+    const options = [...el.querySelectorAll<HTMLOptionElement>('#appointment-select option')];
+    const labels = options.map((o) => o.textContent ?? '').join(' ');
+    expect(labels).toContain('TEST-MED-0001');
+    expect(labels).toContain('Carlos Gómez');
+    expect(labels).not.toContain('Paciente');
+  });
+
+  it('searches the server by registration number when Buscar is pressed', async () => {
     const searchInput = el.querySelector<HTMLInputElement>('#doctor-search')!;
     searchInput.value = 'TEST-MED-0002';
     searchInput.dispatchEvent(new Event('input'));
     fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
 
-    const select = el.querySelector<HTMLSelectElement>('#appointment-select')!;
-    const options = [...select.querySelectorAll('option')].filter((o) => o.value !== '' && o.value !== '__manual__');
+    const searchButton = [...el.querySelectorAll<HTMLButtonElement>('button')].find(
+      (b) => b.textContent?.trim() === 'Buscar',
+    )!;
+    searchButton.click();
+    await settle();
+
+    expect(fakeList.calls.at(-1)).toEqual({
+      status: 'CONFIRMADA',
+      doctorRegistration: 'TEST-MED-0002',
+      limit: 100,
+    });
+    const options = [...el.querySelectorAll<HTMLSelectElement>('#appointment-select option')].filter(
+      (o) => o.value !== '' && o.value !== '__manual__',
+    );
     expect(options).toHaveLength(1);
     expect(options[0].value).toBe(otherUuid);
     expect(options[0].textContent).toContain('TEST-MED-0002');
+  });
+
+  it('says so when the search matches no appointment', async () => {
+    const searchInput = el.querySelector<HTMLInputElement>('#doctor-search')!;
+    searchInput.value = 'TEST-MED-9999';
+    searchInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    [...el.querySelectorAll<HTMLButtonElement>('button')]
+      .find((b) => b.textContent?.trim() === 'Buscar')!
+      .click();
+    await settle();
+
+    expect(el.textContent).toContain('No hay citas confirmadas para el registro "TEST-MED-9999"');
+  });
+
+  it('warns that the list is truncated when a full page comes back', async () => {
+    fakeList.items = Array.from({ length: 100 }, (_, index) => ({
+      ...sampleAppointment,
+      id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+    }));
+    const reload = [...el.querySelectorAll<HTMLButtonElement>('button')].find(
+      (b) => b.textContent?.trim() === 'Actualizar',
+    )!;
+    reload.click();
+    await settle();
+
+    expect(el.textContent).toContain('Se muestran las primeras 100 citas');
+  });
+
+  it('offers a retry when the list fails to load, and recovers', async () => {
+    fakeList.shouldFail = true;
+    [...el.querySelectorAll<HTMLButtonElement>('button')]
+      .find((b) => b.textContent?.trim() === 'Actualizar')!
+      .click();
+    await settle();
+
+    const retry = [...el.querySelectorAll<HTMLButtonElement>('button')].find(
+      (b) => b.textContent?.trim() === 'Reintentar',
+    );
+    expect(retry).toBeDefined();
+
+    fakeList.shouldFail = false;
+    retry!.click();
+    await settle();
+
+    expect(el.querySelector('#appointment-select')).not.toBeNull();
+    expect(el.textContent).not.toContain('Reintentar');
   });
 
   it('submits selected appointment with reason and shows success banner', async () => {
@@ -138,8 +224,7 @@ describe('CancellationApprovalPage', () => {
 
     const form = el.querySelector('form')!;
     form.dispatchEvent(new Event('submit'));
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await settle();
 
     expect(fakeApproveCancellation.calls).toEqual([
       {
@@ -153,7 +238,7 @@ describe('CancellationApprovalPage', () => {
     );
   });
 
-  it('allows searching/submitting by doctor registration number in manual mode without UUID', async () => {
+  it('accepts a doctor registration number in manual mode and resolves it to the appointment', async () => {
     const toggleBtn = [...el.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
       b.textContent?.includes('Ingresar UUID manualmente'),
     );
@@ -171,8 +256,7 @@ describe('CancellationApprovalPage', () => {
 
     const form = el.querySelector('form')!;
     form.dispatchEvent(new Event('submit'));
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await settle();
 
     expect(fakeApproveCancellation.calls).toEqual([
       {
@@ -192,8 +276,7 @@ describe('CancellationApprovalPage', () => {
 
     const form = el.querySelector('form')!;
     form.dispatchEvent(new Event('submit'));
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await settle();
 
     expect(el.querySelector('.banner--danger')?.textContent).toContain(
       'Esta cita ya cuenta con una aprobación registrada o ya no puede ser cancelada.',
@@ -210,17 +293,16 @@ describe('CancellationApprovalPage', () => {
 
     const form = el.querySelector('form')!;
     form.dispatchEvent(new Event('submit'));
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await settle();
 
     expect(el.querySelector('.banner--danger')?.textContent).toContain(
       'No encontramos ninguna cita con el identificador ingresado.',
     );
   });
 
-  it('clears form inputs, search and messages when reset button is clicked', async () => {
+  it('clears the reason, the search and messages when reset is clicked', async () => {
     const searchInput = el.querySelector<HTMLInputElement>('#doctor-search')!;
-    searchInput.value = 'TEST';
+    searchInput.value = 'TEST-MED-0002';
     searchInput.dispatchEvent(new Event('input'));
 
     const reasonInput = el.querySelector<HTMLTextAreaElement>('#approval-reason')!;
@@ -230,8 +312,7 @@ describe('CancellationApprovalPage', () => {
 
     const resetBtn = el.querySelector<HTMLButtonElement>('.actions button[type="button"]')!;
     resetBtn.click();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await settle();
 
     expect(el.querySelector<HTMLTextAreaElement>('#approval-reason')!.value).toBe('');
     expect(el.querySelector<HTMLInputElement>('#doctor-search')!.value).toBe('');

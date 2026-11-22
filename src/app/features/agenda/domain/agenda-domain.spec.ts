@@ -4,6 +4,7 @@ import {
   AgendaAppointment,
   ApproveCancellationCommand,
   CancellationApprovalResult,
+  CancellationCandidate,
   CancelDoctorAppointmentCommand,
   canCancelAppointment,
   canOpenConsultation,
@@ -28,6 +29,10 @@ class FakeAgendaRepository extends AgendaRepository {
   async listAppointments(filter?: ListAgendaFilter): Promise<readonly AgendaAppointment[]> {
     this.lastFilter = filter;
     return this.items;
+  }
+
+  async listCancellationCandidates(): Promise<readonly CancellationCandidate[]> {
+    return [];
   }
 
   async cancelAppointment(command: CancelDoctorAppointmentCommand): Promise<void> {

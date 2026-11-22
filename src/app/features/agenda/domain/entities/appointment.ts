@@ -14,14 +14,7 @@ export interface AppointmentPatient {
   readonly name: string;
 }
 
-export interface AppointmentDoctor {
-  readonly id: string;
-  readonly name: string;
-  readonly professionalRegistration?: string | null;
-  readonly phone?: string | null;
-}
-
-/** One appointment summary in the doctor's agenda or admin listing. */
+/** One appointment summary in the doctor's agenda. */
 export interface AgendaAppointment {
   readonly id: string;
   readonly status: AppointmentStatus;
@@ -29,12 +22,28 @@ export interface AgendaAppointment {
   readonly startUtc: string;
   /** ISO-8601 UTC timestamp. */
   readonly endUtc: string;
-  /** Additive field: present on doctor's agenda rows; null when absent. */
+  /** The patient of this agenda row. */
   readonly patient: AppointmentPatient | null;
-  /** Additive field: present on admin listing rows; null when absent. */
-  readonly doctor?: AppointmentDoctor | null;
-  /** Additive field: true when cancellation approval is already registered. */
-  readonly hasApproval?: boolean;
+}
+
+/** The doctor of a cancellation review row. Never a patient, never a phone number. */
+export interface CancellationCandidateDoctor {
+  readonly id: string;
+  readonly name: string;
+  readonly professionalRegistration: string | null;
+}
+
+/** One appointment in the administrator's cancellation review (identity only). */
+export interface CancellationCandidate {
+  readonly id: string;
+  readonly status: AppointmentStatus;
+  /** ISO-8601 UTC timestamp. */
+  readonly startUtc: string;
+  /** ISO-8601 UTC timestamp. */
+  readonly endUtc: string;
+  readonly doctor: CancellationCandidateDoctor;
+  /** True when cancellation approval is already registered. */
+  readonly hasApproval: boolean;
 }
 
 export type DoctorCancellationCode = 'IMPREVISTO_MEDICO' | 'OTRO_MEDICO';

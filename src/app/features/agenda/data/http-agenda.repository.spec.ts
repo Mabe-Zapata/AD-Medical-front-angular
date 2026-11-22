@@ -56,8 +56,6 @@ describe('HttpAgendaRepository', () => {
         startUtc: '2026-11-02T13:30:00Z',
         endUtc: '2026-11-02T14:00:00Z',
         patient: { id: 'p-1', name: 'Carlos Ruiz' },
-        doctor: null,
-        hasApproval: false,
       },
     ]);
   });
@@ -87,24 +85,25 @@ describe('HttpAgendaRepository', () => {
         startUtc: '2026-11-02T14:30:00Z',
         endUtc: '2026-11-02T15:00:00Z',
         patient: null,
-        doctor: null,
-        hasApproval: false,
       },
     ]);
   });
 
-  it('maps doctor details and approval flag when present on response', async () => {
-    const promise = repository.listAppointments({
+  it('queries the cancellation review listing with estado, registration and paging', async () => {
+    const promise = repository.listCancellationCandidates({
       status: 'CONFIRMADA',
-      doctorRegistration: 'TEST-MED-0001',
+      doctorRegistration: '  TEST-MED-0001 ',
+      limit: 100,
     });
 
     const req = http.expectOne(
       (r) =>
-        r.url === '/api/v1/appointments' &&
+        r.url === '/api/v1/appointments/cancellation-approvals' &&
         r.params.get('estado') === 'CONFIRMADA' &&
-        r.params.get('medico_registro') === 'TEST-MED-0001',
+        r.params.get('medico_registro') === 'TEST-MED-0001' &&
+        r.params.get('limit') === '100',
     );
+    expect(req.request.method).toBe('GET');
 
     req.flush({
       items: [
@@ -113,35 +112,69 @@ describe('HttpAgendaRepository', () => {
           estado: 'CONFIRMADA',
           inicio: '2026-11-02T16:00:00Z',
           fin: '2026-11-02T16:30:00Z',
-          paciente: { id: 'p-3', nombre: 'Ana Torres' },
+          tiene_aprobacion: true,
           medico: {
             id: 'm-1',
             nombre: 'Dr. Roberto Mendoza',
             registro_profesional: 'TEST-MED-0001',
-            telefono: '0991234567',
           },
-          tiene_aprobacion: true,
         },
       ],
     });
 
-    const items = await promise;
-    expect(items).toEqual([
+    expect(await promise).toEqual([
       {
         id: 'apt-3',
         status: 'CONFIRMADA',
         startUtc: '2026-11-02T16:00:00Z',
         endUtc: '2026-11-02T16:30:00Z',
-        patient: { id: 'p-3', name: 'Ana Torres' },
         doctor: {
           id: 'm-1',
           name: 'Dr. Roberto Mendoza',
           professionalRegistration: 'TEST-MED-0001',
-          phone: '0991234567',
         },
         hasApproval: true,
       },
     ]);
+  });
+
+  it('omits the registration parameter when it is blank', async () => {
+    const promise = repository.listCancellationCandidates({ doctorRegistration: '   ' });
+
+    const req = http.expectOne((r) => r.url === '/api/v1/appointments/cancellation-approvals');
+    expect(req.request.params.has('medico_registro')).toBe(false);
+    req.flush({ items: [] });
+
+    expect(await promise).toEqual([]);
+  });
+
+  it('never maps a patient or a doctor phone from the cancellation listing', async () => {
+    const promise = repository.listCancellationCandidates();
+
+    const req = http.expectOne((r) => r.url === '/api/v1/appointments/cancellation-approvals');
+    req.flush({
+      items: [
+        {
+          id: 'apt-4',
+          estado: 'CONFIRMADA',
+          inicio: '2026-11-02T17:00:00Z',
+          fin: '2026-11-02T17:30:00Z',
+          tiene_aprobacion: false,
+          paciente: { id: 'p-9', nombre: 'Paciente Oculto' },
+          medico: {
+            id: 'm-2',
+            nombre: 'Dr. Ana',
+            registro_profesional: 'TEST-MED-0002',
+            telefono: '0999999999',
+          },
+        },
+      ],
+    });
+
+    const [item] = await promise;
+    expect(item).not.toHaveProperty('patient');
+    expect(JSON.stringify(item)).not.toContain('Paciente Oculto');
+    expect(JSON.stringify(item)).not.toContain('0999999999');
   });
 
   it('translates HTTP 403 or 401 errors using toAppError', async () => {

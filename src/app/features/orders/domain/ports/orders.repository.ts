@@ -4,6 +4,7 @@ import {
   NewOrder,
   LabResult,
   NewResult,
+  ResultReview,
   OrderSummary,
   PatientOption,
   OrderDocument,
@@ -29,6 +30,8 @@ export abstract class OrdersRepository {
   abstract listTestAnalytes(testTypeId: string): Promise<TestAnalyte[]>;
   abstract getOrder(orderId: string): Promise<LabOrder>;
   abstract listResults(orderId: string): Promise<LabResult[]>;
+
+  abstract reviewResults(orderId: string, reviews: readonly ResultReview[]): Promise<void>;
   abstract recordResults(
     orderId: string,
     detailId: string,

@@ -21,6 +21,8 @@ export const PERMISSIONS = {
   consultationsOpen: 'consultas.abrir',
   appointmentsDoctorCancel: 'citas.cancelar_medico',
   cancellationApprovalsReview: 'citas.revisar_cancelaciones',
+  reportsRead: 'reportes.leer',
+  monitoringRead: 'monitoreo.leer',
 } as const;
 
 export function isStaff(roles: readonly string[]): boolean {
