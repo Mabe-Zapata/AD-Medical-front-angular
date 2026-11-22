@@ -54,6 +54,20 @@ export const APP_MODULES: readonly AppModule[] = [
     pendingNote: null,
   },
   {
+    title: 'Reportes',
+    description: 'Cifras de citas, órdenes, pagos y tratamientos por periodo.',
+    link: '/reportes',
+    anyOf: [PERMISSIONS.reportsRead],
+    pendingNote: null,
+  },
+  {
+    title: 'Monitoreo',
+    description: 'Estado de la base principal y de la replicación a los respaldos.',
+    link: '/monitoreo',
+    anyOf: [PERMISSIONS.monitoringRead],
+    pendingNote: null,
+  },
+  {
     title: 'Usuarios y roles',
     description: 'Ver las cuentas y crear las del personal y de pacientes.',
     link: '/usuarios',

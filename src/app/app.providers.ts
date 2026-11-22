@@ -37,6 +37,12 @@ import {
   ReviewOrder,
   UploadReport,
 } from './features/orders/domain/usecases/orders-usecases';
+import { HttpReportsRepository } from './features/reports/data/http-reports.repository';
+import { ReportsRepository } from './features/reports/domain/ports/reports.repository';
+import {
+  GetMonitoringStatus,
+  GetReportSummary,
+} from './features/reports/domain/usecases/reports-usecases';
 import { HttpUsersRepository } from './features/users/data/http-users.repository';
 import { UsersRepository } from './features/users/domain/ports/users.repository';
 import { CreateUser, ListUsers } from './features/users/domain/usecases/users-usecases';
@@ -131,6 +137,14 @@ export const appProviders: Provider[] = [
   },
   { provide: EditShadowFinding, useFactory: () => new EditShadowFinding(inject(ShadowRepository)) },
   { provide: ListShadowEdits, useFactory: () => new ListShadowEdits(inject(ShadowRepository)) },
+
+  // reports and monitoring
+  { provide: ReportsRepository, useClass: HttpReportsRepository },
+  { provide: GetReportSummary, useFactory: () => new GetReportSummary(inject(ReportsRepository)) },
+  {
+    provide: GetMonitoringStatus,
+    useFactory: () => new GetMonitoringStatus(inject(ReportsRepository)),
+  },
 
   // users
   { provide: UsersRepository, useClass: HttpUsersRepository },

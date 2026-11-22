@@ -73,6 +73,22 @@ export const routes: Routes = [
         ],
       },
       {
+        path: 'reportes',
+        title: 'Reportes · Medilo',
+        canActivate: [permissionGuard(PERMISSIONS.reportsRead)],
+        loadComponent: () =>
+          import('./features/reports/presentation/pages/reports.page').then((m) => m.ReportsPage),
+      },
+      {
+        path: 'monitoreo',
+        title: 'Monitoreo · Medilo',
+        canActivate: [permissionGuard(PERMISSIONS.monitoringRead)],
+        loadComponent: () =>
+          import('./features/reports/presentation/pages/monitoring.page').then(
+            (m) => m.MonitoringPage,
+          ),
+      },
+      {
         path: 'usuarios',
         title: 'Usuarios y roles · Medilo',
         canActivate: [permissionGuard(PERMISSIONS.usersAdmin)],
