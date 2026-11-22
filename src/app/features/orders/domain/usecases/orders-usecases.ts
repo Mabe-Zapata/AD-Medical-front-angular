@@ -4,6 +4,7 @@ import {
   Decision,
   LabOrder,
   LabResult,
+  ResultReview,
   NewOrder,
   NewResult,
   OrderSummary,
@@ -112,6 +113,19 @@ export class RecordResults {
       requireUuid(detailId, 'test detail id'),
       results,
     );
+  }
+}
+
+export class ReviewResults {
+  constructor(private readonly repository: OrdersRepository) {}
+
+  execute(orderId: string, reviews: readonly ResultReview[]): Promise<void> {
+    if (reviews.length === 0) throw new AppError('validation', 'Revisa al menos un resultado');
+    const unexplained = reviews.filter((r) => r.corrected && !(r.reason ?? '').trim());
+    if (unexplained.length > 0) {
+      throw new AppError('validation', 'Cada interpretación cambiada necesita un motivo');
+    }
+    return this.repository.reviewResults(requireUuid(orderId, 'order id'), reviews);
   }
 }
 

@@ -58,6 +58,10 @@ export interface LabOrder {
   readonly tests: readonly OrderTest[];
 }
 
+/** The classification of a result. Never a diagnosis. */
+export const READINGS = ['BAJO', 'DENTRO_REFERENCIA', 'ALTO', 'NO_EVALUABLE'] as const;
+export type Reading = (typeof READINGS)[number];
+
 export interface LabResult {
   readonly id: string;
   readonly detailId: string;
@@ -65,6 +69,23 @@ export interface LabResult {
   readonly unit: string | null;
   readonly numericValue: number | null;
   readonly textValue: string | null;
+  readonly referenceMin: number | null;
+  readonly referenceMax: number | null;
+  /** The effective reading: the laboratory's when it reviewed the result, otherwise the system's. */
+  readonly interpretation: Reading | null;
+  /** The system's reading, as registered. */
+  readonly systemInterpretation: Reading | null;
+  readonly reviewed: boolean;
+  readonly corrected: boolean;
+  readonly correctionReason: string | null;
+}
+
+/** One reading the laboratory sets before confirming. A correction needs a reason. */
+export interface ResultReview {
+  readonly resultId: string;
+  readonly reading: Reading;
+  readonly corrected: boolean;
+  readonly reason: string | null;
 }
 
 /** A result typed by hand. The analyte id links it to the clinical knowledge, so it can be classified. */

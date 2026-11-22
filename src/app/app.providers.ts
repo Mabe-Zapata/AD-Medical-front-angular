@@ -33,6 +33,7 @@ import {
   ListOrderDocuments,
   ConfirmOrder,
   RecordResults,
+  ReviewResults,
   ReviewOrder,
   UploadReport,
 } from './features/orders/domain/usecases/orders-usecases';
@@ -110,6 +111,7 @@ export const appProviders: Provider[] = [
   { provide: ListTestTypes, useFactory: () => new ListTestTypes(inject(OrdersRepository)) },
   { provide: ListWorklist, useFactory: () => new ListWorklist(inject(OrdersRepository)) },
   { provide: ConfirmOrder, useFactory: () => new ConfirmOrder(inject(OrdersRepository)) },
+  { provide: ReviewResults, useFactory: () => new ReviewResults(inject(OrdersRepository)) },
   { provide: ListOrderDocuments, useFactory: () => new ListOrderDocuments(inject(OrdersRepository)) },
   { provide: DownloadDocument, useFactory: () => new DownloadDocument(inject(OrdersRepository)) },
   { provide: ListTestAnalytes, useFactory: () => new ListTestAnalytes(inject(OrdersRepository)) },

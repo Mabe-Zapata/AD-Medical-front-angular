@@ -15,6 +15,9 @@ import {
   OrderSummary,
   PatientOption,
   OrderDocument,
+  READINGS,
+  Reading,
+  ResultReview,
   TestAnalyte,
   TestTypeOption,
   WorklistOrder,
@@ -46,6 +49,17 @@ interface ResultDto {
   unidad: string | null;
   valor_numerico: number | null;
   valor_texto: string | null;
+  referencia_min: number | null;
+  referencia_max: number | null;
+  interpretacion: string | null;
+  interpretacion_sistema: string | null;
+  revisado: boolean;
+  corregido: boolean;
+  motivo_correccion: string | null;
+}
+
+function asReading(value: string | null): Reading | null {
+  return (READINGS as readonly string[]).includes(value ?? '') ? (value as Reading) : null;
 }
 
 interface FindingDto {
@@ -215,7 +229,26 @@ export class HttpOrdersRepository extends OrdersRepository {
       unit: r.unidad,
       numericValue: r.valor_numerico,
       textValue: r.valor_texto,
+      referenceMin: r.referencia_min,
+      referenceMax: r.referencia_max,
+      interpretation: asReading(r.interpretacion),
+      systemInterpretation: asReading(r.interpretacion_sistema),
+      reviewed: r.revisado,
+      corrected: r.corregido,
+      correctionReason: r.motivo_correccion,
     }));
+  }
+
+  async reviewResults(orderId: string, reviews: readonly ResultReview[]): Promise<void> {
+    await this.call(
+      this.http.post<{ revisados: number }>(`${this.api}/lab/orders/${orderId}/results/review`, {
+        revisiones: reviews.map((r) => ({
+          resultado_id: r.resultId,
+          interpretacion_final: r.reading,
+          motivo: r.reason?.trim() || null,
+        })),
+      }),
+    );
   }
 
   async recordResults(

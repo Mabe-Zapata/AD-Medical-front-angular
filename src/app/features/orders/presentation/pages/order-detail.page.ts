@@ -18,6 +18,9 @@ import {
   OrderTest,
   PatientOption,
   Proposal,
+  READINGS,
+  Reading,
+  ResultReview,
   TestAnalyte,
   TestTypeOption,
   WorklistOrder,
@@ -37,6 +40,7 @@ import {
   ListWorklist,
   RecordResults,
   ReviewOrder,
+  ReviewResults,
   UploadReport,
 } from '../../domain/usecases/orders-usecases';
 import { ORDER_STATUS_LABELS, PRIORITY_LABELS, TEST_STATUS_LABELS, label } from '../labels';
@@ -87,6 +91,12 @@ const REVIEW_ERRORS: Overrides = {
   conflict: 'Esta orden ya fue revisada: el sistema admite una sola revisión.',
   forbidden: 'Solo el médico que ordenó puede revisar la orden.',
   validation: 'Escribe la conclusión de la revisión.',
+};
+const REVIEW_RESULTS_ERRORS: Overrides = {
+  conflict: 'La orden ya está confirmada: las interpretaciones ya no se pueden cambiar.',
+  not_found: 'No encontramos ese resultado en la orden.',
+  validation: 'Cada interpretación cambiada necesita un motivo.',
+  forbidden: 'No tienes permiso para revisar resultados.',
 };
 const DOWNLOAD_ERRORS: Overrides = {
   forbidden: 'No tienes permiso para descargar este documento.',
@@ -279,6 +289,83 @@ interface OrderDialog {
           }
         }
       </section>
+
+      @if (canRecord && restricted() && results().length > 0) {
+        <section class="card stack" aria-labelledby="review-heading">
+          <h2 id="review-heading">Revisión de interpretaciones</h2>
+          <p class="muted small">
+            Medilo clasificó cada resultado frente a sus valores de referencia. Revisa cada lectura: si
+            no es la adecuada, cámbiala e indica el motivo. Antes de confirmar, todos los resultados
+            deben estar revisados.
+          </p>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Analito</th>
+                  <th>Valor</th>
+                  <th>Referencia</th>
+                  <th>Sistema</th>
+                  <th>Tu lectura</th>
+                  <th>Motivo</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (result of results(); track result.id) {
+                  <tr>
+                    <td>{{ result.analyteName }}</td>
+                    <td>{{ result.numericValue ?? result.textValue ?? '—' }} {{ result.unit ?? '' }}</td>
+                    <td>{{ referenceText(result) }}</td>
+                    <td>
+                      {{ result.systemInterpretation ? readingLabels[result.systemInterpretation] : 'Sin clasificar' }}
+                      @if (!result.reviewed) {
+                        <app-chip>Pendiente</app-chip>
+                      }
+                    </td>
+                    <td>
+                      <select
+                        class="input"
+                        [attr.aria-label]="'Tu lectura de ' + result.analyteName"
+                        [value]="readingFor(result.id)"
+                        (change)="setReading(result.id, $event)"
+                      >
+                        @for (reading of readings; track reading) {
+                          <option [value]="reading">{{ readingLabels[reading] }}</option>
+                        }
+                      </select>
+                    </td>
+                    <td>
+                      <input
+                        class="input"
+                        type="text"
+                        maxlength="1000"
+                        [attr.aria-label]="'Motivo de ' + result.analyteName"
+                        [value]="reasonFor(result.id)"
+                        (input)="setReason(result.id, $event)"
+                        [disabled]="readingFor(result.id) === (result.systemInterpretation ?? 'NO_EVALUABLE')"
+                        placeholder="Obligatorio si cambias la lectura"
+                      />
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          @if (pendingReviews() > 0) {
+            <p class="small">Faltan {{ pendingReviews() }} resultado(s) por revisar.</p>
+          }
+          <div>
+            <button
+              class="btn btn--primary"
+              type="button"
+              [disabled]="busy() === 'review' || !reviewsReady()"
+              (click)="saveReview()"
+            >
+              Guardar revisión
+            </button>
+          </div>
+        </section>
+      }
 
       @if (order()) {
         <section class="card stack">
@@ -609,10 +696,43 @@ export class OrderDetailPage {
   private readonly listAnalytes = inject(ListAnalytes);
   private readonly listWorklist = inject(ListWorklist);
   private readonly confirmOrder = inject(ConfirmOrder);
+  private readonly reviewResults = inject(ReviewResults);
   /** The laboratory's queue says every test has results: the order is ready to be closed. */
   protected readonly readyToConfirm = computed(
-    () => this.restricted() && this.queueItem()?.status === 'COMPLETADA',
+    () =>
+      this.restricted() &&
+      this.queueItem()?.status === 'COMPLETADA' &&
+      this.pendingReviews() === 0,
   );
+  /** Results the laboratory has not read yet. The order cannot be confirmed while any remains. */
+  protected readonly pendingReviews = computed(() => this.results().filter((r) => !r.reviewed).length);
+  protected readonly readings = READINGS;
+  protected readonly readingLabels: Record<Reading, string> = {
+    BAJO: 'Bajo',
+    DENTRO_REFERENCIA: 'Dentro de rango',
+    ALTO: 'Alto',
+    NO_EVALUABLE: 'No evaluable',
+  };
+  /** The laboratory's working reading and reason for each result, before they are saved. */
+  protected readonly readingDraft = signal<Record<string, { reading: Reading; reason: string }>>({});
+  /** Results whose reading is new or changed from the effective one: these are sent on save. */
+  protected readonly reviewsToSend = computed(() =>
+    this.results().filter(
+      (r) => !r.reviewed || this.readingFor(r.id) !== (r.interpretation ?? 'NO_EVALUABLE'),
+    ),
+  );
+  /** Every reading that differs from the system's has its reason written. */
+  protected readonly reviewsReady = computed(() => {
+    const pending = this.reviewsToSend();
+    return (
+      pending.length > 0 &&
+      pending.every(
+        (r) =>
+          this.readingFor(r.id) === (r.systemInterpretation ?? 'NO_EVALUABLE') ||
+          this.reasonFor(r.id).trim().length > 0,
+      )
+    );
+  });
   private readonly listTestAnalytes = inject(ListTestAnalytes);
   private readonly router = inject(Router);
   private readonly reviews = inject(ReviewsState);
@@ -786,7 +906,8 @@ export class OrderDetailPage {
     } catch (error) {
       this.error.set(
         describeError(error, {
-          conflict: 'Esta orden ya está confirmada o le faltan resultados.',
+          conflict:
+            'Revisa la interpretación de cada resultado antes de confirmar, o la orden ya está confirmada.',
           not_found: 'No encontramos esa orden.',
           forbidden: 'No tienes permiso para confirmar esta orden.',
         }),
@@ -797,6 +918,71 @@ export class OrderDetailPage {
   private async leaveAfterSent(): Promise<void> {
     // The laboratory goes back to its queue, where the next pending order is one click away.
     if (this.restricted()) await this.router.navigate(['/ordenes'], { queryParams: { guardado: '1' } });
+  }
+
+  protected readingFor(resultId: string): Reading {
+    return this.readingDraft()[resultId]?.reading ?? 'NO_EVALUABLE';
+  }
+
+  protected reasonFor(resultId: string): string {
+    return this.readingDraft()[resultId]?.reason ?? '';
+  }
+
+  protected setReading(resultId: string, event: Event): void {
+    const reading = (event.target as HTMLSelectElement).value as Reading;
+    this.readingDraft.update((draft) => ({
+      ...draft,
+      [resultId]: { reading, reason: draft[resultId]?.reason ?? '' },
+    }));
+  }
+
+  protected setReason(resultId: string, event: Event): void {
+    const reason = (event.target as HTMLInputElement).value;
+    this.readingDraft.update((draft) => ({
+      ...draft,
+      [resultId]: { reading: draft[resultId]?.reading ?? 'NO_EVALUABLE', reason },
+    }));
+  }
+
+  protected referenceText(result: LabResult): string {
+    if (result.referenceMin === null && result.referenceMax === null) return '—';
+    return `${result.referenceMin ?? '…'} – ${result.referenceMax ?? '…'}`;
+  }
+
+  protected async saveReview(): Promise<void> {
+    const reviews: ResultReview[] = this.reviewsToSend().map((result) => {
+      const reading = this.readingFor(result.id);
+      const corrected = reading !== (result.systemInterpretation ?? 'NO_EVALUABLE');
+      return {
+        resultId: result.id,
+        reading,
+        corrected,
+        reason: corrected ? this.reasonFor(result.id).trim() : null,
+      };
+    });
+    await this.run(
+      'review',
+      async () => {
+        await this.reviewResults.execute(this.orderId, reviews);
+        await this.loadResultsForReview();
+        this.notice.set('Revisión guardada.');
+      },
+      REVIEW_RESULTS_ERRORS,
+    );
+  }
+
+  /** The laboratory reads the results it registered, with the system's reading beside its own. */
+  private async loadResultsForReview(): Promise<void> {
+    const list = await this.listResults.execute(this.orderId);
+    this.results.set(list);
+    this.readingDraft.set(
+      Object.fromEntries(
+        list.map((r) => [
+          r.id,
+          { reading: r.interpretation ?? 'NO_EVALUABLE', reason: r.correctionReason ?? '' },
+        ]),
+      ),
+    );
   }
 
   protected async saveResults({ detailId, results }: ResultsSubmission): Promise<void> {
@@ -971,6 +1157,7 @@ export class OrderDetailPage {
         this.testTypes.set(testTypes);
       }
       if (this.restricted()) await this.loadQueueItem();
+      if (this.restricted() && this.canRecord) await this.loadResultsForReview();
       if (this.canRecord) {
         const analytes = await this.listAnalytes.execute().catch(() => []);
         this.analytes.set(analytes);
