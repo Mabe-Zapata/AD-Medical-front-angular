@@ -20,6 +20,7 @@ import {
   ListWorklist,
   RecordResults,
   ReviewOrder,
+  ReviewResults,
   UploadReport,
 } from '../../domain/usecases/orders-usecases';
 import {
@@ -194,6 +195,8 @@ function setup(stubs: Partial<Stubs>, ...granted: string[]) {
           },
         },
       },
+      // Per-result readings have their own spec; here the page only needs the use case to exist.
+      { provide: ReviewResults, useValue: { execute: async (...args: unknown[]) => record('reviewResults', ...args) } },
     ],
   });
   const fixture = TestBed.createComponent(OrderDetailPage);
