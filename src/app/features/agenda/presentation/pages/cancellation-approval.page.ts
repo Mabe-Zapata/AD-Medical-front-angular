@@ -22,6 +22,7 @@ import {
   CancellationApprovalResult,
   CancellationCandidate,
 } from '../../domain/entities/appointment';
+import { cancellationWindowOpen } from '../../domain/entities/appointment';
 import { ApproveCancellation } from '../../domain/usecases/approve-cancellation';
 import { ListCancellationCandidates } from '../../domain/usecases/list-cancellation-candidates';
 
@@ -335,7 +336,7 @@ const LIST_LIMIT = 100;
             <button
               type="submit"
               class="btn btn--primary"
-              [disabled]="submitting() || !appointmentId() || (selectedAppointment()?.hasApproval ?? false)"
+              [disabled]="submitting() || !appointmentId() || (selectedAppointment()?.hasApproval ?? false) || windowClosed()"
             >
               {{ submitting() ? 'Registrando aprobación...' : 'Registrar aprobación' }}
             </button>
@@ -395,6 +396,12 @@ export class CancellationApprovalPage implements OnInit {
     }
     return this.appointments().find((a) => a.id.toLowerCase() === id) ?? null;
   });
+
+  /** An approval comes too late once the appointment's cancellation window has closed. */
+  protected windowClosed(): boolean {
+    const appointment = this.selectedAppointment();
+    return appointment !== null && !cancellationWindowOpen(appointment.startUtc);
+  }
 
   async ngOnInit(): Promise<void> {
     await this.loadAppointments(true);

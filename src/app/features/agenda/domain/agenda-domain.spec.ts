@@ -397,7 +397,7 @@ describe('canCancelAppointment policy', () => {
   it('returns true when a confirmed appointment is in the future', () => {
     expect(
       canCancelAppointment(
-        { status: 'CONFIRMADA', endUtc: '2026-11-16T13:00:00Z' },
+        { status: 'CONFIRMADA', startUtc: '2026-11-16T13:00:00Z' },
         refTime,
       ),
     ).toBe(true);
@@ -406,31 +406,37 @@ describe('canCancelAppointment policy', () => {
   it('returns true when a pending-payment appointment is in the future', () => {
     expect(
       canCancelAppointment(
-        { status: 'PENDIENTE_PAGO', endUtc: '2026-11-16T14:00:00Z' },
+        { status: 'PENDIENTE_PAGO', startUtc: '2026-11-16T14:00:00Z' },
         refTime,
       ),
     ).toBe(true);
   });
 
-  it('returns false when the appointment end time is in the past', () => {
+  it('returns false once the cancellation window has closed (one hour after the start)', () => {
     expect(
       canCancelAppointment(
-        { status: 'CONFIRMADA', endUtc: '2026-11-16T11:00:00Z' },
+        { status: 'CONFIRMADA', startUtc: '2026-11-16T10:59:00Z' },
         refTime,
       ),
     ).toBe(false);
   });
 
+  it('still allows cancelling up to one hour after a start that has passed', () => {
+    expect(
+      canCancelAppointment({ status: 'CONFIRMADA', startUtc: '2026-11-16T11:30:00Z' }, refTime),
+    ).toBe(true);
+  });
+
   it('returns false for terminal statuses even in the future', () => {
     expect(
       canCancelAppointment(
-        { status: 'COMPLETADA', endUtc: '2026-11-16T15:00:00Z' },
+        { status: 'COMPLETADA', startUtc: '2026-11-16T15:00:00Z' },
         refTime,
       ),
     ).toBe(false);
     expect(
       canCancelAppointment(
-        { status: 'CANCELADA', endUtc: '2026-11-16T15:00:00Z' },
+        { status: 'CANCELADA', startUtc: '2026-11-16T15:00:00Z' },
         refTime,
       ),
     ).toBe(false);

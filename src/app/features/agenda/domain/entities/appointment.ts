@@ -75,18 +75,26 @@ export function isAppointmentElapsed(
   return appointment.status === 'CONFIRMADA' && isPastUtc(appointment.endUtc, nowMillis);
 }
 
+/** Cancellations close one hour after the start, as the API enforces. */
+export const CANCELLATION_WINDOW_MS = 60 * 60 * 1000;
+
+/** True while an appointment can still be cancelled: until one hour after its start. */
+export function cancellationWindowOpen(startUtc: string, nowMillis = Date.now()): boolean {
+  return nowMillis <= Date.parse(startUtc) + CANCELLATION_WINDOW_MS;
+}
+
 /**
  * Returns true if an appointment can be cancelled by the doctor:
- * must be CONFIRMADA or PENDIENTE_PAGO, and its scheduled slot must not be in the past.
+ * must be CONFIRMADA or PENDIENTE_PAGO, and still inside the cancellation window.
  */
 export function canCancelAppointment(
-  appointment: Pick<AgendaAppointment, 'status' | 'endUtc'>,
+  appointment: Pick<AgendaAppointment, 'status' | 'startUtc'>,
   nowMillis = Date.now(),
 ): boolean {
   if (appointment.status !== 'CONFIRMADA' && appointment.status !== 'PENDIENTE_PAGO') {
     return false;
   }
-  return !isPastUtc(appointment.endUtc, nowMillis);
+  return cancellationWindowOpen(appointment.startUtc, nowMillis);
 }
 
 export const MAX_CONSULTATION_HOURS = 8;
