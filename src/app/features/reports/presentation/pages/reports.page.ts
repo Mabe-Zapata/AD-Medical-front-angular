@@ -43,15 +43,25 @@ function firstDayOfMonth(today: Date): string {
   imports: [FormsModule, BannerComponent, PageHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
-    .period {
+    .period-fields {
+      align-items: end;
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+    .period-fields .btn {
+      justify-self: start;
+    }
+    .period-hint {
+      color: var(--muted);
+      font-size: 12px;
+      margin: 0;
+      text-transform: capitalize;
+    }
+    .presets {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
-      align-items: flex-end;
-    }
-    .period label {
-      display: grid;
-      gap: 4px;
+      gap: 8px;
     }
     .grid {
       display: grid;
@@ -70,18 +80,28 @@ function firstDayOfMonth(today: Date): string {
       </app-page-header>
 
       <section class="card stack">
-        <form class="period" (ngSubmit)="load()">
-          <label>
-            <span>Desde</span>
-            <input type="date" name="from" [ngModel]="from()" (ngModelChange)="from.set($event)" required />
-          </label>
-          <label>
-            <span>Hasta</span>
-            <input type="date" name="to" [ngModel]="to()" (ngModelChange)="to.set($event)" required />
-          </label>
-          <button class="btn btn--primary" type="submit" [disabled]="status() === 'loading'">
-            Consultar
-          </button>
+        <form class="stack" (ngSubmit)="load()">
+          <div class="presets" role="group" aria-label="Periodos rápidos">
+            <button type="button" class="btn btn--small btn--ghost" (click)="usePreset('current')">Este mes</button>
+            <button type="button" class="btn btn--small btn--ghost" (click)="usePreset('previous')">Mes anterior</button>
+          </div>
+          <div class="period-fields">
+            <div class="field">
+              <label for="report-from">Desde</label>
+              <input id="report-from" class="input" type="date" name="from"
+                [ngModel]="from()" (ngModelChange)="from.set($event)" required />
+              <p class="period-hint">{{ longDate(from()) }}</p>
+            </div>
+            <div class="field">
+              <label for="report-to">Hasta</label>
+              <input id="report-to" class="input" type="date" name="to"
+                [ngModel]="to()" (ngModelChange)="to.set($event)" required />
+              <p class="period-hint">{{ longDate(to()) }}</p>
+            </div>
+            <button class="btn btn--primary" type="submit" [disabled]="status() === 'loading'">
+              Consultar
+            </button>
+          </div>
         </form>
         @if (problem(); as text) {
           <app-banner tone="warning">{{ text }}</app-banner>
@@ -94,7 +114,7 @@ function firstDayOfMonth(today: Date): string {
       </section>
 
       @if (summary(); as data) {
-        <p class="muted small">Periodo del {{ data.from }} al {{ data.to }}, ambos incluidos.</p>
+        <p class="muted small">Del {{ longDate(data.from) }} al {{ longDate(data.to) }}, ambos incluidos.</p>
         <div class="grid">
           <section class="card stack">
             <h2>Citas</h2>
@@ -217,6 +237,29 @@ export class ReportsPage {
       this.error.set(describeError(error));
       this.status.set('failed');
     }
+  }
+
+  /** A date as the person reads it, for example "lunes, 2 de marzo de 2026". */
+  protected longDate(isoDate: string): string {
+    const [year, month, day] = isoDate.split('-').map(Number);
+    if (!year || !month || !day) return '';
+    return new Date(year, month - 1, day).toLocaleDateString('es-EC', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  }
+
+  /** Fills the period with the current month or the previous one, and reads it at once. */
+  protected usePreset(preset: 'current' | 'previous'): void {
+    const today = new Date();
+    const base = preset === 'current' ? today : new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const first = new Date(base.getFullYear(), base.getMonth(), 1);
+    const last = preset === 'current' ? today : new Date(base.getFullYear(), base.getMonth() + 1, 0);
+    this.from.set(toIsoDate(first));
+    this.to.set(toIsoDate(last));
+    void this.load();
   }
 
   protected label(names: Readonly<Record<string, string>>, row: StateCount): string {
