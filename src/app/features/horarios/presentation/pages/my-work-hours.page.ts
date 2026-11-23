@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import Swal from 'sweetalert2';
 
 import { describeError } from '../../../../shared/presentation/error-message';
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
@@ -24,6 +25,18 @@ function longDate(isoDate: string): string {
     day: 'numeric',
     month: 'long',
   });
+}
+
+const BRAND = '#c2410c';
+const BLUE = '#1d56a6';
+const ALERT_COLORS = { confirmButtonColor: BRAND, cancelButtonColor: BLUE };
+
+/** A stable text of the blocks, so two schedules compare equal when they hold the same hours. */
+function blockKey(blocks: readonly WorkBlock[]): string {
+  return blocks
+    .map((block) => `${block.dayOfWeek}|${block.start}|${block.end}`)
+    .sort()
+    .join(';');
 }
 
 /** Hours of work in a day, as a short label such as "3 h 30 min". */
@@ -226,8 +239,11 @@ function durationLabel(blocks: readonly WorkBlock[]): string {
                         </button>
                       }
                       @if (countOf(day.index) > 0) {
-                        <button type="button" class="btn btn--small btn--ghost" (click)="copyToAll(day.index)">
-                          Copiar este día a toda la semana
+                        <button type="button" class="btn btn--small btn--ghost" (click)="copyTo(day.index, weekdays)">
+                          Copiar a lunes a viernes
+                        </button>
+                        <button type="button" class="btn btn--small btn--ghost" (click)="copyTo(day.index, everyDay)">
+                          Copiar a toda la semana
                         </button>
                       }
                     </div>
@@ -242,18 +258,19 @@ function durationLabel(blocks: readonly WorkBlock[]): string {
             @if (saveError(); as message) {
               <app-banner tone="danger">{{ message }}</app-banner>
             }
-            @if (saved()) {
-              <app-banner tone="success">Horario guardado. Aplica desde el {{ effectiveLabel() }}.</app-banner>
-            }
-
             <div class="row">
-              <button type="button" class="btn btn--primary" (click)="save()" [disabled]="saving() || !!problem()">
+              <button type="button" class="btn btn--primary" (click)="save()" [disabled]="saving() || !canSave()">
                 {{ saving() ? 'Guardando…' : 'Guardar horario' }}
               </button>
-              <button type="button" class="btn btn--ghost" (click)="discard()" [disabled]="saving()">
+              <button type="button" class="btn btn--ghost" (click)="discard()" [disabled]="saving() || !hasChanges()">
                 Descartar cambios
               </button>
             </div>
+            @if (blocks().length === 0) {
+              <p class="muted small">Agrega al menos un bloque para poder guardar.</p>
+            } @else if (!hasChanges()) {
+              <p class="muted small">No hay cambios que guardar.</p>
+            }
           </section>
 
           <aside class="card stack">
@@ -300,14 +317,23 @@ export class MyWorkHoursPage {
   protected readonly loadError = signal<string | null>(null);
   protected readonly saving = signal(false);
   protected readonly saveError = signal<string | null>(null);
-  protected readonly saved = signal(false);
   protected readonly effectiveFrom = signal('');
   protected readonly current = signal<readonly WorkBlock[]>([]);
   /** The schedule being edited (from next week on). */
   protected readonly blocks = signal<WorkBlock[]>([]);
   /** The schedule as the server has it, to discard edits back to. */
-  private savedBlocks: readonly WorkBlock[] = [];
+  /** The schedule the server has; the form returns to it when the doctor discards changes. */
+  private readonly savedBlocks = signal<readonly WorkBlock[]>([]);
   protected readonly problem = computed(() => scheduleProblem(this.blocks()));
+  protected readonly hasChanges = computed(
+    () => blockKey(this.blocks()) !== blockKey(this.savedBlocks()),
+  );
+  /** Nothing to save until there is at least one block, something changed, and every block is valid. */
+  protected readonly canSave = computed(
+    () => this.blocks().length > 0 && this.hasChanges() && !this.problem(),
+  );
+  protected readonly weekdays = [0, 1, 2, 3, 4];
+  protected readonly everyDay = [0, 1, 2, 3, 4, 5, 6];
   /** One message per block, shown next to the block that has it. */
   protected readonly issues = computed(() => blockIssues(this.blocks()));
   protected readonly effectiveLabel = computed(() => longDate(this.effectiveFrom()));
@@ -348,7 +374,6 @@ export class MyWorkHoursPage {
   }
 
   protected add(day: number): void {
-    this.saved.set(false);
     const existing = this.blocksOf(day).map((item) => item.block);
     // Start the new block after the last one of the day, inside the clinic hours.
     const lastEnd = existing.reduce((latest, block) => Math.max(latest, toMinutes(block.end)), toMinutes(CLINIC_OPENS));
@@ -357,43 +382,65 @@ export class MyWorkHoursPage {
     this.blocks.update((list) => [...list, { dayOfWeek: day, start: hh(start), end: hh(start + 60) }]);
   }
 
-  /** Copies one day's blocks onto every day of the week, replacing what those days had. */
-  protected copyToAll(day: number): void {
+  /** Copies one day's blocks onto the given days, replacing what those days had. */
+  protected copyTo(day: number, targets: readonly number[]): void {
     const source = this.blocksOf(day).map((item) => item.block);
-    this.saved.set(false);
-    this.blocks.set(
-      this.days.flatMap((target) =>
-        target.index === day ? source : source.map((block) => ({ ...block, dayOfWeek: target.index })),
-      ),
-    );
+    const others = targets.filter((target) => target !== day);
+    this.blocks.update((list) => [
+      ...list.filter((block) => block.dayOfWeek !== day && !others.includes(block.dayOfWeek)),
+      ...source,
+      ...others.flatMap((target) => source.map((block) => ({ ...block, dayOfWeek: target }))),
+    ]);
   }
 
   protected remove(index: number): void {
-    this.saved.set(false);
     this.blocks.update((list) => list.filter((_, position) => position !== index));
   }
 
   protected setTime(index: number, field: 'start' | 'end', value: string): void {
-    this.saved.set(false);
     this.blocks.update((list) =>
       list.map((block, position) => (position === index ? { ...block, [field]: value } : block)),
     );
   }
 
-  protected discard(): void {
-    this.saved.set(false);
+  protected async discard(): Promise<void> {
+    const choice = await Swal.fire({
+      icon: 'warning',
+      title: '¿Descartar los cambios?',
+      text: 'Volverás al horario guardado. Lo que editaste se pierde.',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, descartar',
+      cancelButtonText: 'Seguir editando',
+      ...ALERT_COLORS,
+    });
+    if (!choice.isConfirmed) return;
     this.saveError.set(null);
-    this.blocks.set([...this.savedBlocks]);
+    this.blocks.set([...this.savedBlocks()]);
   }
 
   protected async save(): Promise<void> {
     this.saveError.set(null);
-    this.saved.set(false);
-    if (this.problem()) return;
+    if (!this.canSave()) return;
+    const choice = await Swal.fire({
+      icon: 'question',
+      title: '¿Guardar tu horario?',
+      text: `Aplica desde el ${this.effectiveLabel()}. La semana en curso y las ya planificadas no cambian.`,
+      showCancelButton: true,
+      confirmButtonText: 'Sí, guardar',
+      cancelButtonText: 'Revisar',
+      ...ALERT_COLORS,
+    });
+    if (!choice.isConfirmed) return;
     this.saving.set(true);
     try {
       this.applyHours(await this.saveMyHours.execute(this.blocks()));
-      this.saved.set(true);
+      await Swal.fire({
+        icon: 'success',
+        title: 'Horario guardado',
+        text: `Aplica desde el ${this.effectiveLabel()}.`,
+        confirmButtonText: 'Listo',
+        ...ALERT_COLORS,
+      });
     } catch (error) {
       this.saveError.set(describeError(error).message);
     } finally {
@@ -404,7 +451,7 @@ export class MyWorkHoursPage {
   private applyHours(hours: DoctorHours): void {
     this.effectiveFrom.set(hours.effectiveFrom);
     this.current.set(hours.current);
-    this.savedBlocks = [...hours.next];
+    this.savedBlocks.set([...hours.next]);
     this.blocks.set([...hours.next]);
   }
 }
