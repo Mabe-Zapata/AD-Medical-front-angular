@@ -54,6 +54,20 @@ export const APP_MODULES: readonly AppModule[] = [
     pendingNote: null,
   },
   {
+    title: 'Mi horario de atención',
+    description: 'Los días y horas en que atiendes. Aplica desde la próxima semana.',
+    link: '/mi-horario',
+    anyOf: [PERMISSIONS.hoursDeclare],
+    pendingNote: null,
+  },
+  {
+    title: 'Planificación semanal',
+    description: 'Crear las citas de una semana a partir del horario de cada médico.',
+    link: '/planificacion',
+    anyOf: [PERMISSIONS.slotsGenerate],
+    pendingNote: null,
+  },
+  {
     title: 'Reportes',
     description: 'Cifras de citas, órdenes, pagos y tratamientos por periodo.',
     link: '/reportes',

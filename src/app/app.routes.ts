@@ -73,6 +73,24 @@ export const routes: Routes = [
         ],
       },
       {
+        path: 'mi-horario',
+        title: 'Mi horario de atención · Medilo',
+        canActivate: [roleGuard('MEDICO')],
+        loadComponent: () =>
+          import('./features/horarios/presentation/pages/my-work-hours.page').then(
+            (m) => m.MyWorkHoursPage,
+          ),
+      },
+      {
+        path: 'planificacion',
+        title: 'Planificación semanal · Medilo',
+        canActivate: [permissionGuard(PERMISSIONS.slotsGenerate)],
+        loadComponent: () =>
+          import('./features/horarios/presentation/pages/weekly-planning.page').then(
+            (m) => m.WeeklyPlanningPage,
+          ),
+      },
+      {
         path: 'reportes',
         title: 'Reportes · Medilo',
         canActivate: [permissionGuard(PERMISSIONS.reportsRead)],

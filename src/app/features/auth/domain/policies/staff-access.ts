@@ -22,6 +22,8 @@ export const PERMISSIONS = {
   appointmentsDoctorCancel: 'citas.cancelar_medico',
   cancellationApprovalsReview: 'citas.revisar_cancelaciones',
   reportsRead: 'reportes.leer',
+  hoursDeclare: 'horario.declarar',
+  slotsGenerate: 'horario.generar',
   monitoringRead: 'monitoreo.leer',
 } as const;
 
