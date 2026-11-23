@@ -54,6 +54,17 @@ import { ListAgenda } from './features/agenda/domain/usecases/list-agenda';
 import { ListCancellationCandidates } from './features/agenda/domain/usecases/list-cancellation-candidates';
 import { OpenConsultation } from './features/agenda/domain/usecases/open-consultation';
 import { HttpKnowledgeRepository } from './features/knowledge/data/http-knowledge.repository';
+import { HttpWorkHoursRepository } from './features/horarios/data/http-work-hours.repository';
+import { WorkHoursRepository } from './features/horarios/domain/ports/work-hours.repository';
+import {
+  GenerateWeek,
+  GetDoctorWorkHours,
+  GetMyWorkHours,
+  ListConsultorios,
+  ListDoctors,
+  ProposeWeek,
+  SaveMyWorkHours,
+} from './features/horarios/domain/usecases/work-hours-usecases';
 import { KnowledgeRepository } from './features/knowledge/domain/ports/knowledge.repository';
 import {
   CreateAnalyte,
@@ -137,6 +148,16 @@ export const appProviders: Provider[] = [
   },
   { provide: EditShadowFinding, useFactory: () => new EditShadowFinding(inject(ShadowRepository)) },
   { provide: ListShadowEdits, useFactory: () => new ListShadowEdits(inject(ShadowRepository)) },
+
+  // doctor work hours and weekly planning
+  { provide: WorkHoursRepository, useClass: HttpWorkHoursRepository },
+  { provide: GetMyWorkHours, useFactory: () => new GetMyWorkHours(inject(WorkHoursRepository)) },
+  { provide: SaveMyWorkHours, useFactory: () => new SaveMyWorkHours(inject(WorkHoursRepository)) },
+  { provide: ListDoctors, useFactory: () => new ListDoctors(inject(WorkHoursRepository)) },
+  { provide: GetDoctorWorkHours, useFactory: () => new GetDoctorWorkHours(inject(WorkHoursRepository)) },
+  { provide: ListConsultorios, useFactory: () => new ListConsultorios(inject(WorkHoursRepository)) },
+  { provide: ProposeWeek, useFactory: () => new ProposeWeek(inject(WorkHoursRepository)) },
+  { provide: GenerateWeek, useFactory: () => new GenerateWeek(inject(WorkHoursRepository)) },
 
   // reports and monitoring
   { provide: ReportsRepository, useClass: HttpReportsRepository },
