@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { WorkBlock } from '../entities/work-hours';
 import {
+  blockIssues,
   mondayOf,
   nextMonday,
   scheduleProblem,
@@ -79,5 +80,36 @@ describe('week helpers', () => {
     expect(weekProblem('2026-11-16', today)).toMatch(/ya pasó/);
     expect(weekProblem('2026-11-23', today)).toBeNull();
     expect(weekProblem('2027-06-07', today)).toMatch(/12 semanas/);
+  });
+});
+
+describe('blockIssues', () => {
+  it('marks both blocks of an overlap, and leaves the other days alone', () => {
+    const issues = blockIssues([block(0, '08:00', '10:00'), block(0, '09:30', '11:00'), block(1, '12:00', '13:00')]);
+
+    expect(issues).toEqual([
+      'Se solapa con otro bloque de este día.',
+      'Se solapa con otro bloque de este día.',
+      null,
+    ]);
+  });
+
+  it('explains an inverted block and an out-of-hours block on their own row', () => {
+    const issues = blockIssues([block(2, '10:00', '09:00'), block(3, '07:00', '09:00')]);
+
+    expect(issues[0]).toMatch(/después de que empieza/);
+    expect(issues[1]).toMatch(/entre 08:00 y 17:00/);
+  });
+
+  it('flags only the block that goes over the four a day', () => {
+    const five = [
+      block(4, '08:00', '09:00'),
+      block(4, '09:00', '10:00'),
+      block(4, '12:00', '13:00'),
+      block(4, '13:00', '14:00'),
+      block(4, '14:00', '15:00'),
+    ];
+
+    expect(blockIssues(five).map((issue) => issue !== null)).toEqual([false, false, false, false, true]);
   });
 });

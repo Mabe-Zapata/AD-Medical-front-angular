@@ -42,10 +42,11 @@ const WINDOW_NAMES: Record<ProposedSlot['window'], string> = {
       gap: 14px;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     }
-    .grid-form label,
-    .day legend + * {
+    .grid-2 label {
       display: grid;
       gap: 6px;
+      font-size: 13px;
+      font-weight: 700;
     }
     .day {
       border: 1px solid var(--line, #e5e7eb);
@@ -96,10 +97,10 @@ const WINDOW_NAMES: Record<ProposedSlot['window'], string> = {
         @if (listError(); as message) {
           <app-banner tone="danger">{{ message }}</app-banner>
         }
-        <div class="grid-form">
+        <div class="grid-2">
           <label>
             Médico
-            <select [ngModel]="doctorId()" (ngModelChange)="chooseDoctor($event)">
+            <select class="input" [ngModel]="doctorId()" (ngModelChange)="chooseDoctor($event)">
               <option value="">Elige un médico</option>
               @for (doctor of doctors(); track doctor.id) {
                 <option [value]="doctor.id">{{ doctor.name }}</option>
@@ -108,11 +109,11 @@ const WINDOW_NAMES: Record<ProposedSlot['window'], string> = {
           </label>
           <label>
             Semana (lunes)
-            <input type="date" [ngModel]="week()" (ngModelChange)="chooseWeek($event)" />
+            <input class="input" type="date" [ngModel]="week()" (ngModelChange)="chooseWeek($event)" />
           </label>
           <label>
             Consultorio
-            <select [ngModel]="consultorioId()" (ngModelChange)="consultorioId.set($event)">
+            <select class="input" [ngModel]="consultorioId()" (ngModelChange)="consultorioId.set($event)">
               <option value="">Elige un consultorio</option>
               @for (office of offices(); track office.id) {
                 <option [value]="office.id">{{ office.office }} · {{ office.name }}</option>

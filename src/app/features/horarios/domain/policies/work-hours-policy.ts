@@ -25,6 +25,34 @@ export function timeOptions(): string[] {
   return options;
 }
 
+/**
+ * One problem per block, in the same order as `blocks`, or null when that block is fine.
+ * Each message names what to change, so the form can show it right where the mistake is.
+ */
+export function blockIssues(blocks: readonly WorkBlock[]): (string | null)[] {
+  return blocks.map((block, index) => {
+    const start = toMinutes(block.start);
+    const end = toMinutes(block.end);
+    if (start >= end) return 'Debe terminar después de que empieza.';
+    if (start < toMinutes(CLINIC_OPENS) || end > toMinutes(CLINIC_CLOSES)) {
+      return `Debe estar entre ${CLINIC_OPENS} y ${CLINIC_CLOSES}.`;
+    }
+    if (start % STEP_MINUTES !== 0 || end % STEP_MINUTES !== 0) {
+      return 'Usa intervalos de 15 minutos.';
+    }
+    const sameDay = blocks.map((other, position) => ({ other, position })).filter(
+      ({ other, position }) => other.dayOfWeek === block.dayOfWeek && position !== index,
+    );
+    const overlaps = sameDay.some(
+      ({ other }) => start < toMinutes(other.end) && toMinutes(other.start) < end,
+    );
+    if (overlaps) return 'Se solapa con otro bloque de este día.';
+    const before = sameDay.filter(({ position }) => position < index).length;
+    if (before >= MAX_BLOCKS_PER_DAY) return `Máximo ${MAX_BLOCKS_PER_DAY} bloques por día.`;
+    return null;
+  });
+}
+
 /** The first problem with a weekly schedule, in Spanish, or null when it can be saved. */
 export function scheduleProblem(blocks: readonly WorkBlock[]): string | null {
   const perDay = new Map<number, WorkBlock[]>();
