@@ -16,6 +16,8 @@ export interface NewUser {
   readonly firstName: string;
   readonly lastName: string;
   readonly roles: readonly string[];
+  /** Required for a MEDICO account; ignored for other roles. */
+  readonly professionalRegistration?: string;
 }
 
 /** Roles an administrator can give. */

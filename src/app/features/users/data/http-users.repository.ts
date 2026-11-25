@@ -44,6 +44,9 @@ export class HttpUsersRepository extends UsersRepository {
         first_name: user.firstName,
         last_name: user.lastName,
         roles: user.roles,
+        ...(user.professionalRegistration?.trim()
+          ? { registro_profesional: user.professionalRegistration.trim() }
+          : {}),
       }),
     );
     return response.id;
