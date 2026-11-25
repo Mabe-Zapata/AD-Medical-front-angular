@@ -108,15 +108,10 @@ interface Notice {
       display: grid;
       gap: 12px;
     }
-    .grid-2 {
+    /* One field under the other: the modal uses its height, not its width. */
+    .form-fields {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-    @media (max-width: 640px) {
-      .grid-2 {
-        grid-template-columns: 1fr;
-      }
+      gap: 14px;
     }
     .pending {
       display: flex;
@@ -267,13 +262,13 @@ interface Notice {
           @if (createError(); as e) {
             <app-banner tone="danger">{{ e.message }}</app-banner>
           }
-          <form class="form" (ngSubmit)="submitCreate()" (keydown)="onFormKeydown($event)" novalidate>
+          <form class="form" (submit)="onSubmit($event, submitCreate)" (keydown)="onFormKeydown($event)" novalidate>
             @if (retryTarget(); as target) {
               <p class="muted">
                 La sucursal <strong>{{ target.name }}</strong> ya quedó creada. Reintenta solo los consultorios que faltan.
               </p>
             } @else {
-              <div class="grid-2">
+              <div class="form-fields">
                 <div class="field">
                   <label for="sede-name"><strong>Nombre</strong> <span aria-hidden="true">*</span></label>
                   <input
@@ -285,7 +280,7 @@ interface Notice {
                     placeholder="ej. Sede Norte"
                     [value]="name()"
                     (input)="setClean($event, name)"
-                    (keydown.enter)="onEnterMoveToOffice($event)"
+                    (keydown.enter)="moveFocus($event, 'sede-address')"
                   />
                   @if (nameError(); as err) {
                     <span class="field-error">{{ err }}</span>
@@ -302,7 +297,7 @@ interface Notice {
                     placeholder="ej. Av. del Parque 480"
                     [value]="address()"
                     (input)="setClean($event, address)"
-                    (keydown.enter)="onEnterMoveToOffice($event)"
+                    (keydown.enter)="moveFocus($event, 'office-input')"
                   />
                   @if (addressError(); as err) {
                     <span class="field-error">{{ err }}</span>
@@ -365,8 +360,8 @@ interface Notice {
           @if (editError(); as e) {
             <app-banner tone="danger">{{ e.message }}</app-banner>
           }
-          <form class="form" (ngSubmit)="submitEdit()" (keydown)="onFormKeydown($event)" novalidate>
-            <div class="grid-2">
+          <form class="form" (submit)="onSubmit($event, submitEdit)" (keydown)="onFormKeydown($event)" novalidate>
+            <div class="form-fields">
               <div class="field">
                 <label for="edit-name"><strong>Nombre</strong> <span aria-hidden="true">*</span></label>
                 <input id="edit-name" class="input" name="editName" maxlength="150" autocomplete="off"
@@ -403,7 +398,7 @@ interface Notice {
           @if (officeNotice(); as e) {
             <app-banner [tone]="e.tone">{{ e.text }}</app-banner>
           }
-          <form class="form" (ngSubmit)="submitOffice()" novalidate>
+          <form class="form" (submit)="onSubmit($event, submitOffice)" novalidate>
             <div class="field">
               <label for="office-name"><strong>Nombre del consultorio</strong> <span aria-hidden="true">*</span></label>
               <input id="office-name" class="input" name="officeName" maxlength="80" autocomplete="off"
@@ -523,10 +518,19 @@ export class SedesPage {
     }
   }
 
-  /** Enter in the name or address moves to the consultorio field instead of submitting early. */
-  protected onEnterMoveToOffice(event: Event): void {
+  /**
+   * Native form submits reload the page with the values in the URL. This screen has no FormsModule, so
+   * every form stops the browser's submit and runs the screen's own handler instead.
+   */
+  protected onSubmit(event: Event, handler: () => Promise<void> | void): void {
     event.preventDefault();
-    document.getElementById('office-input')?.focus();
+    void handler.call(this);
+  }
+
+  /** Enter moves to the next field of the form (name, address, consultorio) instead of submitting early. */
+  protected moveFocus(event: Event, nextFieldId: string): void {
+    event.preventDefault();
+    document.getElementById(nextFieldId)?.focus();
   }
 
   /** Enter adds the typed consultorio and stays in the field; Backspace on an empty field removes the last one. */

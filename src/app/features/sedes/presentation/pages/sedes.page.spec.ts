@@ -195,6 +195,16 @@ describe('SedesPage', () => {
     expect(el.textContent).not.toContain('future appointments');
   });
 
+  it('never lets a form submit natively, so the page never reloads with the values in the URL', async () => {
+    const fixture = await render(fakes);
+    const el = fixture.nativeElement as HTMLElement;
+    press('n');
+    fixture.detectChanges();
+    const submit = new Event('submit', { cancelable: true, bubbles: true });
+    el.querySelector('form')!.dispatchEvent(submit);
+    expect(submit.defaultPrevented).toBe(true);
+  });
+
   it('refuses a duplicate consultorio name in the draft, without an API call', async () => {
     const fixture = await render(fakes);
     const el = fixture.nativeElement as HTMLElement;
