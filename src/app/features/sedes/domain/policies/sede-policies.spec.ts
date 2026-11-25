@@ -6,6 +6,7 @@ import {
   SEDE_NAME_MAX,
   addressProblem,
   nameProblem,
+  sanitizeSedeText,
   sedeDraftProblems,
 } from './sede-policies';
 
@@ -44,6 +45,24 @@ describe('sede policies', () => {
       name: null,
       address: 'controlCharacters',
     });
+  });
+
+  it('drops emojis while typing, so they never reach the value', () => {
+    expect(sanitizeSedeText('Sede \u{1F600} Norte')).toBe('Sede Norte');
+    expect(sanitizeSedeText('\u{1F600}')).toBe('');
+  });
+
+  it('drops leading spaces, and collapses repeated ones', () => {
+    expect(sanitizeSedeText('   Sede')).toBe('Sede');
+    expect(sanitizeSedeText('Sede    Norte')).toBe('Sede Norte');
+  });
+
+  it('keeps letters with accents, digits and basic punctuation', () => {
+    expect(sanitizeSedeText('Clínica Ñandú, Consultorio 1 (piso 2)')).toBe('Clínica Ñandú, Consultorio 1 (piso 2)');
+  });
+
+  it('drops symbols and control characters that are not part of a name', () => {
+    expect(sanitizeSedeText('Sede<script>\t\n@*')).toBe('Sedescript');
   });
 
   it('keeps injection-looking text as plain text, with no special handling', () => {

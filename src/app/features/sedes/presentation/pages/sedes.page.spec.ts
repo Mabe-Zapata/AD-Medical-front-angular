@@ -149,7 +149,8 @@ describe('SedesPage', () => {
     await fixture.whenStable();
 
     expect(fakes.create).toHaveBeenCalledWith({
-      name: '  Sede Centro ', // trimming belongs to the use case, covered in its own spec
+      // Leading spaces are dropped while typing; the trailing one is kept until save (the use case trims).
+      name: 'Sede Centro ',
       address: '',
       offices: ['Consultorio 1'],
     });

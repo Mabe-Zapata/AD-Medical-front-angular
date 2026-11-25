@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   Injector,
+  WritableSignal,
   afterNextRender,
   computed,
   inject,
@@ -25,6 +26,7 @@ import {
   INACTIVE_SEDE_CODE,
   OFFICE_NAME_MAX,
   SEDE_ADDRESS_MAX,
+  sanitizeSedeText,
   SEDE_NAME_MAX,
   cleanText,
   hasProblems,
@@ -282,7 +284,7 @@ interface Notice {
                     autocomplete="off"
                     placeholder="ej. Sede Norte"
                     [value]="name()"
-                    (input)="name.set($any($event.target).value)"
+                    (input)="setClean($event, name)"
                     (keydown.enter)="onEnterMoveToOffice($event)"
                   />
                   @if (nameError(); as err) {
@@ -299,7 +301,7 @@ interface Notice {
                     autocomplete="off"
                     placeholder="ej. Av. del Parque 480"
                     [value]="address()"
-                    (input)="address.set($any($event.target).value)"
+                    (input)="setClean($event, address)"
                     (keydown.enter)="onEnterMoveToOffice($event)"
                   />
                   @if (addressError(); as err) {
@@ -330,7 +332,7 @@ interface Notice {
                   autocomplete="off"
                   placeholder="ej. Consultorio 1"
                   [value]="officeDraft()"
-                  (input)="officeDraft.set($any($event.target).value)"
+                  (input)="setClean($event, officeDraft)"
                   (keydown)="onOfficeKeydown($event)"
                 />
                 @if (officeError(); as err) {
@@ -368,7 +370,7 @@ interface Notice {
               <div class="field">
                 <label for="edit-name"><strong>Nombre</strong> <span aria-hidden="true">*</span></label>
                 <input id="edit-name" class="input" name="editName" maxlength="150" autocomplete="off"
-                  [value]="editName()" (input)="editName.set($any($event.target).value)" />
+                  [value]="editName()" (input)="setClean($event, editName)" />
                 @if (editNameError(); as err) {
                   <span class="field-error">{{ err }}</span>
                 }
@@ -376,7 +378,7 @@ interface Notice {
               <div class="field">
                 <label for="edit-address"><strong>Dirección</strong></label>
                 <input id="edit-address" class="input" name="editAddress" maxlength="300" autocomplete="off"
-                  [value]="editAddress()" (input)="editAddress.set($any($event.target).value)" />
+                  [value]="editAddress()" (input)="setClean($event, editAddress)" />
               </div>
             </div>
             <label class="toggle">
@@ -406,7 +408,7 @@ interface Notice {
               <label for="office-name"><strong>Nombre del consultorio</strong> <span aria-hidden="true">*</span></label>
               <input id="office-name" class="input" name="officeName" maxlength="80" autocomplete="off"
                 placeholder="ej. Consultorio 3" [value]="officeName()"
-                (input)="officeName.set($any($event.target).value)" />
+                (input)="setClean($event, officeName)" />
               @if (officeNameError(); as err) {
                 <span class="field-error">{{ err }}</span>
               }
@@ -544,8 +546,16 @@ export class SedesPage {
   // ---------- filter ----------
 
   protected onQuery(event: Event): void {
-    this.query.set((event.target as HTMLInputElement).value);
+    this.setClean(event, this.query);
     this.pager.page.set(0);
+  }
+
+  /** Keeps only what the sede fields accept, rewriting the DOM value too, so an emoji never stays on screen. */
+  protected setClean(event: Event, target: WritableSignal<string>): void {
+    const input = event.target as HTMLInputElement;
+    const clean = sanitizeSedeText(input.value);
+    if (clean !== input.value) input.value = clean;
+    target.set(clean);
   }
 
   protected toggleInactive(event: Event): void {
