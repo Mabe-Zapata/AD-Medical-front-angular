@@ -91,7 +91,10 @@ import { visibleModules } from './app-modules';
     .frame {
       position: relative;
       min-height: 100vh;
+      /* The decorative shapes bleed past the edges. "clip" hides them without making the frame a scroll
+         container, so focusing a control (the account avatar) cannot shift the whole page sideways. */
       overflow: hidden;
+      overflow: clip;
       background: linear-gradient(180deg, #fff4ea 0%, #fff 18%, #f4f8fd 55%, #e8effa 100%);
     }
     .shape {
@@ -180,6 +183,8 @@ import { visibleModules } from './app-modules';
     }
     .account {
       position: relative;
+      /* When the header wraps, the avatar gets its own line: keep it at the right so its menu stays on screen. */
+      margin-left: auto;
     }
     .avatar {
       width: 44px;
