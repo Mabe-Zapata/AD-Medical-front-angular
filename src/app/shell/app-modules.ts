@@ -75,6 +75,14 @@ export const APP_MODULES: readonly AppModule[] = [
     pendingNote: null,
   },
   {
+    title: 'Historia clínica',
+    description: 'Ver y registrar las alergias, antecedentes, medicación, vacunas y signos de tus pacientes.',
+    link: '/historia',
+    anyOf: [PERMISSIONS.historyRead, PERMISSIONS.historyRegister],
+    roles: ['MEDICO'],
+    pendingNote: null,
+  },
+  {
     title: 'Reportes',
     description: 'Cifras de citas, órdenes, pagos y tratamientos por periodo.',
     link: '/reportes',

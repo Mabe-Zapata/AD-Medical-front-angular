@@ -62,6 +62,8 @@ src/app/app.interceptor.ts  agrega el bearer y cierra sesión ante 401
 
 - **Sucursales y consultorios** (`/sedes`, permiso `sedes.administrar`): usa `GET/POST /admin/sedes`, `PATCH /admin/sedes/{id}`, `POST /admin/sedes/{id}/consultorios` y `PATCH /admin/consultorios/{id}`. Esos endpoints están en el PR `ErickGuerron/MedicalBooking-AD-Backend#108`, todavía no en `develop`: contra el backend de `develop` la pantalla responde 404. Se valida en UI con reglas espejo del backend (límites en unidades UTF-16, sin caracteres de control). Los 409 con código `CITAS_FUTURAS`, `CONSULTORIO_DUPLICADO` y `SEDE_INACTIVA` se muestran con texto propio; `AppError.code` lleva ese código.
 
+- **Historia clínica** (`/historia`, permisos `historia.leer` / `historia.registrar`): el médico ve y registra la historia de sus pacientes. Brechas: los signos vitales se registran escribiendo el identificador de la cita (no hay selector de citas todavía); el catálogo CIE-11 es un juego inicial sembrado en el backend (falta la carga completa); la bitácora se muestra sin identidad del profesional, salvo para el médico tratante. Las reglas de la historia (estados, motivos, rangos de fecha) son espejo de las del backend.
+
 Documéntalas aquí y en el README cuando una funcionalidad dependa de ellas; quítalas cuando el backend las cierre.
 
 ### Hallazgos en sombra (detalle de la orden)

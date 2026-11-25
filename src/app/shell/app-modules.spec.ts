@@ -86,7 +86,13 @@ describe('StaffShell', () => {
     const { el } = render(DOCTOR);
     const links = [...el.querySelectorAll('nav a')].map((a) => a.textContent!.trim());
 
-    expect(links).toEqual(['Inicio', 'Agenda del médico', 'Conocimiento clínico', 'Órdenes y resultados']);
+    expect(links).toEqual([
+      'Inicio',
+      'Agenda del médico',
+      'Conocimiento clínico',
+      'Órdenes y resultados',
+      'Historia clínica',
+    ]);
     expect(links).not.toContain('Usuarios y roles');
     expect(el.querySelector('.avatar')!.textContent!.trim()).toBe('AD');
   });
