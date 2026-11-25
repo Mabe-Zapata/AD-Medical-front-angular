@@ -1,4 +1,4 @@
-import { hasEmoji, isValidEmail, isValidPersonName } from '../../../../core/domain/text';
+import { isValidEmail, isValidPersonName } from '../../../../core/domain/text';
 import { ASSIGNABLE_ROLES, NewUser } from '../entities/users';
 
 export const MIN_PASSWORD_LENGTH = 12;
@@ -7,14 +7,6 @@ export const MIN_PASSWORD_LENGTH = 12;
 export function userProblems(user: NewUser): string[] {
   const problems: string[] = [];
   if (!isValidEmail(user.email)) problems.push('email');
-  if (
-    user.password.length < MIN_PASSWORD_LENGTH ||
-    user.password.length > 256 ||
-    hasEmoji(user.password) ||
-    /\s/.test(user.password)
-  ) {
-    problems.push('password');
-  }
   if (!isValidPersonName(user.firstName)) problems.push('firstName');
   if (!isValidPersonName(user.lastName)) problems.push('lastName');
   const roles = new Set(user.roles);

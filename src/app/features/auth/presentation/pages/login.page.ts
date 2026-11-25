@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { APP_SETTINGS } from '../../../../core/config/app-settings';
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
@@ -16,7 +16,7 @@ export function safeRedirect(target: string | null): string {
 /** Container: talks to the session and the router; the form itself is presentational. */
 @Component({
   selector: 'app-login-page',
-  imports: [LoginFormComponent, BannerComponent, LogoComponent],
+  imports: [LoginFormComponent, BannerComponent, LogoComponent, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="wrap">
@@ -96,6 +96,7 @@ export function safeRedirect(target: string | null): string {
           }
 
           <app-login-form [busy]="busy()" (submitted)="onSubmit($event)" />
+          <p class="forgot"><a routerLink="/recuperar-contrasena">¿Olvidaste tu contraseña?</a></p>
 
           @if (portalUrl) {
             <a class="patient" [href]="portalUrl">

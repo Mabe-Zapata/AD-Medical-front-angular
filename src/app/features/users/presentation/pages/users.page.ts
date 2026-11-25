@@ -3,11 +3,9 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 
 import {
-  hasEmoji,
   isValidEmail,
   isValidPersonName,
   sanitizeEmail,
-  sanitizePassword,
   sanitizePersonName,
 } from '../../../../core/domain/text';
 import { BannerComponent } from '../../../../shared/presentation/atoms/banner';
@@ -17,7 +15,7 @@ import { Crumb } from '../../../../shared/presentation/molecules/breadcrumbs';
 import { PageHeaderComponent } from '../../../../shared/presentation/organisms/page-header';
 import { ROLE_LABELS } from '../../../auth/domain/policies/staff-access';
 import { ASSIGNABLE_ROLES, UserSummary } from '../../domain/entities/users';
-import { MIN_PASSWORD_LENGTH, userProblems } from '../../domain/policies/user-policies';
+import { userProblems } from '../../domain/policies/user-policies';
 import { CreateUser, ListUsers } from '../../domain/usecases/users-usecases';
 import { ModalComponent } from '../../../../shared/presentation/organisms/modal';
 import { PaginatorComponent } from '../../../../shared/presentation/molecules/paginator';
@@ -238,42 +236,6 @@ import { PageState } from '../../../../shared/presentation/pagination';
                 <span class="field-error">{{ err }}</span>
               }
             </div>
-            <div class="field">
-              <label for="password">
-                <strong>Contraseña inicial</strong> <span class="required" aria-hidden="true">*</span>
-              </label>
-              <div class="password-wrapper">
-                <input
-                  id="password"
-                  class="input"
-                  [type]="showPassword() ? 'text' : 'password'"
-                  maxlength="256"
-                  autocomplete="new-password"
-                  placeholder="Mínimo 12 caracteres..."
-                  [value]="password()"
-                  (input)="onPasswordInput($event)"
-                />
-                <button
-                  type="button"
-                  class="btn btn--ghost btn--small password-toggle"
-                  (click)="togglePasswordVisibility()"
-                  [attr.aria-label]="showPassword() ? 'Ocultar contraseña' : 'Ver contraseña'"
-                  [title]="showPassword() ? 'Ocultar contraseña' : 'Ver contraseña'"
-                >
-                  @if (showPassword()) {
-                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                  } @else {
-                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                  }
-                </button>
-              </div>
-              <span class="hint counter">{{ password().length }} / 256</span>
-              <p class="muted small" style="margin-top: 4px;">Mínimo 12 caracteres (sin emojis).</p>
-              @if (passwordError(); as err) {
-                <span class="field-error">{{ err }}</span>
-              }
-            </div>
-
             <div class="field roles-section">
               <span class="roles-label">
                 <strong>Rol de la cuenta</strong> <span class="required" aria-hidden="true">*</span>
@@ -348,12 +310,10 @@ export class UsersPage {
 
   protected readonly roleLabels = ROLE_LABELS;
   protected readonly assignable = ASSIGNABLE_ROLES;
-  protected readonly minPassword = MIN_PASSWORD_LENGTH;
 
   protected readonly users = signal<readonly UserSummary[]>([]);
   protected readonly listing = signal<'loading' | 'ready' | 'failed'>('loading');
   protected readonly email = signal('');
-  protected readonly password = signal('');
   protected readonly firstName = signal('');
   protected readonly lastName = signal('');
   protected readonly professionalRegistration = signal('');
@@ -363,7 +323,6 @@ export class UsersPage {
   protected readonly notice = signal<string | null>(null);
   protected readonly error = signal<ErrorView | null>(null);
   protected readonly creating = signal(false);
-  protected readonly showPassword = signal(false);
 
   protected readonly bullets = [
     'Para una cuenta de médico, escribe su registro profesional; sin ese dato la cuenta no se crea.',
@@ -374,10 +333,6 @@ export class UsersPage {
     void this.load();
     // The home page's "Crear usuario" lands here with the form already open.
     if (inject(ActivatedRoute).snapshot.queryParamMap.has('nuevo')) this.openForm();
-  }
-
-  protected togglePasswordVisibility(): void {
-    this.showPassword.update((visible) => !visible);
   }
 
   protected onFirstNameChange(val: string): void {
@@ -422,15 +377,6 @@ export class UsersPage {
     this.email.set(sanitized);
   }
 
-  protected onPasswordInput(event: Event): void {
-    const raw = (event.target as HTMLInputElement).value;
-    const sanitized = sanitizePassword(raw);
-    if (sanitized !== raw) {
-      (event.target as HTMLInputElement).value = sanitized;
-    }
-    this.password.set(sanitized);
-  }
-
   protected onProfessionalRegistrationInput(event: Event): void {
     this.professionalRegistration.set((event.target as HTMLInputElement).value);
   }
@@ -459,15 +405,6 @@ export class UsersPage {
     return null;
   }
 
-  protected passwordError(): string | null {
-    if (!this.submitted()) return null;
-    const val = this.password();
-    if (hasEmoji(val)) return 'La contraseña no puede contener emojis.';
-    if (/\s/.test(val)) return 'La contraseña no puede contener espacios.';
-    if (val.length < this.minPassword) return `Usa al menos ${this.minPassword} caracteres.`;
-    return null;
-  }
-
   protected rolesError(): string | null {
     if (!this.submitted()) return null;
     if (!this.selectedRole()) return 'Elige un rol para el usuario.';
@@ -492,7 +429,6 @@ export class UsersPage {
   protected openForm(): void {
     this.error.set(null);
     this.notice.set(null);
-    this.showPassword.set(false);
     this.selectedRole.set('');
     this.professionalRegistration.set('');
     this.creating.set(true);
@@ -500,7 +436,6 @@ export class UsersPage {
 
   protected closeForm(): void {
     this.creating.set(false);
-    this.showPassword.set(false);
   }
 
   protected async create(): Promise<void> {
@@ -513,7 +448,6 @@ export class UsersPage {
       await this.createUser.execute(this.draft());
       this.notice.set(`Cuenta creada para ${this.email().trim().toLowerCase()}.`);
       this.email.set('');
-      this.password.set('');
       this.firstName.set('');
       this.lastName.set('');
       this.selectedRole.set('');
@@ -540,7 +474,6 @@ export class UsersPage {
   private draft() {
     return {
       email: this.email().trim(),
-      password: this.password(),
       firstName: this.firstName().trim(),
       lastName: this.lastName().trim(),
       roles: this.selectedRole() ? [this.selectedRole()] : [],

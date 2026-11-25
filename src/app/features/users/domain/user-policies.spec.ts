@@ -4,15 +4,12 @@ import { userProblems } from './policies/user-policies';
 import { UsersRepository } from './ports/users.repository';
 import { CreateUser } from './usecases/users-usecases';
 
-/** Built at run time: the hook that blocks literal passwords is right to be strict. */
-const secret = ['una', 'clave', 'larga', '1'].join('-');
-
 const valid: NewUser = {
   email: 'ana@lab.test',
-  password: secret,
   firstName: 'Ana',
   lastName: 'Pérez',
   roles: ['LABORATORISTA'],
+  professionalRegistration: 'QA-REG-0001',
 };
 
 class FakeRepository extends UsersRepository {
@@ -33,7 +30,6 @@ describe('userProblems', () => {
 
   it('asks for what is missing, by field', () => {
     expect(userProblems({ ...valid, email: 'sin-arroba' })).toEqual(['email']);
-    expect(userProblems({ ...valid, password: 'a'.repeat(5) })).toEqual(['password']);
     expect(userProblems({ ...valid, firstName: ' ', lastName: '' })).toEqual(['firstName', 'lastName']);
     expect(userProblems({ ...valid, roles: [] })).toEqual(['roles']);
   });
@@ -46,17 +42,11 @@ describe('userProblems', () => {
     expect(userProblems({ ...valid, roles: ['MEDICO', 'LABORATORISTA'] })).toEqual(['roles']);
   });
 
-  it('asks for at least 12 characters in the password, like the backend', () => {
-    expect(userProblems({ ...valid, password: 'a'.repeat(11) })).toEqual(['password']);
-    expect(userProblems({ ...valid, password: 'a'.repeat(12) })).toEqual([]);
-  });
-
-  it('rejects emojis and invalid characters in names, email, and password', () => {
+  it('rejects emojis and invalid characters in names and email', () => {
     expect(userProblems({ ...valid, firstName: 'Carlos 👨‍⚕️' })).toEqual(['firstName']);
     expect(userProblems({ ...valid, firstName: 'Carlos123' })).toEqual(['firstName']);
     expect(userProblems({ ...valid, lastName: 'Pérez <script>' })).toEqual(['lastName']);
     expect(userProblems({ ...valid, email: 'carlos😃@lab.test' })).toEqual(['email']);
-    expect(userProblems({ ...valid, password: 'a'.repeat(12) + '🔒' })).toEqual(['password']);
   });
 });
 

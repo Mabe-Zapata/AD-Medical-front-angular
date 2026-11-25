@@ -36,12 +36,12 @@ export function toAppError(error: unknown, options: { unauthorizedAs?: ErrorKind
     typeof error.error === 'object' && error.error !== null ? error.error : {};
   const detail = typeof body.detail === 'string' ? body.detail : error.message;
   const correlationId = typeof body.correlation_id === 'string' ? body.correlation_id : undefined;
+  const code = typeof body.code === 'string' ? body.code : undefined;
   const kind: ErrorKind =
     error.status === 401
       ? (options.unauthorizedAs ?? 'unauthenticated')
       : error.status === 503 && body.code === READ_ONLY_CODE
         ? 'read_only'
         : (KIND_BY_STATUS[error.status] ?? 'unknown');
-  const code = typeof body.code === 'string' ? body.code : undefined;
   return new AppError(kind, detail, correlationId, error.status, code);
 }
