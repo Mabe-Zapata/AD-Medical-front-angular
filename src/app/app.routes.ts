@@ -121,6 +121,13 @@ export const routes: Routes = [
           import('./features/sedes/presentation/pages/sedes.page').then((m) => m.SedesPage),
       },
       {
+        path: 'historia',
+        title: 'Historia clínica · Medilo',
+        canActivate: [permissionGuard(PERMISSIONS.historyRead)],
+        loadComponent: () =>
+          import('./features/historia/presentation/pages/historia.page').then((m) => m.HistoriaPageComponent),
+      },
+      {
         path: 'conocimiento',
         title: 'Conocimiento clínico · Medilo',
         canActivate: [permissionGuard(PERMISSIONS.knowledgeRead)],

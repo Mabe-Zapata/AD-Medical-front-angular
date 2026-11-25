@@ -26,6 +26,8 @@ export const PERMISSIONS = {
   slotsGenerate: 'horario.generar',
   monitoringRead: 'monitoreo.leer',
   sedesAdmin: 'sedes.administrar',
+  historyRead: 'historia.leer',
+  historyRegister: 'historia.registrar',
 } as const;
 
 export function isStaff(roles: readonly string[]): boolean {

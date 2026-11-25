@@ -47,6 +47,20 @@ import { HttpUsersRepository } from './features/users/data/http-users.repository
 import { UsersRepository } from './features/users/domain/ports/users.repository';
 import { CreateUser, ListUsers } from './features/users/domain/usecases/users-usecases';
 import { HttpSedesRepository } from './features/sedes/data/http-sedes.repository';
+import { HttpHistoriaRepository } from './features/historia/data/http-historia.repository';
+import { HistoriaRepository } from './features/historia/domain/ports/historia.repository';
+import { localIsoDay } from './features/historia/domain/policies/historia-policies';
+import {
+  ChangeEntryState,
+  CorrectVitals,
+  CreateEntry,
+  ListHistoryPatients,
+  ReadEvents,
+  ReadHistory,
+  RecordVitals,
+  SearchCatalog,
+  VerifyEntry,
+} from './features/historia/domain/usecases/historia-usecases';
 import { SedesRepository } from './features/sedes/domain/ports/sedes.repository';
 import {
   AddOffice,
@@ -191,6 +205,18 @@ export const appProviders: Provider[] = [
   { provide: UpdateSede, useFactory: () => new UpdateSede(inject(SedesRepository)) },
   { provide: AddOffice, useFactory: () => new AddOffice(inject(SedesRepository)) },
   { provide: UpdateOffice, useFactory: () => new UpdateOffice(inject(SedesRepository)) },
+
+  // clinical history (treating doctor)
+  { provide: HistoriaRepository, useClass: HttpHistoriaRepository },
+  { provide: ListHistoryPatients, useFactory: () => new ListHistoryPatients(inject(HistoriaRepository)) },
+  { provide: ReadHistory, useFactory: () => new ReadHistory(inject(HistoriaRepository), () => localIsoDay(new Date())) },
+  { provide: ReadEvents, useFactory: () => new ReadEvents(inject(HistoriaRepository), () => localIsoDay(new Date())) },
+  { provide: CreateEntry, useFactory: () => new CreateEntry(inject(HistoriaRepository), () => localIsoDay(new Date())) },
+  { provide: VerifyEntry, useFactory: () => new VerifyEntry(inject(HistoriaRepository)) },
+  { provide: ChangeEntryState, useFactory: () => new ChangeEntryState(inject(HistoriaRepository)) },
+  { provide: RecordVitals, useFactory: () => new RecordVitals(inject(HistoriaRepository)) },
+  { provide: CorrectVitals, useFactory: () => new CorrectVitals(inject(HistoriaRepository)) },
+  { provide: SearchCatalog, useFactory: () => new SearchCatalog(inject(HistoriaRepository)) },
 
   // agenda
   { provide: AgendaRepository, useClass: HttpAgendaRepository },
