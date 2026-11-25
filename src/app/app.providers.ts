@@ -46,6 +46,15 @@ import {
 import { HttpUsersRepository } from './features/users/data/http-users.repository';
 import { UsersRepository } from './features/users/domain/ports/users.repository';
 import { CreateUser, ListUsers } from './features/users/domain/usecases/users-usecases';
+import { HttpSedesRepository } from './features/sedes/data/http-sedes.repository';
+import { SedesRepository } from './features/sedes/domain/ports/sedes.repository';
+import {
+  AddOffice,
+  CreateSedeWithOffices,
+  ListSedes,
+  UpdateOffice,
+  UpdateSede,
+} from './features/sedes/domain/usecases/sedes-usecases';
 import { HttpAgendaRepository } from './features/agenda/data/http-agenda.repository';
 import { AgendaRepository } from './features/agenda/domain/ports/agenda.ports';
 import { ApproveCancellation } from './features/agenda/domain/usecases/approve-cancellation';
@@ -171,6 +180,17 @@ export const appProviders: Provider[] = [
   { provide: UsersRepository, useClass: HttpUsersRepository },
   { provide: ListUsers, useFactory: () => new ListUsers(inject(UsersRepository)) },
   { provide: CreateUser, useFactory: () => new CreateUser(inject(UsersRepository)) },
+
+  // sedes and consultorios
+  { provide: SedesRepository, useClass: HttpSedesRepository },
+  { provide: ListSedes, useFactory: () => new ListSedes(inject(SedesRepository)) },
+  {
+    provide: CreateSedeWithOffices,
+    useFactory: () => new CreateSedeWithOffices(inject(SedesRepository)),
+  },
+  { provide: UpdateSede, useFactory: () => new UpdateSede(inject(SedesRepository)) },
+  { provide: AddOffice, useFactory: () => new AddOffice(inject(SedesRepository)) },
+  { provide: UpdateOffice, useFactory: () => new UpdateOffice(inject(SedesRepository)) },
 
   // agenda
   { provide: AgendaRepository, useClass: HttpAgendaRepository },

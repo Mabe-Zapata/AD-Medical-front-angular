@@ -68,6 +68,13 @@ export const APP_MODULES: readonly AppModule[] = [
     pendingNote: null,
   },
   {
+    title: 'Sucursales y consultorios',
+    description: 'Crear sucursales, sus consultorios y activarlos o desactivarlos.',
+    link: '/sedes',
+    anyOf: [PERMISSIONS.sedesAdmin],
+    pendingNote: null,
+  },
+  {
     title: 'Reportes',
     description: 'Cifras de citas, órdenes, pagos y tratamientos por periodo.',
     link: '/reportes',

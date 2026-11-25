@@ -114,6 +114,13 @@ export const routes: Routes = [
           import('./features/users/presentation/pages/users.page').then((m) => m.UsersPage),
       },
       {
+        path: 'sedes',
+        title: 'Sucursales y consultorios · Medilo',
+        canActivate: [permissionGuard(PERMISSIONS.sedesAdmin)],
+        loadComponent: () =>
+          import('./features/sedes/presentation/pages/sedes.page').then((m) => m.SedesPage),
+      },
+      {
         path: 'conocimiento',
         title: 'Conocimiento clínico · Medilo',
         canActivate: [permissionGuard(PERMISSIONS.knowledgeRead)],
