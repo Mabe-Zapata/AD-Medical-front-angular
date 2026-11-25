@@ -45,7 +45,7 @@ import { STATE_LABEL, problemsSentence } from '../labels';
       <form class="form" (submit)="onSubmit($event)" novalidate>
         <label class="field">
           <strong>Nuevo estado</strong>
-          <select name="target" [value]="target()" (change)="target.set(value($event))">
+          <select class="input" name="target" [value]="target()" (change)="target.set(value($event))">
             <option value="">Elige el nuevo estado</option>
             @for (state of targets(); track state) {
               <option [value]="state">{{ label(state) }}</option>
@@ -54,7 +54,7 @@ import { STATE_LABEL, problemsSentence } from '../labels';
         </label>
         <label class="field">
           <strong>Motivo</strong>
-          <input name="reason" maxlength="500" [value]="reason()" (input)="reason.set(value($event))" />
+          <input class="input" name="reason" maxlength="500" [value]="reason()" (input)="reason.set(value($event))" />
           <span class="hint">Queda registrado en la bitácora junto con el cambio.</span>
         </label>
         <div class="actions">

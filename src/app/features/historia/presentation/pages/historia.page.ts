@@ -71,36 +71,96 @@ const TABS: readonly { readonly id: Tab; readonly label: string }[] = [
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
+    /* Filters: one row of three fields (the patient takes the most room), then the period as a segmented control. */
     .toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      align-items: flex-end;
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr);
+      gap: 14px 16px;
+      align-items: end;
     }
     .field {
       display: grid;
-      gap: 4px;
+      gap: 6px;
+      min-width: 0;
     }
+    .field > strong {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink, #1e2432);
+    }
+    .periods {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+    .periods-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink, #1e2432);
+    }
+    .segmented {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 4px;
+      background: #fff;
+      border: 1px solid var(--blue-soft, #d6e2f5);
+      border-radius: 999px;
+    }
+    .segmented button {
+      border: 0;
+      background: none;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted, #475569);
+      cursor: pointer;
+    }
+    .segmented button:hover {
+      color: var(--blue-deep, #12376f);
+    }
+    .segmented button:focus-visible {
+      outline: 3px solid rgb(29 86 166 / 30%);
+      outline-offset: 2px;
+    }
+    @media (max-width: 720px) {
+      .toolbar {
+        grid-template-columns: 1fr;
+      }
+    }
+    /* Kind tabs: the same white pill as the main navigation, so the screens read as one product. */
     .tabs {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
-      border-bottom: 1px solid var(--border, #dbe3f0);
-      padding-bottom: 8px;
+      padding: 4px;
+      background: var(--blue-tint, #eef3fb);
+      border-radius: 999px;
+      align-self: flex-start;
     }
     .tab {
-      border: 1px solid transparent;
+      border: 0;
       background: none;
-      padding: 8px 12px;
+      padding: 9px 16px;
       border-radius: 999px;
       font: inherit;
+      font-size: 14px;
+      font-weight: 600;
       cursor: pointer;
-      color: var(--muted, #475569);
+      color: #334155;
+    }
+    .tab:focus-visible {
+      outline: 3px solid rgb(29 86 166 / 30%);
+      outline-offset: 2px;
     }
     .tab[aria-selected='true'] {
-      background: var(--blue-soft, #dbeafe);
-      color: var(--blue-deep, #1e3a8a);
-      font-weight: 700;
+      background: #fff;
+      color: var(--orange, #c2410c);
+      box-shadow: 0 6px 16px rgb(18 55 111 / 10%);
     }
     .list {
       display: grid;
@@ -152,7 +212,7 @@ const TABS: readonly { readonly id: Tab; readonly label: string }[] = [
         <div class="toolbar">
           <label class="field">
             <strong>Paciente</strong>
-            <select name="patient" [value]="patientId()" (change)="choosePatient(value($event))">
+            <select class="input" name="patient" [value]="patientId()" (change)="choosePatient(value($event))">
               <option value="">Elige un paciente</option>
               @for (patient of patients(); track patient.id) {
                 <option [value]="patient.id">{{ patient.name }}</option>
@@ -161,16 +221,19 @@ const TABS: readonly { readonly id: Tab; readonly label: string }[] = [
           </label>
           <label class="field">
             <strong>Desde</strong>
-            <input name="from" type="date" [value]="range().from ?? ''" (change)="setRange('from', value($event))" />
+            <input class="input" name="from" type="date" [value]="range().from ?? ''" (change)="setRange('from', value($event))" />
           </label>
           <label class="field">
             <strong>Hasta</strong>
-            <input name="to" type="date" [value]="range().to ?? ''" (change)="setRange('to', value($event))" />
+            <input class="input" name="to" type="date" [value]="range().to ?? ''" (change)="setRange('to', value($event))" />
           </label>
-          <div class="notice-row">
-            <button type="button" class="btn btn--small btn--ghost" (click)="presetRange(30)">Último mes</button>
-            <button type="button" class="btn btn--small btn--ghost" (click)="presetRange(365)">Último año</button>
-            <button type="button" class="btn btn--small btn--ghost" (click)="presetRange(null)">Todo</button>
+          <div class="periods">
+            <span class="periods-label" id="periods-label">Periodo</span>
+            <div class="segmented" role="group" aria-labelledby="periods-label">
+              <button type="button" (click)="presetRange(30)">Último mes</button>
+              <button type="button" (click)="presetRange(365)">Último año</button>
+              <button type="button" (click)="presetRange(null)">Todo</button>
+            </div>
           </div>
         </div>
         @if (rangeProblem(); as text) {

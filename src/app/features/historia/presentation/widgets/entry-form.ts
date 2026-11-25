@@ -67,7 +67,7 @@ import { ANTECEDENT_TYPE_LABEL, KIND_LABEL, SEVERITY_LABEL, problemsSentence } f
         @case ('allergy') {
           <label class="field">
             <strong>Sustancia</strong>
-            <select name="substance" [value]="substanceCode()" (change)="substanceCode.set(value($event))">
+            <select class="input" name="substance" [value]="substanceCode()" (change)="substanceCode.set(value($event))">
               <option value="">Elige una sustancia</option>
               @for (item of allergens(); track item.code) {
                 <option [value]="item.code">{{ item.name }}{{ item.category ? ' · ' + item.category : '' }}</option>
@@ -76,7 +76,7 @@ import { ANTECEDENT_TYPE_LABEL, KIND_LABEL, SEVERITY_LABEL, problemsSentence } f
           </label>
           <label class="field">
             <strong>Gravedad</strong>
-            <select name="severity" [value]="severity()" (change)="severity.set(value($event))">
+            <select class="input" name="severity" [value]="severity()" (change)="severity.set(value($event))">
               <option value="">Elige la gravedad</option>
               @for (level of severities; track level) {
                 <option [value]="level">{{ severityLabel(level) }}</option>
@@ -85,13 +85,13 @@ import { ANTECEDENT_TYPE_LABEL, KIND_LABEL, SEVERITY_LABEL, problemsSentence } f
           </label>
           <label class="field">
             <strong>Reacción</strong>
-            <input name="reaction" maxlength="300" [value]="reaction()" (input)="reaction.set(value($event))" />
+            <input class="input" name="reaction" maxlength="300" [value]="reaction()" (input)="reaction.set(value($event))" />
           </label>
         }
         @case ('antecedent') {
           <label class="field">
             <strong>Tipo</strong>
-            <select name="antecedentType" [value]="antecedentType()" (change)="setAntecedentType($event)">
+            <select class="input" name="antecedentType" [value]="antecedentType()" (change)="setAntecedentType($event)">
               @for (type of antecedentTypes; track type) {
                 <option [value]="type">{{ typeLabel(type) }}</option>
               }
@@ -99,17 +99,17 @@ import { ANTECEDENT_TYPE_LABEL, KIND_LABEL, SEVERITY_LABEL, problemsSentence } f
           </label>
           <label class="field">
             <strong>Descripción</strong>
-            <input name="description" maxlength="500" [value]="description()" (input)="description.set(value($event))" />
+            <input class="input" name="description" maxlength="500" [value]="description()" (input)="description.set(value($event))" />
           </label>
           @if (antecedentType() === 'FAMILIAR') {
             <label class="field">
               <strong>Familiar</strong>
-              <input name="relative" maxlength="50" [value]="relative()" (input)="relative.set(value($event))" />
+              <input class="input" name="relative" maxlength="50" [value]="relative()" (input)="relative.set(value($event))" />
             </label>
           }
           <label class="field">
             <strong>Código CIE-11 (opcional)</strong>
-            <input name="cie11" list="cie11-options" maxlength="20" [value]="cie11()" (input)="cie11.set(value($event))" />
+            <input class="input" name="cie11" list="cie11-options" maxlength="20" [value]="cie11()" (input)="cie11.set(value($event))" />
             <datalist id="cie11-options">
               @for (item of cie11Options(); track item.code) {
                 <option [value]="item.code">{{ item.name }}</option>
@@ -120,29 +120,29 @@ import { ANTECEDENT_TYPE_LABEL, KIND_LABEL, SEVERITY_LABEL, problemsSentence } f
         @case ('medication') {
           <label class="field">
             <strong>Medicamento</strong>
-            <input name="medication" maxlength="150" [value]="name()" (input)="name.set(value($event))" />
+            <input class="input" name="medication" maxlength="150" [value]="name()" (input)="name.set(value($event))" />
           </label>
           <label class="field">
             <strong>Dosis (opcional)</strong>
-            <input name="dose" maxlength="80" [value]="dose()" (input)="dose.set(value($event))" />
+            <input class="input" name="dose" maxlength="80" [value]="dose()" (input)="dose.set(value($event))" />
           </label>
           <label class="field">
             <strong>Frecuencia (opcional)</strong>
-            <input name="frequency" maxlength="80" [value]="frequency()" (input)="frequency.set(value($event))" />
+            <input class="input" name="frequency" maxlength="80" [value]="frequency()" (input)="frequency.set(value($event))" />
           </label>
           <label class="field">
             <strong>Desde (opcional)</strong>
-            <input name="startDate" type="date" [value]="startDate()" (input)="startDate.set(value($event))" />
+            <input class="input" name="startDate" type="date" [value]="startDate()" (input)="startDate.set(value($event))" />
           </label>
         }
         @case ('problem') {
           <label class="field">
             <strong>Problema</strong>
-            <input name="problem" maxlength="300" [value]="description()" (input)="description.set(value($event))" />
+            <input class="input" name="problem" maxlength="300" [value]="description()" (input)="description.set(value($event))" />
           </label>
           <label class="field">
             <strong>Código CIE-11 (opcional)</strong>
-            <input name="cie11" list="cie11-options" maxlength="20" [value]="cie11()" (input)="cie11.set(value($event))" />
+            <input class="input" name="cie11" list="cie11-options" maxlength="20" [value]="cie11()" (input)="cie11.set(value($event))" />
             <datalist id="cie11-options">
               @for (item of cie11Options(); track item.code) {
                 <option [value]="item.code">{{ item.name }}</option>
@@ -151,13 +151,13 @@ import { ANTECEDENT_TYPE_LABEL, KIND_LABEL, SEVERITY_LABEL, problemsSentence } f
           </label>
           <label class="field">
             <strong>Desde (opcional)</strong>
-            <input name="startDate" type="date" [value]="startDate()" (input)="startDate.set(value($event))" />
+            <input class="input" name="startDate" type="date" [value]="startDate()" (input)="startDate.set(value($event))" />
           </label>
         }
         @case ('vaccine') {
           <label class="field">
             <strong>Vacuna</strong>
-            <select name="vaccine" [value]="vaccineCode()" (change)="vaccineCode.set(value($event))">
+            <select class="input" name="vaccine" [value]="vaccineCode()" (change)="vaccineCode.set(value($event))">
               <option value="">Elige una vacuna</option>
               @for (item of vaccines(); track item.code) {
                 <option [value]="item.code">{{ item.name }}</option>
@@ -166,15 +166,15 @@ import { ANTECEDENT_TYPE_LABEL, KIND_LABEL, SEVERITY_LABEL, problemsSentence } f
           </label>
           <label class="field">
             <strong>Dosis (1 a 10)</strong>
-            <input name="dose" type="number" min="1" max="10" [value]="doseNumber()" (input)="doseNumber.set(value($event))" />
+            <input class="input" name="dose" type="number" min="1" max="10" [value]="doseNumber()" (input)="doseNumber.set(value($event))" />
           </label>
           <label class="field">
             <strong>Fecha</strong>
-            <input name="date" type="date" [value]="date()" (input)="date.set(value($event))" />
+            <input class="input" name="date" type="date" [value]="date()" (input)="date.set(value($event))" />
           </label>
           <label class="field">
             <strong>Lote (opcional)</strong>
-            <input name="lot" maxlength="40" [value]="lot()" (input)="lot.set(value($event))" />
+            <input class="input" name="lot" maxlength="40" [value]="lot()" (input)="lot.set(value($event))" />
           </label>
         }
       }

@@ -45,36 +45,36 @@ import { problemsSentence } from '../labels';
       @if (mode() === 'record') {
         <label class="field">
           <strong>Cita (identificador)</strong>
-          <input name="appointment" [value]="appointmentId()" (input)="appointmentId.set(value($event))" />
+          <input class="input" name="appointment" [value]="appointmentId()" (input)="appointmentId.set(value($event))" />
         </label>
       }
       <div class="grid">
         <label class="field"><strong>Peso (kg)</strong>
-          <input name="weight" type="number" step="0.1" [value]="weight()" (input)="weight.set(value($event))" />
+          <input class="input" name="weight" type="number" step="0.1" [value]="weight()" (input)="weight.set(value($event))" />
         </label>
         <label class="field"><strong>Talla (cm)</strong>
-          <input name="height" type="number" step="0.1" [value]="height()" (input)="height.set(value($event))" />
+          <input class="input" name="height" type="number" step="0.1" [value]="height()" (input)="height.set(value($event))" />
         </label>
         <label class="field"><strong>Sistólica</strong>
-          <input name="systolic" type="number" [value]="systolic()" (input)="systolic.set(value($event))" />
+          <input class="input" name="systolic" type="number" [value]="systolic()" (input)="systolic.set(value($event))" />
         </label>
         <label class="field"><strong>Diastólica</strong>
-          <input name="diastolic" type="number" [value]="diastolic()" (input)="diastolic.set(value($event))" />
+          <input class="input" name="diastolic" type="number" [value]="diastolic()" (input)="diastolic.set(value($event))" />
         </label>
         <label class="field"><strong>Frecuencia cardiaca</strong>
-          <input name="heartRate" type="number" [value]="heartRate()" (input)="heartRate.set(value($event))" />
+          <input class="input" name="heartRate" type="number" [value]="heartRate()" (input)="heartRate.set(value($event))" />
         </label>
         <label class="field"><strong>Temperatura (°C)</strong>
-          <input name="temperature" type="number" step="0.1" [value]="temperature()" (input)="temperature.set(value($event))" />
+          <input class="input" name="temperature" type="number" step="0.1" [value]="temperature()" (input)="temperature.set(value($event))" />
         </label>
         <label class="field"><strong>Saturación (%)</strong>
-          <input name="oxygen" type="number" [value]="oxygen()" (input)="oxygen.set(value($event))" />
+          <input class="input" name="oxygen" type="number" [value]="oxygen()" (input)="oxygen.set(value($event))" />
         </label>
       </div>
       @if (mode() === 'correct') {
         <label class="field">
           <strong>Motivo de la corrección</strong>
-          <input name="reason" maxlength="500" [value]="reason()" (input)="reason.set(value($event))" />
+          <input class="input" name="reason" maxlength="500" [value]="reason()" (input)="reason.set(value($event))" />
         </label>
       }
       <div class="actions">
