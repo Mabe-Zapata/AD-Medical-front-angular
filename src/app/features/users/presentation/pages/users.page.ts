@@ -298,6 +298,27 @@ import { PageState } from '../../../../shared/presentation/pagination';
               }
             </div>
 
+            @if (selectedRole() === 'MEDICO') {
+              <div class="field">
+                <label for="professional-registration">
+                  <strong>Registro profesional</strong> <span class="required" aria-hidden="true">*</span>
+                </label>
+                <input
+                  id="professional-registration"
+                  class="input"
+                  name="professionalRegistration"
+                  maxlength="80"
+                  placeholder="ej. número de registro del médico"
+                  [value]="professionalRegistration()"
+                  (input)="onProfessionalRegistrationInput($event)"
+                />
+                <span class="hint counter">{{ professionalRegistration().length }} / 80</span>
+                @if (professionalRegistrationError(); as err) {
+                  <span class="field-error">{{ err }}</span>
+                }
+              </div>
+            }
+
             <div class="modal-actions">
               <button class="btn btn--primary" type="submit" [disabled]="saving()">
                 @if (saving()) {
@@ -335,6 +356,7 @@ export class UsersPage {
   protected readonly password = signal('');
   protected readonly firstName = signal('');
   protected readonly lastName = signal('');
+  protected readonly professionalRegistration = signal('');
   protected readonly selectedRole = signal<string>('');
   protected readonly submitted = signal(false);
   protected readonly saving = signal(false);
@@ -344,7 +366,7 @@ export class UsersPage {
   protected readonly showPassword = signal(false);
 
   protected readonly bullets = [
-    'Una cuenta de médico creada aquí no tiene perfil profesional y no podrá crear órdenes hasta que el backend lo permita.',
+    'Para una cuenta de médico, escribe su registro profesional; sin ese dato la cuenta no se crea.',
     'Las contraseñas nunca se muestran después de crearlas.',
   ];
 
@@ -409,6 +431,10 @@ export class UsersPage {
     this.password.set(sanitized);
   }
 
+  protected onProfessionalRegistrationInput(event: Event): void {
+    this.professionalRegistration.set((event.target as HTMLInputElement).value);
+  }
+
   protected firstNameError(): string | null {
     if (!this.submitted()) return null;
     const val = this.firstName().trim();
@@ -448,6 +474,12 @@ export class UsersPage {
     return null;
   }
 
+  protected professionalRegistrationError(): string | null {
+    if (!this.submitted() || this.selectedRole() !== 'MEDICO') return null;
+    if (this.professionalRegistration().trim().length === 0) return 'Escribe el registro profesional del médico.';
+    return null;
+  }
+
   /** A field is flagged only after the first attempt to save. */
   protected problem(field: string): boolean {
     return this.submitted() && this.problems().includes(field);
@@ -462,6 +494,7 @@ export class UsersPage {
     this.notice.set(null);
     this.showPassword.set(false);
     this.selectedRole.set('');
+    this.professionalRegistration.set('');
     this.creating.set(true);
   }
 
@@ -484,6 +517,7 @@ export class UsersPage {
       this.firstName.set('');
       this.lastName.set('');
       this.selectedRole.set('');
+      this.professionalRegistration.set('');
       this.submitted.set(false);
       this.creating.set(false);
       await this.load();
@@ -510,6 +544,7 @@ export class UsersPage {
       firstName: this.firstName().trim(),
       lastName: this.lastName().trim(),
       roles: this.selectedRole() ? [this.selectedRole()] : [],
+      professionalRegistration: this.professionalRegistration(),
     };
   }
 

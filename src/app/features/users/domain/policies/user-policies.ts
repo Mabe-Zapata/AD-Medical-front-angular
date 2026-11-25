@@ -21,5 +21,9 @@ export function userProblems(user: NewUser): string[] {
   if (roles.size !== 1 || [...roles].some((role) => !(ASSIGNABLE_ROLES as readonly string[]).includes(role))) {
     problems.push('roles');
   }
+  const registration = (user.professionalRegistration ?? '').trim();
+  if (roles.has('MEDICO') && (registration.length === 0 || registration.length > 80)) {
+    problems.push('professionalRegistration');
+  }
   return problems;
 }
