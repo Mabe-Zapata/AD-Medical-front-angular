@@ -12,7 +12,6 @@ export interface UserSummary {
 
 export interface NewUser {
   readonly email: string;
-  readonly password: string;
   readonly firstName: string;
   readonly lastName: string;
   readonly roles: readonly string[];

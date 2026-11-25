@@ -19,6 +19,28 @@ export const routes: Routes = [
       import('./features/auth/presentation/pages/login.page').then((m) => m.LoginPage),
   },
   {
+    path: 'activar-cuenta',
+    title: 'Activa tu cuenta · Medilo',
+    loadComponent: () =>
+      import('./features/auth/presentation/pages/activate-account.page').then(
+        (m) => m.ActivateAccountPage,
+      ),
+  },
+  {
+    path: 'recuperar-contrasena',
+    title: 'Recupera tu contraseña · Medilo',
+    loadComponent: () =>
+      import('./features/auth/presentation/pages/password-reset-request.page').then(
+        (m) => m.PasswordResetRequestPage,
+      ),
+  },
+  {
+    path: 'restablecer-contrasena',
+    title: 'Crea tu contraseña nueva · Medilo',
+    loadComponent: () =>
+      import('./features/auth/presentation/pages/reset-password.page').then((m) => m.ResetPasswordPage),
+  },
+  {
     path: '',
     component: StaffShell,
     canActivate: [authGuard],

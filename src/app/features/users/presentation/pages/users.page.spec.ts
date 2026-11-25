@@ -1,13 +1,10 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
 import { AppError } from '../../../../core/domain/app-error';
 import { NewUser, UserSummary } from '../../domain/entities/users';
 import { CreateUser, ListUsers } from '../../domain/usecases/users-usecases';
 import { UsersPage } from './users.page';
-
-/** Built at run time: the hook that blocks literal passwords is right to be strict. */
-const secret = ['una', 'clave', 'larga', '1'].join('-');
 
 const existing: UserSummary = {
   id: 'u1',
@@ -77,12 +74,14 @@ async function openForm(fixture: { whenStable(): Promise<unknown>; detectChanges
   fixture.detectChanges();
 }
 
-function fill(el: HTMLElement, over: { email?: string } = {}) {
+function fill(el: HTMLElement, fixture: ComponentFixture<UsersPage>, over: { email?: string } = {}) {
   type(el, 'first-name', 'Luis');
   type(el, 'last-name', 'Mora');
   type(el, 'email', over.email ?? 'luis@lab.test');
-  type(el, 'password', secret);
+  // Choosing Médico shows the registration field, so it is typed only after that change.
   el.querySelector<HTMLInputElement>('input[type="radio"]')!.click();
+  fixture.detectChanges();
+  type(el, 'professional-registration', 'QA-REG-0001');
 }
 
 describe('UsersPage', () => {
@@ -113,16 +112,15 @@ describe('UsersPage', () => {
 
     expect(el.textContent).toContain('Escribe los nombres.');
     expect(el.textContent).toContain('Escribe un correo válido.');
-    expect(el.textContent).toContain('al menos 12 caracteres');
     expect(el.textContent).toContain('Elige un rol para el usuario.');
     expect(state.created).toEqual([]);
   });
 
-  it('creates an account, clears the form and never keeps the password', async () => {
+  it('creates an account and clears the form afterwards', async () => {
     const { fixture, el, state } = setup();
     await settle(fixture);
     await openForm(fixture, el);
-    fill(el);
+    fill(el, fixture);
     // A person types over several change-detection runs; here the typing is instant.
     fixture.detectChanges();
 
@@ -133,16 +131,15 @@ describe('UsersPage', () => {
     expect(state.created[0]).toMatchObject({ email: 'luis@lab.test', firstName: 'Luis', roles: ['MEDICO'] });
     expect(el.textContent).toContain('Cuenta creada para luis@lab.test');
     // The modal closes on success; reopening it shows a clean form.
-    expect(el.querySelector('#password')).toBeNull();
     await openForm(fixture, el);
-    expect(el.querySelector<HTMLInputElement>('#password')!.value).toBe('');
+    expect(el.querySelector<HTMLInputElement>('#email')!.value).toBe('');
   });
 
   it('explains a duplicated email in Spanish', async () => {
     const { fixture, el } = setup({ createFails: new AppError('conflict', 'dup', 'c-3') });
     await settle(fixture);
     await openForm(fixture, el);
-    fill(el, { email: 'ana@lab.test' });
+    fill(el, fixture, { email: 'ana@lab.test' });
 
     el.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
     await settle(fixture);
@@ -150,26 +147,6 @@ describe('UsersPage', () => {
     expect(el.textContent).toContain('Ya existe una cuenta con ese correo.');
     expect(el.textContent).not.toContain('c-3');
     expect(el.textContent).not.toContain('Cuenta creada');
-  });
-
-  it('toggles password visibility between password and text', async () => {
-    const { fixture, el } = setup();
-    await settle(fixture);
-    await openForm(fixture, el);
-
-    const passwordInput = el.querySelector<HTMLInputElement>('#password')!;
-    const toggleBtn = el.querySelector<HTMLButtonElement>('.password-toggle')!;
-    expect(passwordInput.type).toBe('password');
-    expect(toggleBtn.getAttribute('aria-label')).toBe('Ver contraseña');
-
-    toggleBtn.click();
-    fixture.detectChanges();
-    expect(passwordInput.type).toBe('text');
-    expect(toggleBtn.getAttribute('aria-label')).toBe('Ocultar contraseña');
-
-    toggleBtn.click();
-    fixture.detectChanges();
-    expect(passwordInput.type).toBe('password');
   });
 
   it('closes the modal when Cancelar button is clicked', async () => {
@@ -184,7 +161,7 @@ describe('UsersPage', () => {
     cancelBtn!.click();
     fixture.detectChanges();
 
-    expect(el.querySelector('#password')).toBeNull();
+    expect(el.querySelector('#email')).toBeNull();
   });
 
   it('strips emojis and special characters on input', async () => {
@@ -195,12 +172,10 @@ describe('UsersPage', () => {
     type(el, 'first-name', 'Carlos 👨‍⚕️ 123');
     type(el, 'last-name', 'Gómez 😃');
     type(el, 'email', 'carlos😃@lab.test');
-    type(el, 'password', 'ClaveLarga123!🔒');
     fixture.detectChanges();
 
     expect(el.querySelector<HTMLInputElement>('#first-name')!.value).toBe('Carlos ');
     expect(el.querySelector<HTMLInputElement>('#last-name')!.value).toBe('Gómez ');
     expect(el.querySelector<HTMLInputElement>('#email')!.value).toBe('carlos@lab.test');
-    expect(el.querySelector<HTMLInputElement>('#password')!.value).toBe('ClaveLarga123!');
   });
 });

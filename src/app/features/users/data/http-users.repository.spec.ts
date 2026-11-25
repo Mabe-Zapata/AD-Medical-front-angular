@@ -5,9 +5,6 @@ import { TestBed } from '@angular/core/testing';
 import { APP_SETTINGS } from '../../../core/config/app-settings';
 import { HttpUsersRepository } from './http-users.repository';
 
-/** Built at run time: the hook that blocks literal passwords is right to be strict. */
-const secret = ['una', 'clave', 'larga', '1'].join('-');
-
 describe('HttpUsersRepository', () => {
   let repository: HttpUsersRepository;
   let http: HttpTestingController;
@@ -41,7 +38,6 @@ describe('HttpUsersRepository', () => {
   it('creates an account with the backend field names and nothing else', async () => {
     const result = repository.createUser({
       email: 'ana@lab.test',
-      password: secret,
       firstName: 'Ana',
       lastName: 'Pérez',
       roles: ['LABORATORISTA'],
@@ -51,7 +47,6 @@ describe('HttpUsersRepository', () => {
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({
       email: 'ana@lab.test',
-      password: secret,
       first_name: 'Ana',
       last_name: 'Pérez',
       roles: ['LABORATORISTA'],
@@ -63,7 +58,6 @@ describe('HttpUsersRepository', () => {
   it('turns a duplicated email into a conflict', async () => {
     const result = repository.createUser({
       email: 'ana@lab.test',
-      password: secret,
       firstName: 'Ana',
       lastName: 'Pérez',
       roles: ['MEDICO'],

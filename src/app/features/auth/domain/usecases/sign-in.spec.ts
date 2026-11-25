@@ -21,6 +21,22 @@ class FakeAuth extends AuthRepository {
     return { token: 'jwt-token', expiresInSeconds: 900 };
   }
 
+  async requestPasswordReset(): Promise<void> {}
+
+  async resetStatus(): Promise<'VALID'> {
+    return 'VALID';
+  }
+
+  async confirmPasswordReset(): Promise<void> {}
+
+  async activationStatus(): Promise<'VALID'> {
+    return 'VALID';
+  }
+
+  async activateStaffAccount(): Promise<void> {
+    throw new Error('not used in sign-in tests');
+  }
+
   async fetchProfile(token: string): Promise<UserProfile> {
     this.profileCalls.push(token);
     return this.profile;

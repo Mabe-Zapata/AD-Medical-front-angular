@@ -40,7 +40,6 @@ export class HttpUsersRepository extends UsersRepository {
     const response = await this.call(
       this.http.post<{ id: string }>(this.base, {
         email: user.email,
-        password: user.password,
         first_name: user.firstName,
         last_name: user.lastName,
         roles: user.roles,
