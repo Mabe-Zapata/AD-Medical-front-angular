@@ -19,6 +19,8 @@ export class AppError extends Error {
     message: string,
     readonly correlationId?: string,
     readonly status?: number,
+    /** Stable machine code from the backend problem (e.g. CITAS_FUTURAS). Never shown as text. */
+    readonly code?: string,
   ) {
     super(message);
     this.name = 'AppError';

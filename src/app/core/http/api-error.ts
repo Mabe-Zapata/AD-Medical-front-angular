@@ -42,5 +42,6 @@ export function toAppError(error: unknown, options: { unauthorizedAs?: ErrorKind
       : error.status === 503 && body.code === READ_ONLY_CODE
         ? 'read_only'
         : (KIND_BY_STATUS[error.status] ?? 'unknown');
-  return new AppError(kind, detail, correlationId, error.status);
+  const code = typeof body.code === 'string' ? body.code : undefined;
+  return new AppError(kind, detail, correlationId, error.status, code);
 }

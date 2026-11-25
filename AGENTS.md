@@ -60,6 +60,8 @@ src/app/app.interceptor.ts  agrega el bearer y cierra sesión ante 401
 - **Paciente: contacto del médico**: `GET /api/v1/appointments` devuelve, en las citas del paciente, `medico` con `id`, `nombre`, `registro_profesional` y `telefono`, para que pueda comunicarse con su médico. El portal del paciente (Flutter) aún no muestra este bloque; es pendiente de ese cliente.
 - **Descarga de informes PDF en el personal**: `GET /documents/{id}/download` devuelve el binario `application/pdf`. El botón "Descargar" por documento en el detalle de la orden descarga el informe como Blob autenticado por HttpClient sin exponer tokens ni URLs en etiquetas `<a>`, manejando errores 404/403 con `describeError` y sin exponer `correlation_id`.
 
+- **Sucursales y consultorios** (`/sedes`, permiso `sedes.administrar`): usa `GET/POST /admin/sedes`, `PATCH /admin/sedes/{id}`, `POST /admin/sedes/{id}/consultorios` y `PATCH /admin/consultorios/{id}`. Esos endpoints están en el PR `ErickGuerron/MedicalBooking-AD-Backend#108`, todavía no en `develop`: contra el backend de `develop` la pantalla responde 404. Se valida en UI con reglas espejo del backend (límites en unidades UTF-16, sin caracteres de control). Los 409 con código `CITAS_FUTURAS`, `CONSULTORIO_DUPLICADO` y `SEDE_INACTIVA` se muestran con texto propio; `AppError.code` lleva ese código.
+
 Documéntalas aquí y en el README cuando una funcionalidad dependa de ellas; quítalas cuando el backend las cierre.
 
 ### Hallazgos en sombra (detalle de la orden)
