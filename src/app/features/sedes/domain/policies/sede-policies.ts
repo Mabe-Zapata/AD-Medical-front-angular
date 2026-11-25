@@ -15,13 +15,14 @@ export type FieldProblem = 'required' | 'tooLong' | 'controlCharacters';
 const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F]/;
 
 /**
- * What the person may type in a sede, consultorio or address: Latin letters (with accents), digits,
- * space and basic punctuation. Everything else (emojis, symbols, tabs, control characters) is dropped
- * while typing, so it never reaches the value. Spaces at the start are dropped; repeated spaces collapse.
+ * What the person may type in a sede, consultorio or address: Latin letters (with accents), digits and
+ * the space. Nothing else: no punctuation, no symbols (ª, º, @, #, ...), no emojis, no tabs or control
+ * characters. Dropped while typing, so it never reaches the value. Leading spaces are dropped;
+ * repeated spaces collapse.
  */
 export function sanitizeSedeText(text: string): string {
   return text
-    .replace(/[^A-Za-zÁÉÍÓÚÑÜáéíóúñü0-9 .,'\-()#&/]/g, '')
+    .replace(/[^A-Za-zÁÉÍÓÚÑÜáéíóúñü0-9 ]/g, '')
     .replace(/ {2,}/g, ' ')
     .replace(/^ +/, '');
 }

@@ -57,8 +57,13 @@ describe('sede policies', () => {
     expect(sanitizeSedeText('Sede    Norte')).toBe('Sede Norte');
   });
 
-  it('keeps letters with accents, digits and basic punctuation', () => {
-    expect(sanitizeSedeText('Clínica Ñandú, Consultorio 1 (piso 2)')).toBe('Clínica Ñandú, Consultorio 1 (piso 2)');
+  it('keeps letters with accents and digits, and drops punctuation', () => {
+    expect(sanitizeSedeText('Clínica Ñandú Consultorio 1')).toBe('Clínica Ñandú Consultorio 1');
+    expect(sanitizeSedeText('Sede, Norte. (piso 2) #5 & a/b')).toBe('Sede Norte piso 2 5 ab');
+  });
+
+  it('drops ordinal indicators and ASCII symbols, which are not letters', () => {
+    expect(sanitizeSedeText('Piso 2ª ºB ~^`|\\{}[]<>=+_$%@;:!?"')).toBe('Piso 2 B ');
   });
 
   it('drops symbols and control characters that are not part of a name', () => {
