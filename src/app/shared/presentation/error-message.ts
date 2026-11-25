@@ -26,6 +26,7 @@ const FIELD_NAMES: Readonly<Record<string, string>> = {
   email: 'el correo',
   password: 'la contraseña',
   nombre: 'el nombre',
+  direccion: 'la dirección',
   unidad: 'la unidad',
   tipo_valor: 'el tipo de valor',
   codigo: 'el código',
