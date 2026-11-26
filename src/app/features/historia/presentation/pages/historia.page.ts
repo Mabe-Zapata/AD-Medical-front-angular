@@ -221,11 +221,11 @@ const TABS: readonly { readonly id: Tab; readonly label: string }[] = [
           </label>
           <label class="field">
             <strong>Desde</strong>
-            <input class="input" name="from" type="date" [value]="range().from ?? ''" (change)="setRange('from', value($event))" />
+            <input class="input" name="from" type="date" [min]="minDay" [max]="maxDay" [value]="range().from ?? ''" (change)="setRange('from', value($event))" />
           </label>
           <label class="field">
             <strong>Hasta</strong>
-            <input class="input" name="to" type="date" [value]="range().to ?? ''" (change)="setRange('to', value($event))" />
+            <input class="input" name="to" type="date" [min]="minDay" [max]="maxDay" [value]="range().to ?? ''" (change)="setRange('to', value($event))" />
           </label>
           <div class="periods">
             <span class="periods-label" id="periods-label">Periodo</span>
@@ -391,6 +391,8 @@ const TABS: readonly { readonly id: Tab; readonly label: string }[] = [
 export class HistoriaPageComponent {
   protected readonly crumbs = [{ label: 'Inicio', link: '/inicio' }, { label: 'Historia clínica' }];
   protected readonly tabs = TABS;
+  protected readonly minDay = '2020-01-01';
+  protected readonly maxDay = localIsoDay(new Date());
   protected readonly pager = new PageState();
 
   private readonly listPatients = inject(ListHistoryPatients);
@@ -542,7 +544,8 @@ export class HistoriaPageComponent {
   }
 
   protected setRange(side: 'from' | 'to', text: string): void {
-    this.range.update((range) => ({ ...range, [side]: text || null }));
+    const day = text ? (text < this.minDay ? this.minDay : text > this.maxDay ? this.maxDay : text) : null;
+    this.range.update((range) => ({ ...range, [side]: day }));
     void this.load();
   }
 
