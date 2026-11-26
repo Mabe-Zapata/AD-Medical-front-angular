@@ -8,6 +8,7 @@ import { PageHeaderComponent } from '../../../../shared/presentation/organisms/p
 import { ChipComponent } from '../../../../shared/presentation/atoms/chip';
 import { ModalComponent } from '../../../../shared/presentation/organisms/modal';
 import { ErrorView, describeError } from '../../../../shared/presentation/error-message';
+import { confirmFailureMessage } from '../confirm-failure';
 import { PERMISSIONS } from '../../../auth/domain/policies/staff-access';
 import { SessionState } from '../../../auth/presentation/session.state';
 import { ListAnalytes } from '../../../knowledge/domain/usecases/knowledge-usecases';
@@ -904,14 +905,7 @@ export class OrderDetailPage {
       await this.confirmOrder.execute(this.orderId);
       await this.router.navigate(['/ordenes'], { queryParams: { confirmada: '1' } });
     } catch (error) {
-      this.error.set(
-        describeError(error, {
-          conflict:
-            'Revisa la interpretación de cada resultado antes de confirmar, o la orden ya está confirmada.',
-          not_found: 'No encontramos esa orden.',
-          forbidden: 'No tienes permiso para confirmar esta orden.',
-        }),
-      );
+      this.error.set({ message: confirmFailureMessage(error) });
     }
   }
 

@@ -64,6 +64,10 @@ El backend aún no ofrece lo necesario para los demás módulos, por eso aparece
 - En desarrollo, el formulario de referencias propone la fuente sintética de la semilla del backend
   (`f0000000-0000-4000-8000-000000000001`). En producción el campo queda vacío.
 
+## Revisión antes de confirmar una orden
+
+Confirmar una orden exige que el laboratorio haya revisado la interpretación de cada resultado y que el médico que la ordenó haya registrado su revisión y decidido sobre cada hallazgo sugerido. Si falta algo, el backend responde 409 con un `code` estable (`LAB_REVIEW_PENDING` o `MEDICAL_REVIEW_PENDING`), y la pantalla lo explica con un mensaje propio (`features/orders/presentation/confirm-failure.ts`), sin mostrar el texto técnico. Las órdenes pedidas por el paciente no tienen médico: solo requieren la revisión del laboratorio. El mismo criterio protege el informe PDF que se descarga desde el portal del paciente.
+
 ## Cuentas de prueba
 
 Un backend con la migración `0007` (pendiente de merge, `APP_ENV` distinto de producción) trae `medico1@test.com` y `administrador1@test.com` con la contraseña `Password123`, y `laboratorista1@test.com` con `Password1`. Cada una ve solo los módulos de su rol.
