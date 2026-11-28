@@ -1,0 +1,21 @@
+import { isValidEmail, isValidPersonName } from '../../../../core/domain/text';
+import { ASSIGNABLE_ROLES, NewUser } from '../entities/users';
+
+export const MIN_PASSWORD_LENGTH = 12;
+
+/** What is wrong with a new account, as field names, before asking the backend (which says the same). */
+export function userProblems(user: NewUser): string[] {
+  const problems: string[] = [];
+  if (!isValidEmail(user.email)) problems.push('email');
+  if (!isValidPersonName(user.firstName)) problems.push('firstName');
+  if (!isValidPersonName(user.lastName)) problems.push('lastName');
+  const roles = new Set(user.roles);
+  if (roles.size !== 1 || [...roles].some((role) => !(ASSIGNABLE_ROLES as readonly string[]).includes(role))) {
+    problems.push('roles');
+  }
+  const registration = (user.professionalRegistration ?? '').trim();
+  if (roles.has('MEDICO') && (registration.length === 0 || registration.length > 80)) {
+    problems.push('professionalRegistration');
+  }
+  return problems;
+}

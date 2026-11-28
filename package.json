@@ -3,9 +3,13 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
+    "env:generate": "node scripts/generate-env.js",
+    "prestart": "npm run env:generate",
     "start": "ng serve",
+    "prebuild": "npm run env:generate",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
+    "pretest": "npm run env:generate",
     "test": "ng test"
   },
   "private": true,
@@ -18,6 +22,7 @@
     "@angular/platform-browser": "^22.1.0",
     "@angular/router": "^22.1.0",
     "rxjs": "~7.8.0",
+    "sweetalert2": "11.26.25",
     "tslib": "^2.3.0"
   },
   "devDependencies": {
